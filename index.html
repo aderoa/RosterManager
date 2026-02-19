@@ -107,13 +107,34 @@ a{color:var(--accent);text-decoration:none}
 
 /* Empty state */
 .empty{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem}
+
+/* Draft Picker Modal */
+.draft-picker-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.draft-picker{background:var(--card);border:1px solid var(--border);border-radius:12px;width:400px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.draft-picker-hdr{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
+.draft-picker-hdr h3{flex:1;font-size:.85rem;font-weight:700;color:var(--orange)}
+.draft-picker-hdr .close-btn{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:.2rem}
+.draft-picker-hdr .close-btn:hover{color:var(--text)}
+.draft-picker-search{padding:.5rem 1rem;border-bottom:1px solid var(--border)}
+.draft-picker-search input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;color:var(--text);font-size:.75rem;outline:none}
+.draft-picker-search input:focus{border-color:var(--accent)}
+.draft-picker-list{overflow-y:auto;flex:1;padding:.3rem}
+.draft-pick-option{display:flex;align-items:center;gap:.6rem;padding:.45rem .8rem;border-radius:6px;cursor:pointer;font-size:.75rem;transition:background .1s}
+.draft-pick-option:hover{background:rgba(255,255,255,.06)}
+.draft-pick-option.current{background:rgba(255,152,0,.12);border:1px solid rgba(255,152,0,.3)}
+.draft-pick-option.taken{opacity:.35;cursor:not-allowed}
+.draft-pick-option .rank{color:var(--muted);font-size:.65rem;min-width:30px}
+.draft-pick-option .name{flex:1;font-weight:500}
+.draft-pick-option .assigned{font-size:.6rem;color:var(--muted);padding:.1rem .4rem;background:var(--surface);border-radius:3px}
+.action-btn.draft-swap{background:rgba(255,152,0,.15);color:var(--orange);border-color:rgba(255,152,0,.3)}
+.action-btn.draft-swap:hover{background:rgba(255,152,0,.25)}
 </style>
 </head>
 <body>
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.4</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.5</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div class="season-badge">2026-27 OFFSEASON</div>
@@ -135,6 +156,21 @@ a{color:var(--accent);text-decoration:none}
   <p style="margin-top:.5rem;font-size:.8rem">Loading roster data...</p>
 </div>
 
+<!-- Draft Picker Modal -->
+<div id="draftPickerOverlay" class="draft-picker-overlay" style="display:none" onclick="if(event.target===this)closeDraftPicker()">
+  <div class="draft-picker">
+    <div class="draft-picker-hdr">
+      <span style="font-size:1.1rem">🏀</span>
+      <h3 id="draftPickerTitle">Select Prospect</h3>
+      <button class="close-btn" onclick="closeDraftPicker()">✕</button>
+    </div>
+    <div class="draft-picker-search">
+      <input type="text" placeholder="Search prospects..." oninput="renderDraftPickerList(this.value)">
+    </div>
+    <div class="draft-picker-list" id="draftPickerList"></div>
+  </div>
+</div>
+
 <script>
 // ======================== CONSTANTS ========================
 const SEASON = '2026-27';
@@ -147,6 +183,13 @@ const T = THRESHOLDS['2026-2027'];
 const MIN_SALARY_0YOS = 1272870; // approximate 2026-27 minimum for 0 YOS
 const MIN_SALARY_CAP_HOLD = Math.round(MIN_SALARY_0YOS * 1.5); // ~$1.9M
 const EST_AVG_SALARY = 13200000; // approximate
+
+// 2026-27 Rookie Scale at 120% (Year 1 cap holds), picks 1-30
+const ROOKIE_SCALE = [
+  13825920,12370320,11108880,10015680,9069840,8237640,7520040,6889200,6332520,6016080,
+  5715120,5429520,5157960,4900320,4655040,4422360,4201080,3991320,3811560,3658800,
+  3512520,3372240,3237480,3108120,2983320,2884560,2801280,2783880,2763960,2743800
+];
 
 const SSID = '11llk0icQqoi0JwJXat5KO8y2RQeBMN5rS9FhAY56Idc';
 const TEAMS = {
@@ -161,15 +204,17 @@ const TEAMS = {
 // ======================== STATE ========================
 let allPlayers = []; // raw parsed data
 let teamLogos = {}; // team -> logo URL
-let teamDraftPicks = {}; // abbrev -> [{prospect, pickPos, draftRnk, capHold}]
-let STATE = null; // current GM state: { team, roster, moves, options }
+let teamDraftPicks = {}; // abbrev -> [{prospect, draftRnk, capHold}]
+let allProspects = []; // all prospect names from Draft Predictor
+let allPickSlots = {}; // pickSlot# -> {team (abbrev), defaultProspect}
+let STATE = null; // current GM state: { team, roster, moves, options, draftSelections }
 
 // Reverse team map: abbreviation -> full name
 const TEAMS_REV = {};
 for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
 
 function defaultState(team) {
-  return { team, moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set() };
+  return { team, moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), draftSelections: {} };
 }
 
 function saveState() {
@@ -189,6 +234,7 @@ function loadState(team) {
       const s = JSON.parse(raw);
       s.renounced = new Set(s.renounced || []);
       s.waived = new Set(s.waived || []);
+      s.draftSelections = s.draftSelections || {};
       return s;
     } catch(e) {}
   }
@@ -248,44 +294,38 @@ async function fetchDraftPicks() {
       const txt = await r.text();
       if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
       const rows = parseCSV(txt);
-      const hdr = (rows[0] || []).map(h => (h || '').trim().toUpperCase());
-      // Find columns by header name (fallback to known indices)
-      let teamCol = hdr.indexOf('TEAM') > 5 ? hdr.indexOf('TEAM', 6) : 16;
-      // Search for TEAM after col 5 to avoid player-level TEAM col
-      for (let c = 6; c < hdr.length; c++) { if (hdr[c] === 'TEAM') { teamCol = c; break; } }
-      let rnkCol = hdr.indexOf('DRAFT RNK'); if (rnkCol < 0) rnkCol = 19;
-      let chCol = hdr.indexOf('CAP HOLD'); if (chCol < 0) chCol = 20;
-      let nameCol = 0; // prospect name
-      let posCol = hdr.indexOf('POS') > 5 ? hdr.lastIndexOf('POS') : 15;
-      // Also check for PICK header
-      for (let c = 0; c < hdr.length; c++) { if (hdr[c] === 'PICK') posCol = c; }
 
-      console.log(`[DP] Headers: teamCol=${teamCol}(${hdr[teamCol]}), rnkCol=${rnkCol}(${hdr[rnkCol]}), chCol=${chCol}(${hdr[chCol]}), posCol=${posCol}(${hdr[posCol]})`);
+      // Columns: 0=Prospect name, 15=POS (pick position), 16=TEAM
+      const prospects = [];
+      const pickSlots = {};
+      const picks = {};
 
-      const picks = {}; // abbrev -> []
       for (let i = 1; i < rows.length; i++) {
-        const r = rows[i];
-        const prospect = (r[nameCol] || '').trim();
-        const rawTeam = (r[teamCol] || '').trim().toUpperCase();
-        const draftRnk = parseInt((r[rnkCol] || '').trim()) || 0;
-        const capHoldStr = (r[chCol] || '').trim();
-        const capHold = parseMoney(capHoldStr);
-        const pickPos = parseInt((r[posCol] || '').trim()) || 0;
+        const row = rows[i];
+        const prospect = (row[0] || '').trim();
+        const pickPos = parseInt((row[15] || '').trim()) || 0;
+        const rawTeam = (row[16] || '').trim().toUpperCase();
 
-        if (!prospect || !rawTeam || !draftRnk || !capHold) continue;
-        // Only first-round picks (1-30) have cap holds
-        if (draftRnk < 1 || draftRnk > 30) continue;
+        if (!prospect) continue;
+        prospects.push(prospect);
 
+        // Only first-round picks (1-30) get cap holds
+        if (pickPos < 1 || pickPos > 30 || !rawTeam) continue;
         const abbrev = rawTeam.length <= 3 ? rawTeam : (TEAMS[rawTeam] || rawTeam);
+        const capHold = ROOKIE_SCALE[pickPos - 1] || 0;
+
+        pickSlots[pickPos] = { team: abbrev, defaultProspect: prospect };
+
         if (!picks[abbrev]) picks[abbrev] = [];
-        picks[abbrev].push({ prospect, pickPos: pickPos || draftRnk, draftRnk, capHold });
+        picks[abbrev].push({ prospect, draftRnk: pickPos, capHold });
       }
 
-      // Sort each team's picks by draft rank
       for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
+      allProspects = prospects;
+      allPickSlots = pickSlots;
       teamDraftPicks = picks;
       const totalPicks = Object.values(picks).reduce((s, arr) => s + arr.length, 0);
-      console.log(`[DP] Loaded ${totalPicks} first-round picks for ${Object.keys(picks).length} teams`);
+      console.log(`[DP] Loaded ${prospects.length} prospects, ${totalPicks} first-round picks for ${Object.keys(picks).length} teams`);
       return;
     } catch(e) { console.warn('[DP] Failed:', e); continue; }
   }
@@ -508,9 +548,10 @@ function calcCapSheet(team) {
   const picks = teamDraftPicks[teamAbbrev] || [];
   let draftCapHolds = 0;
   for (const pick of picks) {
-    if (STATE.renounced.has('PICK_' + pick.draftRnk)) continue; // allow renouncing picks (future feature)
+    if (STATE.renounced.has('PICK_' + pick.draftRnk)) continue;
     draftCapHolds += pick.capHold;
-    roster.draft_picks.push(pick);
+    const selectedProspect = (STATE.draftSelections && STATE.draftSelections[pick.draftRnk]) || pick.prospect;
+    roster.draft_picks.push({ ...pick, selectedProspect });
   }
   capHolds += draftCapHolds;
 
@@ -622,13 +663,18 @@ function renderRoster(cap) {
     })) {
       // === DRAFT PICK ROW ===
       if (sec.key === 'draft_picks') {
+        const isSwapped = p.selectedProspect !== p.prospect;
         h += `<div class="player-row">`;
         h += `<div class="hs-ini" style="background:var(--orange);color:#000;font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
-        h += `<div class="info"><div class="pname">${p.prospect || 'TBD'}</div>`;
+        h += `<div class="info">`;
+        h += `<div class="pname">${p.selectedProspect || 'TBD'}${isSwapped ? ' <span style="font-size:.55rem;color:var(--muted)">(was: ' + p.prospect + ')</span>' : ''}</div>`;
         h += `<div class="pdet">1st Rd Pick #${p.draftRnk} · Rookie Scale</div>`;
         h += `</div>`;
         h += `<div><div class="sal" style="color:var(--orange)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
-        h += `<div></div>`;
+        h += `<div style="display:flex;gap:.3rem">`;
+        h += `<button class="action-btn draft-swap" onclick="openDraftPicker(${p.draftRnk})">🔄 Swap</button>`;
+        if (isSwapped) h += `<button class="action-btn decline" onclick="resetDraftPick(${p.draftRnk})">↩</button>`;
+        h += `</div>`;
         h += `</div>`;
         continue;
       }
@@ -817,6 +863,10 @@ function undoLast() {
     if (last.undo.type === 'option') delete STATE.optionDecisions[last.undo.name];
     if (last.undo.type === 'renounce') STATE.renounced.delete(last.undo.name);
     if (last.undo.type === 'waive') STATE.waived.delete(last.undo.name);
+    if (last.undo.type === 'draft') {
+      if (last.undo.prev) STATE.draftSelections[last.undo.slot] = last.undo.prev;
+      else delete STATE.draftSelections[last.undo.slot];
+    }
   }
   saveState();
   render();
@@ -826,6 +876,103 @@ function resetTeam() {
   if (!confirm(`Reset all moves for ${STATE.team}?`)) return;
   localStorage.removeItem('rm_state_' + STATE.team);
   STATE = defaultState(STATE.team);
+  render();
+}
+
+// ======================== DRAFT PICKER ========================
+let _draftPickerSlot = null;
+
+function openDraftPicker(slot) {
+  _draftPickerSlot = slot;
+  const overlay = document.getElementById('draftPickerOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('draftPickerTitle').textContent = `Select Prospect — Pick #${slot}`;
+  const input = overlay.querySelector('.draft-picker-search input');
+  input.value = '';
+  input.focus();
+  renderDraftPickerList('');
+}
+
+function closeDraftPicker() {
+  document.getElementById('draftPickerOverlay').style.display = 'none';
+  _draftPickerSlot = null;
+}
+
+function renderDraftPickerList(filter) {
+  const list = document.getElementById('draftPickerList');
+  const slot = _draftPickerSlot;
+  const teamAbbrev = TEAMS[STATE.team];
+  const currentPick = (STATE.draftSelections && STATE.draftSelections[slot]) ||
+    (allPickSlots[slot] ? allPickSlots[slot].defaultProspect : '');
+  const filterLower = filter.toLowerCase();
+
+  // Build set of prospects already selected by THIS team (other picks)
+  const teamPicks = teamDraftPicks[teamAbbrev] || [];
+  const takenByTeam = new Set();
+  for (const tp of teamPicks) {
+    if (tp.draftRnk === slot) continue;
+    const sel = (STATE.draftSelections && STATE.draftSelections[tp.draftRnk]) || tp.prospect;
+    takenByTeam.add(sel);
+  }
+
+  let h = '';
+  const filtered = allProspects.filter(name =>
+    name.toLowerCase().includes(filterLower)
+  );
+
+  for (let i = 0; i < filtered.length; i++) {
+    const name = filtered[i];
+    const isCurrent = name === currentPick;
+    const isTaken = takenByTeam.has(name);
+    // Find which team has this prospect as default
+    let assignedTo = '';
+    for (const [s, info] of Object.entries(allPickSlots)) {
+      if (info.defaultProspect === name && info.team !== teamAbbrev) {
+        assignedTo = `#${s} ${info.team}`;
+        break;
+      }
+    }
+
+    h += `<div class="draft-pick-option${isCurrent ? ' current' : ''}${isTaken ? ' taken' : ''}" `;
+    if (!isTaken) h += `onclick="selectDraftProspect('${esc(name)}')"`;
+    h += `>`;
+    h += `<span class="rank">${i + 1}</span>`;
+    h += `<span class="name">${name}</span>`;
+    if (isCurrent) h += `<span class="assigned" style="color:var(--orange)">current</span>`;
+    else if (assignedTo) h += `<span class="assigned">proj ${assignedTo}</span>`;
+    h += `</div>`;
+  }
+
+  if (!filtered.length) h = '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:.75rem">No prospects found</div>';
+  list.innerHTML = h;
+}
+
+function selectDraftProspect(name) {
+  const slot = _draftPickerSlot;
+  if (!slot) return;
+  const prev = STATE.draftSelections[slot] || null;
+  STATE.draftSelections[slot] = name;
+  const defaultName = allPickSlots[slot] ? allPickSlots[slot].defaultProspect : 'TBD';
+  STATE.moves.push({
+    action: 'Draft',
+    detail: `Pick #${slot}: ${name}${name !== defaultName ? ' (was ' + defaultName + ')' : ''}`,
+    undo: { type: 'draft', slot, prev }
+  });
+  saveState();
+  closeDraftPicker();
+  render();
+}
+
+function resetDraftPick(slot) {
+  const prev = STATE.draftSelections[slot] || null;
+  delete STATE.draftSelections[slot];
+  const defaultName = allPickSlots[slot] ? allPickSlots[slot].defaultProspect : 'TBD';
+  STATE.moves.push({
+    action: 'Draft Reset',
+    detail: `Pick #${slot}: back to ${defaultName}`,
+    undo: { type: 'draft', slot, prev }
+  });
+  saveState();
   render();
 }
 
