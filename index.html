@@ -113,7 +113,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER</h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.3</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div class="season-badge">2026-27 OFFSEASON</div>
@@ -337,99 +337,105 @@ function calcCapSheet(team) {
   let activeSalaries = 0, capHolds = 0, deadMoney = 0;
   let rosterCount = 0, twowayCount = 0;
 
-  const roster = { under_contract: [], team_option: [], player_option: [], non_guaranteed: [], partial_guaranteed: [], free_agent: [], twoway: [] };
+  const roster = { under_contract: [], free_agent: [], non_guaranteed: [], partial_guaranteed: [], twoway: [], waived: [] };
 
   for (const p of players) {
     const waived = STATE.waived.has(p.name);
     const renounced = STATE.renounced.has(p.name);
-    const optDecision = STATE.optionDecisions[p.name]; // 'pickup' or 'decline'
+    const optDecision = STATE.optionDecisions[p.name]; // 'pickup','exercise','decline'
 
+    // === WAIVED ===
     if (waived) {
-      // Waived: guaranteed portion becomes dead money
-      if (p.category === 'non_guaranteed') {
-        // No dead money for non-guaranteed
-      } else if (p.category === 'partial_guaranteed') {
-        deadMoney += p.ch27; // CH column = guaranteed portion
-      }
-      roster[p.category].push({ ...p, status: 'waived' });
+      let dead = 0;
+      if (p.category === 'partial_guaranteed') dead = p.ch27;
+      if (dead) deadMoney += dead;
+      roster.waived.push({ ...p, status: 'waived', deadAmount: dead });
       continue;
     }
 
-    if (renounced && p.category === 'free_agent') {
-      roster.free_agent.push({ ...p, status: 'renounced' });
-      continue; // No cap hold
+    // === TWO-WAY ===
+    if (p.category === 'twoway') {
+      twowayCount++;
+      roster.twoway.push({ ...p, status: 'active' });
+      continue;
     }
 
-    switch (p.category) {
-      case 'under_contract':
+    // === TEAM OPTION ===
+    if (p.category === 'team_option') {
+      if (optDecision === 'pickup') {
         activeSalaries += p.sal27;
         rosterCount++;
-        roster.under_contract.push({ ...p, status: 'active' });
-        break;
-
-      case 'team_option':
-        if (optDecision === 'pickup') {
-          activeSalaries += p.sal27;
-          rosterCount++;
-          roster.team_option.push({ ...p, status: 'picked_up' });
-        } else if (optDecision === 'decline') {
-          const hold = calcCapHold(p.sal26, p.exception);
-          if (STATE.renounced.has(p.name)) {
-            roster.team_option.push({ ...p, status: 'renounced', capHold: hold });
-          } else {
-            capHolds += hold;
-            roster.team_option.push({ ...p, status: 'declined', capHold: hold });
-          }
+        roster.under_contract.push({ ...p, status: 'picked_up', fromOption: 'TO' });
+      } else if (optDecision === 'decline') {
+        const hold = calcCapHold(p.sal26, p.exception);
+        if (renounced) {
+          roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, fromOption: 'TO' });
         } else {
-          // Undecided - show as pending, count salary for now
-          activeSalaries += p.sal27;
-          rosterCount++;
-          roster.team_option.push({ ...p, status: 'pending' });
+          capHolds += hold;
+          roster.free_agent.push({ ...p, status: 'held', capHold: hold, fromOption: 'TO' });
         }
-        break;
+      } else {
+        // Pending — count salary provisionally
+        activeSalaries += p.sal27;
+        rosterCount++;
+        roster.under_contract.push({ ...p, status: 'pending_to' });
+      }
+      continue;
+    }
 
-      case 'player_option':
-        if (optDecision === 'exercise') {
-          activeSalaries += p.sal27;
-          rosterCount++;
-          roster.player_option.push({ ...p, status: 'exercised' });
-        } else if (optDecision === 'decline') {
-          const hold = calcCapHold(p.sal26, p.exception);
-          if (STATE.renounced.has(p.name)) {
-            roster.player_option.push({ ...p, status: 'renounced', capHold: hold });
-          } else {
-            capHolds += hold;
-            roster.player_option.push({ ...p, status: 'declined', capHold: hold });
-          }
+    // === PLAYER OPTION ===
+    if (p.category === 'player_option') {
+      if (optDecision === 'exercise') {
+        activeSalaries += p.sal27;
+        rosterCount++;
+        roster.under_contract.push({ ...p, status: 'exercised', fromOption: 'PO' });
+      } else if (optDecision === 'decline') {
+        const hold = calcCapHold(p.sal26, p.exception);
+        if (renounced) {
+          roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, fromOption: 'PO' });
         } else {
-          activeSalaries += p.sal27;
-          rosterCount++;
-          roster.player_option.push({ ...p, status: 'pending' });
+          capHolds += hold;
+          roster.free_agent.push({ ...p, status: 'held', capHold: hold, fromOption: 'PO' });
         }
-        break;
-
-      case 'non_guaranteed':
+      } else {
         activeSalaries += p.sal27;
         rosterCount++;
-        roster.non_guaranteed.push({ ...p, status: 'active' });
-        break;
+        roster.under_contract.push({ ...p, status: 'pending_po' });
+      }
+      continue;
+    }
 
-      case 'partial_guaranteed':
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.partial_guaranteed.push({ ...p, status: 'active' });
-        break;
-
-      case 'free_agent':
+    // === FREE AGENT ===
+    if (p.category === 'free_agent') {
+      if (renounced) {
+        roster.free_agent.push({ ...p, status: 'renounced' });
+      } else {
         capHolds += p.capHold;
         roster.free_agent.push({ ...p, status: 'held' });
-        break;
-
-      case 'twoway':
-        twowayCount++;
-        roster.twoway.push({ ...p, status: 'active' });
-        break;
+      }
+      continue;
     }
+
+    // === NON-GUARANTEED ===
+    if (p.category === 'non_guaranteed') {
+      activeSalaries += p.sal27;
+      rosterCount++;
+      roster.non_guaranteed.push({ ...p, status: 'active' });
+      continue;
+    }
+
+    // === PARTIAL GUARANTEED ===
+    if (p.category === 'partial_guaranteed') {
+      activeSalaries += p.sal27;
+      rosterCount++;
+      roster.partial_guaranteed.push({ ...p, status: 'active' });
+      continue;
+    }
+
+    // === UNDER CONTRACT (GUARANTEED) ===
+    activeSalaries += p.sal27;
+    rosterCount++;
+    roster.under_contract.push({ ...p, status: 'active' });
   }
 
   // Incomplete roster charge: if < 12 standard contracts, add minimum cap hold per empty slot
@@ -507,12 +513,11 @@ function renderRoster(cap) {
 
   const sections = [
     { key: 'under_contract', label: 'Under Contract', color: '#4caf50', icon: '✅' },
-    { key: 'team_option', label: 'Team Options', color: '#ff9800', icon: '⚡' },
-    { key: 'player_option', label: 'Player Options', color: '#26c6da', icon: '🎯' },
     { key: 'non_guaranteed', label: 'Non-Guaranteed', color: '#ef5350', icon: '⚠️' },
     { key: 'partial_guaranteed', label: 'Partially Guaranteed', color: '#ffd600', icon: '🔶' },
     { key: 'free_agent', label: 'Free Agents (Cap Holds)', color: '#667eea', icon: '🔓' },
     { key: 'twoway', label: 'Two-Way', color: '#64748b', icon: '🔄' },
+    { key: 'waived', label: 'Waived', color: '#ef5350', icon: '🗑️' },
   ];
 
   for (const sec of sections) {
@@ -520,9 +525,9 @@ function renderRoster(cap) {
     if (!players.length) continue;
 
     const totalSal = players.reduce((s, p) => {
-      if (p.status === 'waived' || p.status === 'renounced') return s;
+      if (p.status === 'renounced') return s;
       if (sec.key === 'free_agent') return s + (p.capHold || 0);
-      if (p.status === 'declined') return s + (p.capHold || 0);
+      if (sec.key === 'waived') return s + (p.deadAmount || 0);
       return s + (p.sal27 || 0);
     }, 0);
 
@@ -530,13 +535,17 @@ function renderRoster(cap) {
     h += `<div class="section-hdr" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">`;
     h += `<div class="dot" style="background:${sec.color}"></div>`;
     h += `<h3>${sec.icon} ${sec.label}</h3>`;
-    h += `<span class="badge" style="background:${sec.color}22;color:${sec.color}">${players.filter(p=>p.status!=='waived'&&p.status!=='renounced').length} players</span>`;
+    h += `<span class="badge" style="background:${sec.color}22;color:${sec.color}">${players.filter(p=>p.status!=='renounced').length} players</span>`;
     h += `<span style="font-size:.75rem;font-weight:600;color:${sec.color}">${fmtMoney(totalSal)}</span>`;
     h += `</div>`;
     h += `<div class="section-body">`;
 
-    for (const p of players.sort((a, b) => (b.sal27 || b.capHold || b.sal26 || 0) - (a.sal27 || a.capHold || a.sal26 || 0))) {
-      const acted = p.status === 'waived' || p.status === 'renounced';
+    for (const p of players.sort((a, b) => {
+      const va = sec.key === 'free_agent' ? (a.capHold || 0) : sec.key === 'waived' ? (a.deadAmount || 0) : (a.sal27 || 0);
+      const vb = sec.key === 'free_agent' ? (b.capHold || 0) : sec.key === 'waived' ? (b.deadAmount || 0) : (b.sal27 || 0);
+      return vb - va;
+    })) {
+      const acted = p.status === 'renounced' || sec.key === 'waived';
       h += `<div class="player-row${acted ? ' acted' : ''}">`;
 
       // Headshot
@@ -548,44 +557,40 @@ function renderRoster(cap) {
 
       // Info
       h += `<div class="info"><div class="pname">${p.name}</div>`;
-      h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}${p.end ? ' · thru ' + p.end : ''}${p.tradeKicker ? ' · TK ' + p.tradeKicker + '%' : ''}</div>`;
+      h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}${p.end ? ' · thru ' + p.end : ''}${p.tradeKicker ? ' · TK ' + p.tradeKicker + '%' : ''}${p.fromOption ? ' · declined ' + p.fromOption : ''}</div>`;
       h += `</div>`;
 
       // Salary display
-      if (sec.key === 'free_agent') {
+      if (sec.key === 'waived') {
+        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27 || p.sal26)}</div>`;
+        h += `<div class="ch">${p.deadAmount ? fmtMoney(p.deadAmount) + ' dead cap' : 'no dead cap'}</div></div>`;
+      } else if (sec.key === 'free_agent') {
         if (p.status === 'renounced') {
           h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
         } else {
           h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
         }
-      } else if (p.status === 'declined') {
-        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27)}</div><div class="ch">declined → ${fmtMoney(p.capHold)} hold</div></div>`;
-      } else if (p.status === 'renounced' && (sec.key === 'team_option' || sec.key === 'player_option')) {
-        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">declined + renounced</div></div>`;
-      } else if (p.status === 'waived') {
-        const dead = p.category === 'partial_guaranteed' ? p.ch27 : 0;
-        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27)}</div><div class="ch">waived${dead ? ' · ' + fmtMoney(dead) + ' dead' : ''}</div></div>`;
       } else {
         const cls = { 'GUARANTEED': 'g', 'NOT G': 'ng', 'TEAM OPT': 'to', 'PLAYER OPT': 'po', 'PARTIAL G': 'pg' }[p.st27] || 'g';
         h += `<div><div class="sal ${cls}">${fmtMoney(p.sal27)}</div>`;
         if (p.ch27 && p.ch27 !== p.sal27 && (p.st27 === 'PARTIAL G' || p.st27 === 'NOT G')) {
           h += `<div class="ch">G: ${fmtMoney(p.ch27)}</div>`;
         }
+        if (p.status === 'pending_to') h += `<div class="ch" style="color:var(--orange)">⚡ Team Option</div>`;
+        if (p.status === 'pending_po') h += `<div class="ch" style="color:var(--cyan)">🎯 Player Option</div>`;
+        if (p.status === 'picked_up') h += `<div class="ch" style="color:var(--green)">✓ TO picked up</div>`;
+        if (p.status === 'exercised') h += `<div class="ch" style="color:var(--green)">✓ PO exercised</div>`;
         h += `</div>`;
       }
 
       // Action buttons
       h += `<div style="display:flex;gap:.3rem">`;
-      if (sec.key === 'team_option' && p.status === 'pending') {
+      if (p.status === 'pending_to') {
         h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
         h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
-      } else if (sec.key === 'team_option' && p.status === 'declined' && !STATE.renounced.has(p.name)) {
-        h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
-      } else if (sec.key === 'player_option' && p.status === 'pending') {
+      } else if (p.status === 'pending_po') {
         h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','exercise')">Exercise</button>`;
         h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
-      } else if (sec.key === 'player_option' && p.status === 'declined' && !STATE.renounced.has(p.name)) {
-        h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
       } else if (sec.key === 'free_agent' && p.status === 'held') {
         h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
       } else if ((sec.key === 'non_guaranteed' || sec.key === 'partial_guaranteed') && p.status === 'active') {
