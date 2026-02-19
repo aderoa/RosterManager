@@ -1,772 +1,1135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Roster Manager – HoopsMatic</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bg:#0a0e1a;--surface:#111827;--card:#1a2236;--border:#1e2d4a;
-  --text:#e2e8f0;--muted:#64748b;--accent:#667eea;--accent2:#764ba2;
-  --green:#4caf50;--red:#ef5350;--orange:#ff9800;--yellow:#ffd600;--cyan:#26c6da;
-}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-a{color:var(--accent);text-decoration:none}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBA Depth Charts by Trade Value</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: white; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    header { text-align: center; margin-bottom: 2rem; }
+    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .subtitle { color: #8892b0; font-size: 1.1rem; }
+    .back-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; text-decoration: none; font-weight: 500; margin-bottom: 1.5rem; transition: all 0.2s; }
+    .back-btn:hover { background: rgba(255,255,255,0.2); }
 
-/* Header */
-.header{background:linear-gradient(135deg,var(--accent),var(--accent2));padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100}
-.header h1{font-size:1.2rem;font-weight:700;letter-spacing:.5px}
-.header .subtitle{font-size:.75rem;opacity:.8}
-.header .season-badge{margin-left:auto;background:rgba(0,0,0,.25);padding:.3rem .8rem;border-radius:20px;font-size:.8rem;font-weight:600}
+    /* Admin banner */
+    .admin-banner { display: none; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #1a1a2e; text-align: center; padding: 0.5rem 1rem; font-weight: 700; font-size: 0.9rem; position: sticky; top: 0; z-index: 100; }
+    .admin-banner.active { display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+    .admin-save-status { display: inline-block; font-weight: 500; opacity: 0; transition: opacity 0.3s; }
+    .admin-save-status.visible { opacity: 1; }
+    .export-btn { padding: 0.4rem 1rem; background: #1a1a2e; color: #f59e0b; border: 1px solid #1a1a2e; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+    .export-btn:hover { background: #2a2a4e; }
 
-/* Team Selector */
-.team-select-wrap{padding:1rem;background:var(--surface);border-bottom:1px solid var(--border)}
-.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;max-width:1400px;margin:0 auto}
-.team-btn{background:var(--card);border:2px solid transparent;border-radius:8px;padding:.5rem;cursor:pointer;text-align:center;transition:all .15s}
-.team-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
-.team-btn.active{border-color:var(--accent);background:rgba(102,126,234,.15)}
-.team-btn img{width:40px;height:40px;object-fit:contain}
-.team-btn .tn{font-size:.6rem;color:var(--muted);margin-top:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* Team grid */
+    .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+    .team-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.25rem; text-align: center; cursor: pointer; transition: all 0.2s; text-decoration: none; color: white; }
+    .team-card:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
+    .team-logo { width: 56px; height: 56px; margin: 0 auto 0.75rem; object-fit: contain; }
+    .team-name { font-weight: 600; font-size: 0.95rem; }
+    .team-abbrev { color: #8892b0; font-size: 0.8rem; margin-top: 0.25rem; }
 
-/* Main Layout */
-.main{display:grid;grid-template-columns:1fr 340px;gap:1rem;padding:1rem;max-width:1400px;margin:0 auto}
-@media(max-width:900px){.main{grid-template-columns:1fr}}
+    /* Single team view */
+    .depth-chart-container { display: none; }
+    .depth-chart-container.active { display: block; }
+    .team-header { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1rem; }
+    .team-header-logo { width: 72px; height: 72px; object-fit: contain; }
+    .team-header-name { font-size: 1.75rem; font-weight: 700; }
+    .drag-hint { text-align: center; color: #8892b0; font-size: 0.85rem; margin-bottom: 1rem; }
 
-/* Roster Panel */
-.roster-panel{display:flex;flex-direction:column;gap:.75rem}
-.section{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-.section-hdr{padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
-.section-hdr .dot{width:10px;height:10px;border-radius:50%}
-.section-hdr h3{font-size:.8rem;font-weight:600;flex:1}
-.section-hdr .badge{font-size:.65rem;padding:.15rem .5rem;border-radius:10px;font-weight:600}
-.section-body{padding:.5rem}
+    .depth-chart { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; background: rgba(255,255,255,0.95); border-radius: 16px; padding: 1.25rem; color: #1a1a2e; }
+    .position-column { display: flex; flex-direction: column; gap: 0.5rem; min-height: 200px; }
+    .position-header { text-align: center; font-weight: 700; font-size: 1.1rem; color: #1a1a2e; padding: 0.5rem; border-bottom: 3px solid #667eea; margin-bottom: 0.25rem; }
+    .player-card { background: white; border-radius: 12px; padding: 0.75rem; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s; border: 2px solid transparent; cursor: grab; user-select: none; }
+    .player-card.spacer { background: transparent; box-shadow: none; border: 2px solid transparent; opacity: 1; cursor: default; pointer-events: none; }
+    .player-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); border-color: #667eea; }
+    .player-card.starter { background: linear-gradient(135deg, #fff 0%, #f0f4ff 100%); border: 2px solid #667eea; }
+    .player-card.dragging { opacity: 0.5; cursor: grabbing; }
+    .player-card.drag-over { border: 2px dashed #667eea; background: #f0f4ff; }
+    .position-column.drag-over { background: rgba(102,126,234,0.1); border-radius: 8px; }
+    /* Drop indicator line */
+    .drop-indicator { height: 3px; background: #667eea; border-radius: 2px; margin: 2px 0; pointer-events: none; box-shadow: 0 0 6px rgba(102,126,234,0.6); transition: none; }
+    .player-image { width: 80px; height: 60px; margin: 0 auto 0.5rem; border-radius: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; overflow: hidden; pointer-events: none; }
+    .player-image img { width: 100%; height: 100%; object-fit: cover; }
+    .player-image .initials { color: white; font-weight: 700; font-size: 1.2rem; }
+    .player-name { font-weight: 600; font-size: 0.8rem; color: #1a1a2e; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+    .trade-value { font-size: 0.8rem; font-weight: 600; pointer-events: none; }
+    .trade-value.high { color: #16a34a; }
+    .trade-value.medium { color: #ca8a04; }
+    .trade-value.low { color: #6b7280; }
 
-/* Player Row */
-.player-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:6px;transition:background .1s}
-.player-row:hover{background:rgba(255,255,255,.03)}
-.player-row .hs{width:36px;height:28px;border-radius:4px;object-fit:cover;background:var(--surface)}
-.player-row .hs-ini{width:36px;height:28px;border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.55rem;color:var(--muted)}
-.player-row .info{flex:1;min-width:0}
-.player-row .pname{font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.player-row .pdet{font-size:.6rem;color:var(--muted)}
-.player-row .sal{font-size:.78rem;font-weight:600;text-align:right;min-width:70px}
-.player-row .sal.g{color:var(--green)}.player-row .sal.ng{color:var(--red)}.player-row .sal.to{color:var(--orange)}.player-row .sal.po{color:var(--cyan)}.player-row .sal.pg{color:var(--yellow)}
-.player-row .ch{font-size:.6rem;color:var(--muted);text-align:right}
-.player-row .action-btn{
-  font-size:.6rem;padding:.2rem .5rem;border-radius:4px;border:1px solid var(--border);
-  background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s
-}
-.player-row .action-btn:hover{border-color:var(--accent);color:var(--accent)}
-.player-row .action-btn.pickup{border-color:var(--green);color:var(--green)}
-.player-row .action-btn.pickup:hover{background:rgba(76,175,80,.15)}
-.player-row .action-btn.decline{border-color:var(--red);color:var(--red)}
-.player-row .action-btn.decline:hover{background:rgba(239,83,80,.15)}
-.player-row .action-btn.renounce{border-color:var(--orange);color:var(--orange)}
-.player-row .action-btn.renounce:hover{background:rgba(255,152,0,.15)}
-.player-row .action-btn.waive{border-color:var(--red);color:var(--red)}
-.player-row .action-btn.waive:hover{background:rgba(239,83,80,.15)}
-.player-row .action-btn.done{opacity:.5;pointer-events:none}
-.player-row.acted{opacity:.45}
+    .loading { text-align: center; padding: 4rem 2rem; }
+    .loading-spinner { width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { text-align: center; padding: 2rem; color: #f87171; }
+    footer { text-align: center; margin-top: 2rem; padding: 1rem; color: #8892b0; font-size: 0.9rem; }
+    footer a { color: #667eea; text-decoration: none; }
 
-/* Cap Panel */
-.cap-panel{position:sticky;top:60px;display:flex;flex-direction:column;gap:.75rem;align-self:start}
-.cap-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem}
-.cap-card h3{font-size:.8rem;font-weight:700;margin-bottom:.75rem;color:var(--accent)}
-.cap-row{display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.75rem}
-.cap-row:last-child{border-bottom:none}
-.cap-row .label{color:var(--muted)}
-.cap-row .value{font-weight:600}
-.cap-row .value.pos{color:var(--green)}.cap-row .value.neg{color:var(--red)}
-.cap-bar{height:8px;border-radius:4px;background:var(--surface);margin:.5rem 0;overflow:hidden;position:relative}
-.cap-bar-fill{height:100%;border-radius:4px;transition:width .3s}
-.cap-bar-marker{position:absolute;top:-2px;height:12px;width:2px;border-radius:1px}
+    /* Admin all-teams */
+    .admin-all-teams { display: none; }
+    .admin-all-teams.active { display: block; }
+    .admin-team-row { margin-bottom: 1.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; }
+    .admin-team-row-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .admin-team-row-logo { width: 36px; height: 36px; object-fit: contain; }
+    .admin-team-row-name { font-weight: 700; font-size: 1rem; }
+    .admin-team-row-abbrev { color: #8892b0; font-size: 0.8rem; margin-left: 0.25rem; }
+    .admin-depth-chart { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; padding: 0.75rem; background: rgba(255,255,255,0.92); color: #1a1a2e; }
+    .admin-position-column { display: flex; flex-direction: column; gap: 0.35rem; min-height: 80px; }
+    .admin-position-header { text-align: center; font-weight: 700; font-size: 0.85rem; color: #1a1a2e; padding: 0.3rem; border-bottom: 2px solid #667eea; margin-bottom: 0.2rem; }
+    .admin-player-card { background: white; border-radius: 8px; padding: 0.4rem 0.5rem; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: transform 0.1s, box-shadow 0.1s, opacity 0.1s; border: 2px solid transparent; cursor: grab; user-select: none; font-size: 0.75rem; }
+    .admin-player-card:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-color: #667eea; }
+    .admin-player-card.starter { background: linear-gradient(135deg, #fff 0%, #f0f4ff 100%); border: 2px solid #667eea; }
+    .admin-player-card.dragging { opacity: 0.5; cursor: grabbing; }
+    .admin-player-card.drag-over { border: 2px dashed #667eea; background: #f0f4ff; }
+    .admin-player-card.spacer.drag-over { opacity: 1; border: 2px solid #667eea; background: #3a3a6e; }
+    .admin-position-column.drag-over { background: rgba(102,126,234,0.1); border-radius: 6px; }
+    .admin-drop-indicator { height: 3px; background: #667eea; border-radius: 2px; margin: 1px 0; pointer-events: none; box-shadow: 0 0 6px rgba(102,126,234,0.6); transition: none; }
+    .admin-player-name { font-weight: 600; font-size: 0.75rem; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+    .admin-player-card.two-way { background: #e1bee7; }
+    .admin-player-card.ten-day { background: #fff9c4; }
+    .admin-player-card.spacer { background: #2a2a4e; border: 1px dashed #444; display: flex; align-items: center; justify-content: center; opacity: 0.6; cursor: grab; position: relative; padding: 0.4rem 0.5rem; }
+    .admin-player-card.spacer > * { pointer-events: none; }
+    .admin-player-card.spacer .spacer-label { color: #666; font-size: 0.65rem; }
+    .admin-player-card.spacer .spacer-delete { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #f44; cursor: pointer; font-size: 0.7rem; padding: 2px 4px; line-height: 1; }
+    .admin-player-card.spacer .spacer-delete:hover { color: #ff6666; }
+    .add-spacer-btn { width: 100%; padding: 3px; margin-top: 4px; background: transparent; border: 1px dashed #444; border-radius: 4px; color: #666; font-size: 0.65rem; cursor: pointer; transition: all 0.2s; }
+    .add-spacer-btn:hover { border-color: #888; color: #aaa; background: rgba(255,255,255,0.03); }
+    .admin-player-card.injured { background: #ef5350; color: white; }
+    .admin-player-card.injured .admin-player-name { color: white; }
+    .admin-player-card.injured .admin-trade-value { color: #ffcdd2 !important; }
+    .admin-player-card.questionable { background: #ef9a9a; }
+    .admin-separator { height: 2px; background: #ef5350; margin: 4px 0; border-radius: 1px; opacity: 0.6; pointer-events: none; }
+    .admin-trade-value { font-size: 0.65rem; font-weight: 600; pointer-events: none; margin-top: 1px; }
+    .admin-trade-value.high { color: #16a34a; }
+    .admin-trade-value.medium { color: #ca8a04; }
+    .admin-trade-value.low { color: #6b7280; }
 
-/* Exception chips */
-.exc-list{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
-.exc-chip{font-size:.65rem;padding:.2rem .5rem;border-radius:4px;background:var(--surface);border:1px solid var(--border)}
-.exc-chip.available{border-color:var(--green);color:var(--green)}
-.exc-chip.unavailable{border-color:var(--border);color:var(--muted);opacity:.5}
+    @media (max-width: 900px) { .depth-chart, .admin-depth-chart { grid-template-columns: repeat(3, 1fr); } .team-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } }
+    @media (max-width: 600px) { .depth-chart, .admin-depth-chart { grid-template-columns: repeat(2, 1fr); } h1 { font-size: 1.75rem; } .player-image { width: 60px; height: 45px; } }
 
-/* Move log */
-.move-log{max-height:200px;overflow-y:auto}
-.move-entry{font-size:.68rem;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04);color:var(--muted)}
-.move-entry .action{color:var(--accent)}
-
-/* Controls */
-.controls{display:flex;gap:.5rem;margin-top:.5rem}
-.ctrl-btn{font-size:.7rem;padding:.35rem .75rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;transition:all .15s}
-.ctrl-btn:hover{border-color:var(--accent);color:var(--accent)}
-.ctrl-btn.reset{border-color:var(--red);color:var(--red)}
-.ctrl-btn.reset:hover{background:rgba(239,83,80,.15)}
-
-/* Loading */
-.loading{text-align:center;padding:3rem;color:var(--muted)}
-.loading .spin{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* Empty state */
-.empty{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem}
-</style>
+    /* Export modal */
+    .export-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:200; align-items:center; justify-content:center; padding:2rem; }
+    .export-modal.active { display:flex; }
+    .export-modal-inner { background:#1e2a3a; border-radius:16px; width:100%; max-width:900px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; }
+    .export-modal-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.5rem; border-bottom:1px solid rgba(255,255,255,0.1); }
+    .export-modal-header h3 { font-size:1.1rem; }
+    .export-modal-actions { display:flex; gap:0.5rem; }
+    .export-modal-actions button { padding:0.5rem 1rem; border-radius:8px; border:none; font-family:'DM Sans',sans-serif; font-weight:600; font-size:0.85rem; cursor:pointer; transition:all 0.2s; }
+    .copy-btn { background:#667eea; color:white; }
+    .copy-btn:hover { background:#5a6fd6; }
+    .copy-btn.copied { background:#16a34a; }
+    .close-btn { background:rgba(255,255,255,0.1); color:white; }
+    .close-btn:hover { background:rgba(255,255,255,0.2); }
+    .export-modal textarea { flex:1; background:#0d1117; color:#c9d1d9; border:none; padding:1rem 1.5rem; font-family:'Courier New',monospace; font-size:0.8rem; resize:none; outline:none; line-height:1.5; }
+  </style>
 </head>
 <body>
-
-<div class="header">
-  <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.3</span></h1>
-    <div class="subtitle">HoopsMatic GM Simulator</div>
+  <div id="adminBanner" class="admin-banner">
+    <span>🔧 ADMIN MODE — Drag to reorder, synced to GitHub</span>
+    <span id="saveStatus" class="admin-save-status">✓ Saved</span>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="export-btn" onclick="copyExportDirect(true,0,15)">📷 Copy ATL-MEM</button>
+      <button class="export-btn" onclick="copyExportDirect(true,15,30)">📷 Copy MIA-WAS</button>
+      <button class="export-btn" onclick="manualRefresh(this)">🔄 Refresh Data</button>
+      <span id="refreshStatus" style="color:#1a1a2e;font-size:0.7rem;margin-left:8px;opacity:0.7;">Auto-refresh: 60s</span>
+    </div>
   </div>
-  <div class="season-badge">2026-27 OFFSEASON</div>
-</div>
+  <div class="container">
+    <header><h1>🏀 NBA Depth Charts</h1><p class="subtitle">Ranked by Trade Value</p></header>
+    <div id="loading" class="loading"><div class="loading-spinner"></div><p>Loading NBA data...</p></div>
+    <div id="teamGrid" class="team-grid" style="display:none;"></div>
+    <div id="depthChartContainer" class="depth-chart-container">
+      <a href="?" class="back-btn">← All Teams</a>
+      <div class="team-header"><img id="teamLogo" class="team-header-logo" src="" alt=""><h2 id="teamName" class="team-header-name"></h2></div>
+      <p class="drag-hint">💡 Drag players to rearrange or move between positions</p>
+      <div id="depthChart" class="depth-chart"></div>
+    </div>
+    <div id="adminAllTeams" class="admin-all-teams">
+      <p class="drag-hint">💡 Drag players to rearrange — changes auto-sync to GitHub</p>
+      <div id="adminTeamsList"></div>
+    </div>
 
-<div class="team-select-wrap" id="teamSelectWrap">
-  <div class="team-grid" id="teamGrid"></div>
-</div>
-
-<div id="appContent" style="display:none">
-  <div class="main">
-    <div class="roster-panel" id="rosterPanel"></div>
-    <div class="cap-panel" id="capPanel"></div>
+  <!-- Export Modal -->
+  <div id="exportModal" class="export-modal" onclick="if(event.target===this)closeExportModal()">
+    <div class="export-modal-inner">
+      <div class="export-modal-header">
+        <h3 id="exportModalTitle">📋 Export HTML</h3>
+        <div class="export-modal-actions">
+          <button class="copy-btn" onclick="copyExportCode()">📋 Copy to Clipboard</button>
+          <button class="copy-btn" onclick="downloadExportCode()" style="margin-left:8px;">💾 Download .txt</button>
+          <button class="close-btn" onclick="closeExportModal()">✕ Close</button>
+        </div>
+      </div>
+      <textarea id="exportCode" readonly></textarea>
+    </div>
   </div>
-</div>
-
-<div id="loadingState" class="loading" style="display:none">
-  <div class="spin"></div>
-  <p style="margin-top:.5rem;font-size:.8rem">Loading roster data...</p>
-</div>
-
+    <div id="error" class="error" style="display:none;"></div>
+    <footer>Trade values computed using <a href="https://hoopsmatic.com" target="_blank">HoopsMatic</a> methodology</footer>
+  </div>
 <script>
-// ======================== CONSTANTS ========================
-const SEASON = '2026-27';
-const THRESHOLDS = {
-  '2025-2026': {cap:154647000,tax:187895000,apron1:195945000,apron2:207824000,bae:5134000,ntmle:14104000,tmle:5685000,rmle:8781000},
-  '2026-2027': {cap:166000000,tax:201690000,apron1:210690000,apron2:223690000,bae:5511000,ntmle:15139000,tmle:6102000,rmle:9425000},
-  '2027-2028': {cap:174300000,tax:211775000,apron1:220812000,apron2:234200000,bae:5787000,ntmle:15896000,tmle:6407000,rmle:9897000},
-};
-const T = THRESHOLDS['2026-2027'];
-const MIN_SALARY_0YOS = 1272870; // approximate 2026-27 minimum for 0 YOS
-const MIN_SALARY_CAP_HOLD = Math.round(MIN_SALARY_0YOS * 1.5); // ~$1.9M
-const EST_AVG_SALARY = 13200000; // approximate
+// =====================================================
+// HYBRID PERSISTENCE: localStorage (fast) + GitHub (durable)
+// =====================================================
+const STORAGE_KEY = 'depthcharts_orders';
+const ADMIN_KEY = 'hoopsmatic2025';
+const GH_TOKEN_KEY = 'depthcharts_gh_token';
+const GH_REPO = 'aderoa/DepthCharts';
+const GH_FILE = 'order.json';
+const GH_API = `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`;
+let isAdmin = false;
+let ghSHA = null;         // current SHA of order.json on GitHub
+let ghSaveTimer = null;   // debounce timer for GitHub pushes
+let ghOrdersCache = null; // in-memory cache of the full orders object
 
-const SSID = '11llk0icQqoi0JwJXat5KO8y2RQeBMN5rS9FhAY56Idc';
-const TEAMS = {
-  'Atlanta':'ATL','Boston':'BOS','Brooklyn':'BKN','Charlotte':'CHA','Chicago':'CHI',
-  'Cleveland':'CLE','Dallas':'DAL','Denver':'DEN','Detroit':'DET','Golden State':'GSW',
-  'Houston':'HOU','Indiana':'IND','LA Clippers':'LAC','LA Lakers':'LAL','Memphis':'MEM',
-  'Miami':'MIA','Milwaukee':'MIL','Minnesota':'MIN','New Orleans':'NOP','New York':'NYK',
-  'Oklahoma City':'OKC','Orlando':'ORL','Philadelphia':'PHI','Phoenix':'PHX','Portland':'POR',
-  'Sacramento':'SAC','San Antonio':'SAS','Toronto':'TOR','Utah':'UTA','Washington':'WAS'
-};
-
-// ======================== STATE ========================
-let allPlayers = []; // raw parsed data
-let teamLogos = {}; // team -> logo URL
-let STATE = null; // current GM state: { team, roster, moves, options }
-
-function defaultState(team) {
-  return { team, moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set() };
+function loadAllOrders() {
+  if (ghOrdersCache) return ghOrdersCache;
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch(e) { return {}; }
 }
-
-function saveState() {
-  if (!STATE) return;
-  const s = {
-    ...STATE,
-    renounced: [...STATE.renounced],
-    waived: [...STATE.waived]
-  };
-  localStorage.setItem('rm_state_' + STATE.team, JSON.stringify(s));
-}
-
-function loadState(team) {
-  const raw = localStorage.getItem('rm_state_' + team);
-  if (raw) {
-    try {
-      const s = JSON.parse(raw);
-      s.renounced = new Set(s.renounced || []);
-      s.waived = new Set(s.waived || []);
-      return s;
-    } catch(e) {}
+function saveAllOrders(orders) {
+  ghOrdersCache = orders;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); } catch(e) {}
+  // Debounce GitHub push (admin only)
+  if (isAdmin) {
+    clearTimeout(ghSaveTimer);
+    ghSaveTimer = setTimeout(() => pushToGitHub(orders), 2000);
   }
-  return defaultState(team);
+}
+function saveTeamOrder(teamAbbrev, container) {
+  const columns = container.querySelectorAll('[class*="position-column"]');
+  const order = {};
+  columns.forEach(col => {
+    const pos = col.dataset.position;
+    if (!pos) return;
+    order[pos] = [];
+    col.childNodes.forEach(node => {
+      if (node.classList && node.classList.contains('admin-separator')) {
+        order[pos].push('__SEPARATOR__');
+      } else if (node.classList && (node.classList.contains('admin-player-card') || node.classList.contains('player-card'))) {
+        if (node.dataset.player === '__SPACER__') order[pos].push('__SPACER__');
+        else if (node.dataset.player) order[pos].push(node.dataset.player);
+      }
+    });
+  });
+  const all = loadAllOrders();
+  all[teamAbbrev] = order;
+  saveAllOrders(all);
+  showSaveStatus('local');
+}
+function loadTeamOrder(t) { return (loadAllOrders())[t] || null; }
+
+function showSaveStatus(mode) {
+  const el = document.getElementById('saveStatus');
+  if (mode === 'local') { el.textContent = '💾 Saving...'; el.style.color = '#1a1a2e'; }
+  else if (mode === 'github') { el.textContent = '✓ Synced to GitHub'; el.style.color = '#065f46'; }
+  else if (mode === 'error') { el.textContent = '✗ GitHub sync failed'; el.style.color = '#991b1b'; }
+  else if (mode === 'loading') { el.textContent = '⏳ Loading from GitHub...'; el.style.color = '#1a1a2e'; }
+  el.classList.add('visible');
+  clearTimeout(el._t);
+  if (mode === 'github' || mode === 'error') el._t = setTimeout(() => el.classList.remove('visible'), 4000);
 }
 
-// ======================== DATA LOADING ========================
-function parseMoney(s) {
-  if (!s) return 0;
-  const neg = s.includes('-');
-  const num = parseInt(s.replace(/[$,\s()-]/g, '')) || 0;
-  return neg ? -num : num;
+// ---- GitHub Token Management ----
+function getGHToken() {
+  return localStorage.getItem(GH_TOKEN_KEY) || null;
 }
-
-function fmtMoney(n) {
-  if (n === 0) return '$0';
-  const abs = Math.abs(n);
-  const s = abs >= 1e6 ? '$' + (abs / 1e6).toFixed(1) + 'M' : abs >= 1e3 ? '$' + (abs / 1e3).toFixed(0) + 'K' : '$' + abs;
-  return n < 0 ? '-' + s : s;
-}
-
-function fmtMoneyFull(n) {
-  if (n === 0) return '$0';
-  const abs = Math.abs(n);
-  const s = '$' + abs.toLocaleString('en-US');
-  return n < 0 ? '-' + s : s;
-}
-
-async function fetchData() {
-  const gid = '0';
-  const urls = [
-    `https://docs.google.com/spreadsheets/d/${SSID}/gviz/tq?tqx=out:csv&gid=${gid}`,
-    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${gid}`
-  ];
-  for (const url of urls) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) continue;
-      const txt = await r.text();
-      if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
-      return txt;
-    } catch(e) { continue; }
+function promptGHToken() {
+  const token = prompt('Enter your GitHub Personal Access Token (needs repo scope).\nThis is stored locally and used to sync order.json to GitHub.');
+  if (token && token.trim()) {
+    localStorage.setItem(GH_TOKEN_KEY, token.trim());
+    return token.trim();
   }
   return null;
 }
 
+// ---- Fetch order.json from GitHub (source of truth) ----
+async function fetchFromGitHub() {
+  try {
+    const headers = { 'Accept': 'application/vnd.github.v3+json' };
+    const token = getGHToken();
+    if (token) headers['Authorization'] = `token ${token}`;
+    const resp = await fetch(GH_API, { headers });
+    if (!resp.ok) {
+      if (resp.status === 404) { console.log('order.json not found on GitHub, will create on first save'); return null; }
+      throw new Error(`GitHub API ${resp.status}`);
+    }
+    const data = await resp.json();
+    ghSHA = data.sha;
+    const content = atob(data.content.replace(/\n/g, ''));
+    const orders = JSON.parse(content);
+    // Update localStorage and cache
+    ghOrdersCache = orders;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); } catch(e) {}
+    console.log('Loaded order.json from GitHub (SHA: ' + ghSHA.slice(0,7) + ')');
+    return orders;
+  } catch(e) {
+    console.warn('Failed to fetch from GitHub:', e.message);
+    return null;
+  }
+}
+
+// ---- Push order.json to GitHub ----
+async function pushToGitHub(orders) {
+  let token = getGHToken();
+  if (!token) {
+    token = promptGHToken();
+    if (!token) { showSaveStatus('error'); return; }
+  }
+  try {
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(orders, null, 2))));
+    const body = {
+      message: `Update depth chart orders — ${new Date().toLocaleString()}`,
+      content: content,
+      branch: 'main'
+    };
+    if (ghSHA) body.sha = ghSHA;
+    const resp = await fetch(GH_API, {
+      method: 'PUT',
+      headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (resp.status === 401 || resp.status === 403) {
+      localStorage.removeItem(GH_TOKEN_KEY);
+      showSaveStatus('error');
+      alert('GitHub token expired or invalid. You will be prompted for a new one on next save.');
+      return;
+    }
+    if (!resp.ok) throw new Error(`GitHub PUT ${resp.status}`);
+    const data = await resp.json();
+    ghSHA = data.content.sha;
+    showSaveStatus('github');
+    console.log('Pushed order.json to GitHub (SHA: ' + ghSHA.slice(0,7) + ')');
+  } catch(e) {
+    console.error('GitHub push failed:', e);
+    showSaveStatus('error');
+  }
+}
+
+// =====================================================
+// TEAMS & ALIASES
+// =====================================================
+const NBA_TEAMS = [
+  {abbrev:'ATL',name:'Atlanta Hawks',logo:'https://cdn.nba.com/logos/nba/1610612737/global/L/logo.svg'},
+  {abbrev:'BOS',name:'Boston Celtics',logo:'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg'},
+  {abbrev:'BKN',name:'Brooklyn Nets',logo:'https://cdn.nba.com/logos/nba/1610612751/global/L/logo.svg'},
+  {abbrev:'CHA',name:'Charlotte Hornets',logo:'https://cdn.nba.com/logos/nba/1610612766/global/L/logo.svg'},
+  {abbrev:'CHI',name:'Chicago Bulls',logo:'https://cdn.nba.com/logos/nba/1610612741/global/L/logo.svg'},
+  {abbrev:'CLE',name:'Cleveland Cavaliers',logo:'https://cdn.nba.com/logos/nba/1610612739/global/L/logo.svg'},
+  {abbrev:'DAL',name:'Dallas Mavericks',logo:'https://cdn.nba.com/logos/nba/1610612742/global/L/logo.svg'},
+  {abbrev:'DEN',name:'Denver Nuggets',logo:'https://cdn.nba.com/logos/nba/1610612743/global/L/logo.svg'},
+  {abbrev:'DET',name:'Detroit Pistons',logo:'https://cdn.nba.com/logos/nba/1610612765/global/L/logo.svg'},
+  {abbrev:'GSW',name:'Golden State Warriors',logo:'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg'},
+  {abbrev:'HOU',name:'Houston Rockets',logo:'https://cdn.nba.com/logos/nba/1610612745/global/L/logo.svg'},
+  {abbrev:'IND',name:'Indiana Pacers',logo:'https://cdn.nba.com/logos/nba/1610612754/global/L/logo.svg'},
+  {abbrev:'LAC',name:'LA Clippers',logo:'https://cdn.nba.com/logos/nba/1610612746/global/L/logo.svg'},
+  {abbrev:'LAL',name:'Los Angeles Lakers',logo:'https://cdn.nba.com/logos/nba/1610612747/global/L/logo.svg'},
+  {abbrev:'MEM',name:'Memphis Grizzlies',logo:'https://cdn.nba.com/logos/nba/1610612763/global/L/logo.svg'},
+  {abbrev:'MIA',name:'Miami Heat',logo:'https://cdn.nba.com/logos/nba/1610612748/global/L/logo.svg'},
+  {abbrev:'MIL',name:'Milwaukee Bucks',logo:'https://cdn.nba.com/logos/nba/1610612749/global/L/logo.svg'},
+  {abbrev:'MIN',name:'Minnesota Timberwolves',logo:'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg'},
+  {abbrev:'NOP',name:'New Orleans Pelicans',logo:'https://cdn.nba.com/logos/nba/1610612740/global/L/logo.svg'},
+  {abbrev:'NYK',name:'New York Knicks',logo:'https://cdn.nba.com/logos/nba/1610612752/global/L/logo.svg'},
+  {abbrev:'OKC',name:'Oklahoma City Thunder',logo:'https://cdn.nba.com/logos/nba/1610612760/global/L/logo.svg'},
+  {abbrev:'ORL',name:'Orlando Magic',logo:'https://cdn.nba.com/logos/nba/1610612753/global/L/logo.svg'},
+  {abbrev:'PHI',name:'Philadelphia 76ers',logo:'https://cdn.nba.com/logos/nba/1610612755/global/L/logo.svg'},
+  {abbrev:'PHX',name:'Phoenix Suns',logo:'https://cdn.nba.com/logos/nba/1610612756/global/L/logo.svg'},
+  {abbrev:'POR',name:'Portland Trail Blazers',logo:'https://cdn.nba.com/logos/nba/1610612757/global/L/logo.svg'},
+  {abbrev:'SAC',name:'Sacramento Kings',logo:'https://cdn.nba.com/logos/nba/1610612758/global/L/logo.svg'},
+  {abbrev:'SAS',name:'San Antonio Spurs',logo:'https://cdn.nba.com/logos/nba/1610612759/global/L/logo.svg'},
+  {abbrev:'TOR',name:'Toronto Raptors',logo:'https://cdn.nba.com/logos/nba/1610612761/global/L/logo.svg'},
+  {abbrev:'UTA',name:'Utah Jazz',logo:'https://cdn.nba.com/logos/nba/1610612762/global/L/logo.svg'},
+  {abbrev:'WAS',name:'Washington Wizards',logo:'https://cdn.nba.com/logos/nba/1610612764/global/L/logo.svg'}
+];
+const TEAM_ALIASES = {
+  'Atlanta':'ATL','Hawks':'ATL','Boston':'BOS','Celtics':'BOS','Brooklyn':'BKN','Nets':'BKN',
+  'Charlotte':'CHA','Hornets':'CHA','Chicago':'CHI','Bulls':'CHI','Cleveland':'CLE','Cavaliers':'CLE','Cavs':'CLE',
+  'Dallas':'DAL','Mavericks':'DAL','Mavs':'DAL','Denver':'DEN','Nuggets':'DEN','Detroit':'DET','Pistons':'DET',
+  'Golden State':'GSW','Warriors':'GSW','Houston':'HOU','Rockets':'HOU','Indiana':'IND','Pacers':'IND',
+  'LA Clippers':'LAC','Clippers':'LAC','Los Angeles Lakers':'LAL','Lakers':'LAL','LA Lakers':'LAL',
+  'Memphis':'MEM','Grizzlies':'MEM','Miami':'MIA','Heat':'MIA','Milwaukee':'MIL','Bucks':'MIL',
+  'Minnesota':'MIN','Timberwolves':'MIN','Wolves':'MIN','New Orleans':'NOP','Pelicans':'NOP',
+  'New York':'NYK','Knicks':'NYK','Oklahoma City':'OKC','Thunder':'OKC','Orlando':'ORL','Magic':'ORL',
+  'Philadelphia':'PHI','76ers':'PHI','Sixers':'PHI','Phoenix':'PHX','Suns':'PHX',
+  'Portland':'POR','Trail Blazers':'POR','Blazers':'POR','Sacramento':'SAC','Kings':'SAC',
+  'San Antonio':'SAS','Spurs':'SAS','Toronto':'TOR','Raptors':'TOR','Utah':'UTA','Jazz':'UTA',
+  'Washington':'WAS','Wizards':'WAS'
+};
+
+// =====================================================
+// DATA URLs
+// =====================================================
+const TV_SHEET_ID = '2PACX-1vSg6im6IYB6HXMGzQbmmBnLw9SfQLzxCSo8OfChxlJLhsB6BBCO0wPF_TMch0YgAbtFqYkwDWrsxRe7';
+const TV_GID = '1310971167';
+const TV_CSV_URL = `https://docs.google.com/spreadsheets/d/e/${TV_SHEET_ID}/pub?gid=${TV_GID}&single=true&output=csv`;
+const ROSTER_GID = '0';
+const ROSTER_CSV_URL = `https://docs.google.com/spreadsheets/d/e/${TV_SHEET_ID}/pub?gid=${ROSTER_GID}&single=true&output=csv`;
+const INJURIES_JSON_URL = 'https://aderoa.github.io/Injuries/injuries.json';
+
+let allPlayers = [], tradeValueMap = new Map(), draggedElement = null;
+
+// =====================================================
+// CSV PARSER
+// =====================================================
 function parseCSV(text) {
-  const rows = []; let row = []; let cell = ''; let inQ = false;
+  const rows = []; let cur = '', inQ = false, row = [];
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
-    if (inQ) {
-      if (c === '"' && text[i+1] === '"') { cell += '"'; i++; }
-      else if (c === '"') inQ = false;
-      else cell += c;
-    } else {
-      if (c === '"') inQ = true;
-      else if (c === ',') { row.push(cell); cell = ''; }
-      else if (c === '\n' || c === '\r') {
-        if (c === '\r' && text[i+1] === '\n') i++;
-        row.push(cell); cell = '';
-        if (row.some(c => c.trim())) rows.push(row);
-        row = [];
-      } else cell += c;
-    }
+    if (inQ) { if (c === '"' && text[i+1] === '"') { cur += '"'; i++; } else if (c === '"') inQ = false; else cur += c; }
+    else { if (c === '"') inQ = true; else if (c === ',') { row.push(cur.trim()); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i+1] === '\n') i++; row.push(cur.trim()); if (row.length > 1 || row[0] !== '') rows.push(row); row = []; cur = ''; }
+    else cur += c; }
   }
-  if (cell || row.length) { row.push(cell); if (row.some(c => c.trim())) rows.push(row); }
+  if (cur || row.length > 0) { row.push(cur.trim()); if (row.length > 1 || row[0] !== '') rows.push(row); }
   return rows;
 }
 
-function parseAllPlayers(csv) {
-  const rows = parseCSV(csv);
+// =====================================================
+// TRADE VALUE COMPUTATION
+// =====================================================
+function computeTradeValues(csvText) {
+  const rows = parseCSV(csvText); const roster = [], historical = []; let todayStr = null;
+  for (const row of rows.slice(1)) {
+    while (row.length < 22) row.push('');
+    if (row[18] && !todayStr) todayStr = row[18];
+    if (row[0] && row[1]) roster.push({ player: row[1].trim(), rat365: parseFloat(row[2])||0, salary: parseInt(row[3].replace(/[$,]/g,''))||0, birthday: row[4]||'', draftPick: parseInt(row[20])||null });
+    if (row[6] && row[7]) { const g = parseInt(row[9])||0; if (g > 0) historical.push({ year: row[6], player: row[7].trim(), totalRat: parseFloat(row[8].replace(/,/g,''))||0, games: g }); }
+  }
+  const playerHist = {}; for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
+  const WEIGHTS = {'2025-26':1.0,'2024-25':0.6,'2023-24':0.36,'2022-23':0.216,'2021-22':0.1296};
+  const EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':48};
+  const EXP=1.8, BETA=0.8, MAX_MULT=1.4, MIN_PCT=0.40, WM_W=0.85, RAT_W=0.15, AGE_BONUS=1.0, OLD_TH=35, OLD_PEN=0.03;
+  for (const p of roster) {
+    const hist = playerHist[p.player.toLowerCase()]||[]; let num=0, den=0;
+    for (const h of hist) { const w = WEIGHTS[h.year]||0; if (w<=0||h.games<=0) continue; let pg = h.totalRat/h.games; const exp = EXPECTED[h.year]||82; if (h.games/exp >= MIN_PCT) pg *= Math.min(MAX_MULT, Math.pow(exp/h.games, BETA)); num += pg*w*h.games; den += w*h.games; }
+    p.watermark = den > 0 ? num/den : 0;
+    const cur = hist.filter(h => h.year==='2025-26'); const cg = cur.reduce((s,h) => s+h.games, 0);
+    p.rat365adj = (cg > 0 && cg/48 >= MIN_PCT) ? p.rat365 * Math.min(MAX_MULT, Math.pow(48/cg, BETA)) : p.rat365;
+  }
+  const pd = s => { if (!s) return null; const p = s.split('/'); return p.length===3 ? new Date(+p[2],+p[0]-1,+p[1]) : null; };
+  const today = pd(todayStr)||new Date(); const ages = [];
+  for (const p of roster) { const bd = pd(p.birthday); p.age = bd ? (today-bd)/(365.25*864e5) : null; if (p.age) ages.push(p.age); }
+  const avgAge = ages.length > 0 ? ages.reduce((a,b)=>a+b,0)/ages.length : 26;
+  const maxDev = avgAge - Math.min(...ages);
+  for (const p of roster) {
+    if (p.age!==null && p.age < avgAge) p.ageMult = 1.0 + AGE_BONUS*(avgAge-p.age)/maxDev;
+    else if (p.age!==null && p.age >= OLD_TH) p.ageMult = Math.max(0.5, 1.0-OLD_PEN*(p.age-OLD_TH));
+    else p.ageMult = 1.0;
+  }
+  const tSP = roster.reduce((s,p)=>s+p.salary,0);
+  const tWM = roster.reduce((s,p)=>s+Math.pow(Math.max(p.watermark,0),EXP),0);
+  const tRAT = roster.reduce((s,p)=>s+Math.pow(Math.max(p.rat365adj,0),EXP),0);
+  for (const p of roster) {
+    const tvWM = tWM>0 ? (Math.pow(Math.max(p.watermark,0),EXP)/tWM)*tSP : 0;
+    const tvRAT = tRAT>0 ? (Math.pow(Math.max(p.rat365adj,0),EXP)/tRAT)*tSP : 0;
+    p.tvWithAge = (WM_W*tvWM + RAT_W*tvRAT) * p.ageMult;
+  }
+  const tWA = roster.reduce((s,p)=>s+p.tvWithAge,0); const result = new Map();
+  for (const p of roster) {
+    const baseTV = tWA>0 ? Math.round((p.tvWithAge/tWA)*tSP) : 0; let bonus = 0;
+    if (p.age!==null && p.age<25 && p.draftPick && p.draftPick>=1 && p.draftPick<=60) { bonus = Math.round(7e6 * Math.exp(-0.05*(p.draftPick-1)) * Math.exp(-0.5*Math.max(0,p.age-18.82))); }
+    result.set(p.player.toLowerCase(), baseTV+bonus);
+  }
+  return result;
+}
+
+// =====================================================
+// ROSTER PARSER (salary, headshot, status, injury)
+// =====================================================
+function parseRosterCSV(csvText) {
+  const rows = parseCSV(csvText); if (rows.length < 2) return [];
+  const hdr = rows[0]; const col = n => hdr.findIndex(h => h.toUpperCase() === n.toUpperCase());
+  const PI=col('PLAYER'), TI=col('TEAM'), SI=col('2026'), STI=col('ST 25-26'), OI=col('OUT?'), RI=col('REASON'), LI=col('LOGO'), HI=col('HEADSHOT'), POI=col('POSITION');
+  if (PI<0||TI<0) return [];
   const players = [];
   for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    const name = (r[0] || '').trim();
-    const team = (r[2] || '').trim();
-    if (!name || !team || !TEAMS[team]) continue;
-
-    const sal26 = parseMoney(r[3]);
-    const ch26 = parseMoney(r[4]);
-    const st26 = (r[5] || '').trim();
-    const sal27 = parseMoney(r[6]);
-    const ch27 = parseMoney(r[7]);
-    const st27 = (r[8] || '').trim();
-    const exception = (r[20] || '').trim();
-    const logo = (r[24] || '').trim();
-    const headshot = (r[25] || '').trim();
-    const pos = (r[26] || '').trim();
-    const age = (r[27] || '').trim();
-    const end = parseInt((r[29] || '').trim()) || 0;
-    const totalGuar = parseMoney(r[30]);
-    const tradeKicker = parseFloat((r[31] || '').trim()) || 0;
-
-    if (logo && team) teamLogos[team] = logo;
-
-    // Determine player category for 2026-27 offseason
-    let category, capHold = 0;
-    if (st26 === 'TWO-WAY' || st27 === 'TWO-WAY') {
-      category = 'twoway';
-    } else if (!sal27 && !st27) {
-      // No 2026-27 salary = expiring, becomes free agent
-      category = 'free_agent';
-      capHold = calcCapHold(sal26, exception);
-    } else if (st27 === 'TEAM OPT') {
-      category = 'team_option';
-    } else if (st27 === 'PLAYER OPT') {
-      category = 'player_option';
-    } else if (st27 === 'NOT G') {
-      category = 'non_guaranteed';
-    } else if (st27 === 'PARTIAL G') {
-      category = 'partial_guaranteed';
-    } else {
-      category = 'under_contract'; // GUARANTEED
-    }
-
-    players.push({
-      name, team, sal26, ch26, st26, sal27, ch27, st27,
-      exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
-      category, capHold
-    });
+    const r = rows[i]; const name = r[PI]?.trim(); const team = r[TI]?.trim();
+    if (!name||!team) continue;
+    const abbrev = TEAM_ALIASES[team]||team;
+    const pos = POI>=0 ? (r[POI]?.trim()||'SF') : 'SF';
+    const headshot = HI>=0 ? (r[HI]?.trim()||'') : '';
+    const tv = tradeValueMap.get(name.toLowerCase())||0;
+    const salary = SI>=0 ? (parseInt((r[SI]||'0').replace(/[$,]/g,''))||0) : 0;
+    const status = STI>=0 ? (r[STI]?.trim()||'GUARANTEED') : 'GUARANTEED';
+    const injury = OI>=0 ? (r[OI]?.trim()||'') : '';
+    const reason = RI>=0 ? (r[RI]?.trim()||'') : '';
+    const logo = LI>=0 ? (r[LI]?.trim()||'') : '';
+    let color = 'normal';
+    if (status==='TWO-WAY'||status==='10-DAY') color = 'twoway';
+    if (injury==='Out'||injury==='Doubtful') color = 'injured';
+    else if (injury==='Questionable') color = 'questionable';
+    players.push({name, team:abbrev, position:pos, tradeValue:tv, headshot, salary, contractStatus:status, injuryStatus:injury, injuryReason:reason, colorCode:color, teamLogo:logo});
   }
   return players;
 }
 
-function calcCapHold(priorSalary, exception) {
-  const maxSalary = Math.round(T.cap * 0.35); // absolute max for any player
-  if (!priorSalary) return MIN_SALARY_CAP_HOLD;
-  let hold;
-  const exc = exception.toLowerCase();
-  if (exc.includes('bird') && !exc.includes('early') && !exc.includes('non')) {
-    hold = Math.round(priorSalary * (priorSalary > EST_AVG_SALARY ? 2.50 : 1.90));
-  } else if (exc.includes('early bird')) {
-    hold = Math.max(Math.round(priorSalary * 1.90), Math.round(EST_AVG_SALARY * 1.30));
-  } else if (exc.includes('non-bird') || exc.includes('non bird')) {
-    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
-  } else if (exc.includes('minimum')) {
-    hold = MIN_SALARY_CAP_HOLD;
-  } else if (exc.includes('mid-level') || exc.includes('taxpayer') || exc.includes('room')) {
-    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
-  } else if (exc.includes('rookie')) {
-    hold = Math.round(priorSalary * 1.90);
-  } else {
-    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
+// Overlay injury status from GitHub injuries.json onto allPlayers
+function applyInjuriesJSON(injuries) {
+  if (!injuries || !injuries.length) return;
+  // Build latest status per player
+  const latest = {};
+  for (const e of injuries) latest[e.player] = e;
+  // Reset ALL players to healthy first (JSON is authoritative over spreadsheet)
+  for (const p of allPlayers) {
+    const base = (p.contractStatus === 'TWO-WAY' || p.contractStatus === '10-DAY') ? 'twoway' : 'normal';
+    p.injuryStatus = '';
+    p.injuryReason = '';
+    p.colorCode = base;
   }
-  return Math.min(hold, maxSalary);
+  // Then overlay JSON entries
+  for (const p of allPlayers) {
+    const entry = latest[p.name];
+    if (!entry) continue;
+    if (entry.status === 'Available' || entry.status === 'Probable') continue;
+    p.injuryStatus = entry.status;
+    p.injuryReason = entry.injury;
+    if (entry.status === 'Out' || entry.status === 'Doubtful') p.colorCode = 'injured';
+    else if (entry.status === 'Questionable') p.colorCode = 'questionable';
+  }
 }
 
-// ======================== CAP ENGINE ========================
-function calcCapSheet(team) {
-  const players = allPlayers.filter(p => p.team === team);
-  let activeSalaries = 0, capHolds = 0, deadMoney = 0;
-  let rosterCount = 0, twowayCount = 0;
+// =====================================================
+// FORMATTING UTILS
+// =====================================================
+function fmtTV(tv) { if (tv>=1e6) return '$'+(tv/1e6).toFixed(1)+'M'; if (tv>=1e3) return '$'+Math.round(tv/1e3)+'K'; return '$'+tv.toLocaleString(); }
+function fmtSal(s) { if (s>=1e6) return '$'+(s/1e6).toFixed(1)+'M'; if (s>=1e3) return '$'+Math.round(s/1e3)+'K'; return '$'+s.toLocaleString(); }
+function fmtSalFull(s) { return '$'+s.toLocaleString('en-US'); }
+function valClass(tv) { return tv>=2e7?'high':tv>=5e6?'medium':'low'; }
+function initials(n) { return n.split(' ').map(w=>w[0]).join(''); }
 
-  const roster = { under_contract: [], free_agent: [], non_guaranteed: [], partial_guaranteed: [], twoway: [], waived: [] };
-
-  for (const p of players) {
-    const waived = STATE.waived.has(p.name);
-    const renounced = STATE.renounced.has(p.name);
-    const optDecision = STATE.optionDecisions[p.name]; // 'pickup','exercise','decline'
-
-    // === WAIVED ===
-    if (waived) {
-      let dead = 0;
-      if (p.category === 'partial_guaranteed') dead = p.ch27;
-      if (dead) deadMoney += dead;
-      roster.waived.push({ ...p, status: 'waived', deadAmount: dead });
-      continue;
-    }
-
-    // === TWO-WAY ===
-    if (p.category === 'twoway') {
-      twowayCount++;
-      roster.twoway.push({ ...p, status: 'active' });
-      continue;
-    }
-
-    // === TEAM OPTION ===
-    if (p.category === 'team_option') {
-      if (optDecision === 'pickup') {
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'picked_up', fromOption: 'TO' });
-      } else if (optDecision === 'decline') {
-        const hold = calcCapHold(p.sal26, p.exception);
-        if (renounced) {
-          roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, fromOption: 'TO' });
-        } else {
-          capHolds += hold;
-          roster.free_agent.push({ ...p, status: 'held', capHold: hold, fromOption: 'TO' });
-        }
-      } else {
-        // Pending — count salary provisionally
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'pending_to' });
-      }
-      continue;
-    }
-
-    // === PLAYER OPTION ===
-    if (p.category === 'player_option') {
-      if (optDecision === 'exercise') {
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'exercised', fromOption: 'PO' });
-      } else if (optDecision === 'decline') {
-        const hold = calcCapHold(p.sal26, p.exception);
-        if (renounced) {
-          roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, fromOption: 'PO' });
-        } else {
-          capHolds += hold;
-          roster.free_agent.push({ ...p, status: 'held', capHold: hold, fromOption: 'PO' });
-        }
-      } else {
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'pending_po' });
-      }
-      continue;
-    }
-
-    // === FREE AGENT ===
-    if (p.category === 'free_agent') {
-      if (renounced) {
-        roster.free_agent.push({ ...p, status: 'renounced' });
-      } else {
-        capHolds += p.capHold;
-        roster.free_agent.push({ ...p, status: 'held' });
-      }
-      continue;
-    }
-
-    // === NON-GUARANTEED ===
-    if (p.category === 'non_guaranteed') {
-      activeSalaries += p.sal27;
-      rosterCount++;
-      roster.non_guaranteed.push({ ...p, status: 'active' });
-      continue;
-    }
-
-    // === PARTIAL GUARANTEED ===
-    if (p.category === 'partial_guaranteed') {
-      activeSalaries += p.sal27;
-      rosterCount++;
-      roster.partial_guaranteed.push({ ...p, status: 'active' });
-      continue;
-    }
-
-    // === UNDER CONTRACT (GUARANTEED) ===
-    activeSalaries += p.sal27;
-    rosterCount++;
-    roster.under_contract.push({ ...p, status: 'active' });
-  }
-
-  // Incomplete roster charge: if < 12 standard contracts, add minimum cap hold per empty slot
-  const incompleteCharge = rosterCount < 12 ? (12 - rosterCount) * MIN_SALARY_CAP_HOLD : 0;
-
-  const teamSalary = activeSalaries + capHolds + deadMoney + incompleteCharge;
-  const capSpace = T.cap - teamSalary;
-  const taxRoom = T.tax - teamSalary;
-  const apron1Room = T.apron1 - teamSalary;
-  const apron2Room = T.apron2 - teamSalary;
-
-  // Available exceptions
-  const hasCapSpace = capSpace > 0;
-  const belowTax = taxRoom > 0;
-  const belowApron1 = apron1Room > 0;
-  const belowApron2 = apron2Room > 0;
-
-  const exceptions = [];
-  if (hasCapSpace) {
-    exceptions.push({ name: 'Cap Space', amount: capSpace, available: true });
-    exceptions.push({ name: 'Room MLE', amount: T.rmle, available: true });
-  } else {
-    exceptions.push({ name: 'Cap Space', amount: 0, available: false });
-  }
-  if (!hasCapSpace && belowApron1) {
-    exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: true });
-    exceptions.push({ name: 'BAE', amount: T.bae, available: true });
-  } else if (!hasCapSpace && !belowApron1 && belowApron2) {
-    exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: true });
-  } else if (!hasCapSpace) {
-    exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false });
-    exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: !hasCapSpace && !belowApron1 ? false : true });
-    exceptions.push({ name: 'BAE', amount: T.bae, available: false });
-  }
-  exceptions.push({ name: 'Minimum', amount: MIN_SALARY_0YOS, available: true });
-
-  return {
-    roster, activeSalaries, capHolds, deadMoney, incompleteCharge,
-    teamSalary, capSpace, taxRoom, apron1Room, apron2Room,
-    rosterCount, twowayCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2
-  };
-}
-
-// ======================== RENDERING ========================
+// =====================================================
+// RENDER TEAM GRID
+// =====================================================
 function renderTeamGrid() {
-  const grid = document.getElementById('teamGrid');
-  grid.innerHTML = '';
-  for (const [full, abbr] of Object.entries(TEAMS)) {
-    const btn = document.createElement('div');
-    btn.className = 'team-btn' + (STATE && STATE.team === full ? ' active' : '');
-    const logo = teamLogos[full] || '';
-    btn.innerHTML = `${logo ? `<img src="${logo}" alt="${abbr}">` : `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent)">${abbr}</div>`}<div class="tn">${full}</div>`;
-    btn.onclick = () => selectTeam(full);
-    grid.appendChild(btn);
-  }
+  const g = document.getElementById('teamGrid');
+  g.innerHTML = NBA_TEAMS.map(t=>`<a href="?team=${t.abbrev}" class="team-card"><img class="team-logo" src="${t.logo}" alt="${t.name}" onerror="this.style.opacity='0.3'"><div class="team-name">${t.name}</div><div class="team-abbrev">${t.abbrev}</div></a>`).join('');
+  g.style.display = 'grid';
 }
 
-function selectTeam(team) {
-  STATE = loadState(team);
-  renderTeamGrid();
-  document.getElementById('appContent').style.display = 'block';
-  render();
-}
-
-function render() {
-  if (!STATE) return;
-  const cap = calcCapSheet(STATE.team);
-  renderRoster(cap);
-  renderCapPanel(cap);
-}
-
-function renderRoster(cap) {
-  const panel = document.getElementById('rosterPanel');
-  let h = '';
-
-  const sections = [
-    { key: 'under_contract', label: 'Under Contract', color: '#4caf50', icon: '✅' },
-    { key: 'non_guaranteed', label: 'Non-Guaranteed', color: '#ef5350', icon: '⚠️' },
-    { key: 'partial_guaranteed', label: 'Partially Guaranteed', color: '#ffd600', icon: '🔶' },
-    { key: 'free_agent', label: 'Free Agents (Cap Holds)', color: '#667eea', icon: '🔓' },
-    { key: 'twoway', label: 'Two-Way', color: '#64748b', icon: '🔄' },
-    { key: 'waived', label: 'Waived', color: '#ef5350', icon: '🗑️' },
-  ];
-
-  for (const sec of sections) {
-    const players = cap.roster[sec.key];
-    if (!players.length) continue;
-
-    const totalSal = players.reduce((s, p) => {
-      if (p.status === 'renounced') return s;
-      if (sec.key === 'free_agent') return s + (p.capHold || 0);
-      if (sec.key === 'waived') return s + (p.deadAmount || 0);
-      return s + (p.sal27 || 0);
-    }, 0);
-
-    h += `<div class="section">`;
-    h += `<div class="section-hdr" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">`;
-    h += `<div class="dot" style="background:${sec.color}"></div>`;
-    h += `<h3>${sec.icon} ${sec.label}</h3>`;
-    h += `<span class="badge" style="background:${sec.color}22;color:${sec.color}">${players.filter(p=>p.status!=='renounced').length} players</span>`;
-    h += `<span style="font-size:.75rem;font-weight:600;color:${sec.color}">${fmtMoney(totalSal)}</span>`;
-    h += `</div>`;
-    h += `<div class="section-body">`;
-
-    for (const p of players.sort((a, b) => {
-      const va = sec.key === 'free_agent' ? (a.capHold || 0) : sec.key === 'waived' ? (a.deadAmount || 0) : (a.sal27 || 0);
-      const vb = sec.key === 'free_agent' ? (b.capHold || 0) : sec.key === 'waived' ? (b.deadAmount || 0) : (b.sal27 || 0);
-      return vb - va;
-    })) {
-      const acted = p.status === 'renounced' || sec.key === 'waived';
-      h += `<div class="player-row${acted ? ' acted' : ''}">`;
-
-      // Headshot
-      if (p.headshot) {
-        h += `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">`;
-      } else {
-        h += `<div class="hs-ini">${p.name.split(' ').map(w => w[0]).join('')}</div>`;
-      }
-
-      // Info
-      h += `<div class="info"><div class="pname">${p.name}</div>`;
-      h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}${p.end ? ' · thru ' + p.end : ''}${p.tradeKicker ? ' · TK ' + p.tradeKicker + '%' : ''}${p.fromOption ? ' · declined ' + p.fromOption : ''}</div>`;
-      h += `</div>`;
-
-      // Salary display
-      if (sec.key === 'waived') {
-        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27 || p.sal26)}</div>`;
-        h += `<div class="ch">${p.deadAmount ? fmtMoney(p.deadAmount) + ' dead cap' : 'no dead cap'}</div></div>`;
-      } else if (sec.key === 'free_agent') {
-        if (p.status === 'renounced') {
-          h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
-        } else {
-          h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
-        }
-      } else {
-        const cls = { 'GUARANTEED': 'g', 'NOT G': 'ng', 'TEAM OPT': 'to', 'PLAYER OPT': 'po', 'PARTIAL G': 'pg' }[p.st27] || 'g';
-        h += `<div><div class="sal ${cls}">${fmtMoney(p.sal27)}</div>`;
-        if (p.ch27 && p.ch27 !== p.sal27 && (p.st27 === 'PARTIAL G' || p.st27 === 'NOT G')) {
-          h += `<div class="ch">G: ${fmtMoney(p.ch27)}</div>`;
-        }
-        if (p.status === 'pending_to') h += `<div class="ch" style="color:var(--orange)">⚡ Team Option</div>`;
-        if (p.status === 'pending_po') h += `<div class="ch" style="color:var(--cyan)">🎯 Player Option</div>`;
-        if (p.status === 'picked_up') h += `<div class="ch" style="color:var(--green)">✓ TO picked up</div>`;
-        if (p.status === 'exercised') h += `<div class="ch" style="color:var(--green)">✓ PO exercised</div>`;
-        h += `</div>`;
-      }
-
-      // Action buttons
-      h += `<div style="display:flex;gap:.3rem">`;
-      if (p.status === 'pending_to') {
-        h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
-        h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
-      } else if (p.status === 'pending_po') {
-        h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','exercise')">Exercise</button>`;
-        h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
-      } else if (sec.key === 'free_agent' && p.status === 'held') {
-        h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
-      } else if ((sec.key === 'non_guaranteed' || sec.key === 'partial_guaranteed') && p.status === 'active') {
-        h += `<button class="action-btn waive" onclick="doWaive('${esc(p.name)}')">Waive</button>`;
-      }
-      h += `</div>`;
-
-      h += `</div>`; // player-row
-    }
-    h += `</div></div>`; // section-body, section
-  }
-
-  panel.innerHTML = h;
-}
-
-function renderCapPanel(cap) {
-  const panel = document.getElementById('capPanel');
-  let h = '';
-
-  // Team Salary breakdown
-  h += `<div class="cap-card">`;
-  h += `<h3>💰 Team Salary</h3>`;
-  h += capRow('Active Salaries', cap.activeSalaries);
-  h += capRow('Cap Holds', cap.capHolds);
-  h += capRow('Dead Money', cap.deadMoney);
-  if (cap.incompleteCharge) h += capRow('Incomplete Roster', cap.incompleteCharge, 'neg');
-  h += `<div class="cap-row" style="border-top:1px solid var(--border);margin-top:.3rem;padding-top:.5rem">`;
-  h += `<span class="label" style="font-weight:700;color:var(--text)">TEAM SALARY</span>`;
-  h += `<span class="value" style="font-size:.85rem">${fmtMoneyFull(cap.teamSalary)}</span>`;
-  h += `</div></div>`;
-
-  // Cap Space & Thresholds
-  h += `<div class="cap-card">`;
-  h += `<h3>📊 Cap Space & Thresholds</h3>`;
-  h += capRow('Salary Cap', T.cap);
-  h += capRowDelta('Cap Space', cap.capSpace);
-  h += `<div class="cap-bar"><div class="cap-bar-fill" style="width:${Math.min(100, cap.teamSalary / T.apron2 * 100)}%;background:${cap.teamSalary > T.apron2 ? 'var(--red)' : cap.teamSalary > T.apron1 ? 'var(--orange)' : cap.teamSalary > T.tax ? 'var(--yellow)' : 'var(--green)'}"></div></div>`;
-  h += capRow('Luxury Tax', T.tax);
-  h += capRowDelta('Tax Room', cap.taxRoom);
-  h += capRow('1st Apron', T.apron1);
-  h += capRowDelta('1st Apron Room', cap.apron1Room);
-  h += capRow('2nd Apron', T.apron2);
-  h += capRowDelta('2nd Apron Room', cap.apron2Room);
-  h += `</div>`;
-
-  // Roster count
-  h += `<div class="cap-card">`;
-  h += `<h3>👥 Roster</h3>`;
-  h += capRow('Standard Contracts', cap.rosterCount + '/15');
-  h += capRow('Two-Way Slots', cap.twowayCount + '/3');
-  if (cap.rosterCount < 14) {
-    h += `<div style="font-size:.65rem;color:var(--red);margin-top:.3rem">⚠️ Need at least 14 standard contracts by opening night</div>`;
-  }
-  h += `</div>`;
-
-  // Exceptions
-  h += `<div class="cap-card">`;
-  h += `<h3>🎫 Available Exceptions</h3>`;
-  h += `<div class="exc-list">`;
-  for (const exc of cap.exceptions) {
-    h += `<div class="exc-chip ${exc.available ? 'available' : 'unavailable'}">${exc.name}: ${fmtMoney(exc.amount)}</div>`;
-  }
-  h += `</div></div>`;
-
-  // Move log
-  h += `<div class="cap-card">`;
-  h += `<h3>📝 Move Log</h3>`;
-  if (STATE.moves.length) {
-    h += `<div class="move-log">`;
-    for (const m of [...STATE.moves].reverse()) {
-      h += `<div class="move-entry"><span class="action">${m.action}</span> ${m.detail}</div>`;
-    }
-    h += `</div>`;
+// =====================================================
+// BUILD POSITION MAP (shared by single-team & admin)
+// =====================================================
+function buildPositionMap(teamPlayers, savedOrder, minRows) {
+  const positions = ['PG','SG','SF','PF','C'];
+  const byPos = {}; positions.forEach(p => byPos[p] = []);
+  if (savedOrder) {
+    const pm = {}; teamPlayers.forEach(p => pm[p.name] = p);
+    const placed = new Set();
+    positions.forEach(pos => { if (savedOrder[pos]) savedOrder[pos].forEach(n => {
+      if (n === '__SPACER__') { byPos[pos].push('__SPACER__'); }
+      else if (pm[n]&&!placed.has(n)) { byPos[pos].push(pm[n]); placed.add(n); }
+    }); });
+    teamPlayers.forEach(p => { if (!placed.has(p.name)) byPos[positions.includes(p.position)?p.position:'SF'].push(p); });
   } else {
-    h += `<div style="font-size:.7rem;color:var(--muted)">No moves yet. Use the roster panel to make decisions.</div>`;
+    teamPlayers.forEach(p => byPos[positions.includes(p.position)?p.position:'SF'].push(p));
+    positions.forEach(pos => byPos[pos].sort((a,b) => b.tradeValue - a.tradeValue));
   }
-  h += `<div class="controls">`;
-  h += `<button class="ctrl-btn" onclick="undoLast()">↩ Undo</button>`;
-  h += `<button class="ctrl-btn reset" onclick="resetTeam()">🗑 Reset All</button>`;
-  h += `</div></div>`;
-
-  panel.innerHTML = h;
-}
-
-function capRow(label, value, cls) {
-  const display = typeof value === 'number' ? fmtMoneyFull(value) : value;
-  return `<div class="cap-row"><span class="label">${label}</span><span class="value ${cls || ''}">${display}</span></div>`;
-}
-
-function capRowDelta(label, value) {
-  const cls = value >= 0 ? 'pos' : 'neg';
-  return `<div class="cap-row"><span class="label">${label}</span><span class="value ${cls}">${fmtMoneyFull(value)}</span></div>`;
-}
-
-function shortExc(e) {
-  return { 'Bird Exception': 'Bird', 'Early Bird Exception': 'Early Bird', 'Non-Bird Exception': 'Non-Bird',
-    'Mid-Level Exception': 'MLE', 'Taxpayer Mid-Level Exception': 'Tax MLE', 'Room Mid-Level Exception': 'Room MLE',
-    'Biannual Exception': 'BAE', 'Minimum Salary Exception': 'Min', 'Rookie Exception': 'Rookie',
-    'Second Round Exception': '2nd Rnd' }[e] || e || '';
-}
-
-function esc(s) { return s.replace(/'/g, "\\'"); }
-
-// ======================== ACTIONS ========================
-function doOption(name, decision) {
-  STATE.optionDecisions[name] = decision;
-  const label = decision === 'pickup' ? 'Picked up' : decision === 'exercise' ? 'Exercised' : 'Declined';
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  STATE.moves.push({ action: label, detail: `${name}'s option (${fmtMoney(p?.sal27 || 0)})`, undo: { type: 'option', name } });
-  saveState();
-  render();
-}
-
-function doRenounce(name) {
-  STATE.renounced.add(name);
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  STATE.moves.push({ action: 'Renounced', detail: `${name} (freed ${fmtMoney(p?.capHold || 0)} cap hold)`, undo: { type: 'renounce', name } });
-  saveState();
-  render();
-}
-
-function doWaive(name) {
-  STATE.waived.add(name);
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  const dead = p?.category === 'partial_guaranteed' ? p.ch27 : 0;
-  STATE.moves.push({ action: 'Waived', detail: `${name} (${fmtMoney(p?.sal27 || 0)}${dead ? ', ' + fmtMoney(dead) + ' dead cap' : ''})`, undo: { type: 'waive', name } });
-  saveState();
-  render();
-}
-
-function undoLast() {
-  if (!STATE.moves.length) return;
-  const last = STATE.moves.pop();
-  if (last.undo) {
-    if (last.undo.type === 'option') delete STATE.optionDecisions[last.undo.name];
-    if (last.undo.type === 'renounce') STATE.renounced.delete(last.undo.name);
-    if (last.undo.type === 'waive') STATE.waived.delete(last.undo.name);
+  // Pad columns to minRows with spacers (for admin mode)
+  if (minRows) {
+    positions.forEach(pos => {
+      while (byPos[pos].length < minRows) byPos[pos].push('__SPACER__');
+    });
   }
-  saveState();
-  render();
+  return byPos;
 }
 
-function resetTeam() {
-  if (!confirm(`Reset all moves for ${STATE.team}?`)) return;
-  localStorage.removeItem('rm_state_' + STATE.team);
-  STATE = defaultState(STATE.team);
-  render();
+// =====================================================
+// SINGLE TEAM VIEW
+// =====================================================
+function renderDepthChart(teamAbbrev) {
+  const team = NBA_TEAMS.find(t=>t.abbrev===teamAbbrev);
+  if (!team) { document.getElementById('error').textContent='Team not found'; document.getElementById('error').style.display='block'; return; }
+  const tp = allPlayers.filter(p=>p.team===teamAbbrev);
+  if (!tp.length) { document.getElementById('error').textContent=`No players for ${team.name}`; document.getElementById('error').style.display='block'; return; }
+  document.getElementById('teamLogo').src = team.logo;
+  document.getElementById('teamName').textContent = team.name;
+  document.title = `${team.name} Depth Chart`;
+  const positions = ['PG','SG','SF','PF','C'];
+  const byPos = buildPositionMap(tp, loadTeamOrder(teamAbbrev));
+  let html = '';
+  positions.forEach(pos => {
+    html += `<div class="position-column" data-position="${pos}"><div class="position-header">${pos}</div>`;
+    let firstReal = true;
+    byPos[pos].forEach((p,i) => {
+      if (p === '__SPACER__') {
+        html += `<div class="player-card spacer" data-player="__SPACER__">
+          <div class="player-image"><span class="initials" style="visibility:hidden;">&nbsp;</span></div>
+          <div class="player-name" style="visibility:hidden;">—</div>
+          <div class="trade-value" style="visibility:hidden;">&nbsp;</div></div>`;
+      } else {
+        html += `<div class="player-card ${firstReal?'starter':''}" draggable="true" data-player="${p.name}" data-tv="${p.tradeValue}">
+          <div class="player-image">${p.headshot?`<img src="${p.headshot}" alt="${p.name}" onerror="this.parentElement.innerHTML='<span class=\\'initials\\'>${initials(p.name)}</span>'">`:`<span class="initials">${initials(p.name)}</span>`}</div>
+          <div class="player-name">${p.name}</div>
+          <div class="trade-value ${valClass(p.tradeValue)}">${fmtSal(p.salary)}</div></div>`;
+        firstReal = false;
+      }
+    });
+    html += '</div>';
+  });
+  document.getElementById('depthChart').innerHTML = html;
+  document.getElementById('depthChartContainer').classList.add('active');
+  setupDragDrop(document.getElementById('depthChart'), teamAbbrev, false);
 }
 
-// ======================== INIT ========================
+// =====================================================
+// ADMIN ALL-TEAMS VIEW
+// =====================================================
+function renderAdminAllTeams() {
+  document.getElementById('adminBanner').classList.add('active');
+  document.title = 'NBA Depth Charts — ADMIN';
+  const container = document.getElementById('adminTeamsList');
+  const positions = ['PG','SG','SF','PF','C'];
+  const savedOrders = loadAllOrders();
+  // Build player lookup
+  const pMap = {};
+  allPlayers.forEach(p => pMap[p.name] = p);
+
+  let html = '';
+  for (const team of NBA_TEAMS) {
+    const tp = allPlayers.filter(p=>p.team===team.abbrev);
+    if (!tp.length) continue;
+    const saved = savedOrders[team.abbrev] || null;
+
+    // For each position, build healthy and injured arrays
+    const healthyByPos = {}, injuredByPos = {};
+    const globalPlaced = new Set();
+    positions.forEach(pos => {
+      healthyByPos[pos] = [];
+      injuredByPos[pos] = [];
+
+      if (saved && saved[pos]) {
+        const sepIdx = saved[pos].indexOf('__SEPARATOR__');
+        const aboveNames = sepIdx >= 0 ? saved[pos].slice(0, sepIdx) : saved[pos];
+        const belowNames = sepIdx >= 0 ? saved[pos].slice(sepIdx + 1) : [];
+
+        // Above separator: place saved players, but force Out/Doubtful down
+        aboveNames.forEach(n => {
+          if (n === '__SPACER__' || globalPlaced.has(n)) return;
+          const p = pMap[n];
+          if (!p || p.team !== team.abbrev) return;
+          if (p.colorCode === 'injured') { injuredByPos[pos].push(p); }
+          else { healthyByPos[pos].push(p); }
+          globalPlaced.add(n);
+        });
+
+        // Below separator: place saved players, but force non-injured/non-questionable up
+        belowNames.forEach(n => {
+          if (n === '__SPACER__' || globalPlaced.has(n)) return;
+          const p = pMap[n];
+          if (!p || p.team !== team.abbrev) return;
+          if (p.colorCode === 'injured' || p.colorCode === 'questionable') { injuredByPos[pos].push(p); }
+          else { healthyByPos[pos].push(p); }
+          globalPlaced.add(n);
+        });
+      } else {
+        // No saved order — default sort by trade value
+        const posTp = tp.filter(p => p.position === pos && !globalPlaced.has(p.name)).sort((a,b) => b.tradeValue - a.tradeValue);
+        posTp.forEach(p => {
+          if (p.colorCode === 'injured') injuredByPos[pos].push(p);
+          else healthyByPos[pos].push(p);
+          globalPlaced.add(p.name);
+        });
+      }
+    });
+
+    // Handle unplaced players (new additions or position mismatches)
+    tp.filter(p => !globalPlaced.has(p.name)).forEach(p => {
+      const pos = positions.includes(p.position) ? p.position : 'SF';
+      if (p.colorCode === 'injured') injuredByPos[pos].push(p);
+      else healthyByPos[pos].push(p);
+    });
+
+    // Count total healthy to determine row count
+    const totalHealthy = positions.reduce((s, pos) => s + healthyByPos[pos].length, 0);
+    const healthyRows = Math.max(1, Math.ceil(totalHealthy / 5));
+
+    html += `<div class="admin-team-row" data-team="${team.abbrev}">
+      <div class="admin-team-row-header"><img class="admin-team-row-logo" src="${team.logo}" alt="${team.name}" onerror="this.style.opacity='0.3'"><span class="admin-team-row-name">${team.name}</span><span class="admin-team-row-abbrev">${team.abbrev}</span></div>
+      <div class="admin-depth-chart" data-team="${team.abbrev}">`;
+    positions.forEach(pos => {
+      html += `<div class="admin-position-column" data-position="${pos}"><div class="admin-position-header">${pos}</div>`;
+
+      // Healthy players
+      let firstReal = true;
+      healthyByPos[pos].forEach(p => {
+        const sc = p.contractStatus==='10-DAY'?'ten-day':p.colorCode==='twoway'?'two-way':p.colorCode==='questionable'?'questionable':'';
+        html += `<div class="admin-player-card ${firstReal?'starter':''} ${sc}" draggable="true" data-player="${p.name}" data-tv="${p.tradeValue}"><div class="admin-player-name">${p.name}</div><div class="admin-trade-value ${valClass(p.tradeValue)}">${fmtSal(p.salary)}</div></div>`;
+        firstReal = false;
+      });
+
+      // Pad healthy section with spacers
+      for (let i = healthyByPos[pos].length; i < healthyRows; i++) {
+        html += `<div class="admin-player-card spacer" draggable="true" data-player="__SPACER__"><div><div class="admin-player-name" style="color:#666;">— blank —</div><div class="admin-trade-value" style="visibility:hidden;">&nbsp;</div></div></div>`;
+      }
+
+      // Separator
+      html += `<div class="admin-separator"></div>`;
+
+      // Injured players
+      injuredByPos[pos].forEach(p => {
+        const sc = p.colorCode==='injured'?'injured':'questionable';
+        html += `<div class="admin-player-card ${sc}" draggable="true" data-player="${p.name}" data-tv="${p.tradeValue}"><div class="admin-player-name">${p.name}</div><div class="admin-trade-value ${valClass(p.tradeValue)}">${fmtSal(p.salary)}</div></div>`;
+      });
+
+      html += '</div>';
+    });
+    html += '</div></div>';
+  }
+  container.innerHTML = html;
+  document.getElementById('adminAllTeams').classList.add('active');
+  document.querySelectorAll('.admin-depth-chart').forEach(c => setupDragDrop(c, c.dataset.team, true));
+}
+
+// =====================================================
+// UNIFIED DRAG AND DROP
+// =====================================================
+function setupDragDrop(container, teamAbbrev, isAdminView) {
+  const cardSel = isAdminView ? '.admin-player-card' : '.player-card';
+  const colSel = isAdminView ? '.admin-position-column' : '.position-column';
+
+  container.querySelectorAll(cardSel).forEach(card => {
+    makeDraggable(card, container, teamAbbrev, cardSel, colSel);
+  });
+
+  container.querySelectorAll(colSel).forEach(col => {
+    col.addEventListener('dragover', function(e) { e.preventDefault(); });
+    col.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (draggedElement && !e.target.closest(cardSel)) {
+        // Dropped on empty area of column — append (before spacer btn if exists)
+        const addBtn = this.querySelector('.add-spacer-btn');
+        if (addBtn) this.insertBefore(draggedElement, addBtn);
+        else this.appendChild(draggedElement);
+      }
+    });
+  });
+}
+
+function makeDraggable(card, container, teamAbbrev, cardSel, colSel) {
+  card.addEventListener('dragstart', function(e) {
+    draggedElement = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', this.dataset.player);
+  });
+
+  card.addEventListener('dragend', function() {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    draggedElement = null;
+    // Update starter highlights
+    container.querySelectorAll(colSel).forEach(col => {
+      let firstReal = true;
+      col.querySelectorAll(cardSel).forEach(c => {
+        if (c.classList.contains('spacer')) { c.classList.remove('starter'); return; }
+        c.classList.toggle('starter', firstReal);
+        firstReal = false;
+      });
+    });
+    saveTeamOrder(teamAbbrev, container);
+  });
+
+  card.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!draggedElement || this === draggedElement) return;
+
+    const isSpacer = this.classList.contains('spacer');
+    const draggedIsSpacer = draggedElement.classList.contains('spacer');
+
+    // If one is spacer and other is player, just highlight — swap happens on drop
+    if (isSpacer !== draggedIsSpacer) {
+      this.classList.add('drag-over');
+      return;
+    }
+
+    // Normal reorder: live preview move
+    const col = this.parentElement;
+    const r = this.getBoundingClientRect();
+    const midY = r.top + r.height / 2;
+    if (e.clientY < midY) {
+      if (draggedElement.nextElementSibling !== this || draggedElement.parentElement !== col) {
+        col.insertBefore(draggedElement, this);
+      }
+    } else {
+      if (this.nextElementSibling !== draggedElement || draggedElement.parentElement !== col) {
+        col.insertBefore(draggedElement, this.nextSibling);
+      }
+    }
+  });
+
+  card.addEventListener('dragleave', function() {
+    this.classList.remove('drag-over');
+  });
+
+  card.addEventListener('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.classList.remove('drag-over');
+    if (!draggedElement || this === draggedElement) return;
+
+    const isSpacer = this.classList.contains('spacer');
+    const draggedIsSpacer = draggedElement.classList.contains('spacer');
+
+    // Swap: player <-> spacer
+    if (isSpacer !== draggedIsSpacer) {
+      const placeholder = document.createElement('div');
+      this.parentElement.insertBefore(placeholder, this);
+      draggedElement.parentElement.insertBefore(this, draggedElement);
+      placeholder.parentElement.insertBefore(draggedElement, placeholder);
+      placeholder.remove();
+    }
+  });
+}
+
+// =====================================================
+// SPACER MANAGEMENT
+// =====================================================
+function addSpacer(btn) {
+  const col = btn.parentElement;
+  const teamAbbrev = btn.dataset.team;
+  const spacer = document.createElement('div');
+  spacer.className = 'admin-player-card spacer';
+  spacer.draggable = true;
+  spacer.dataset.player = '__SPACER__';
+  spacer.innerHTML = '<div><div class="admin-player-name" style="color:#666;">— blank —</div><div class="admin-trade-value" style="visibility:hidden;">&nbsp;</div></div><button class="spacer-delete" onclick="removeSpacer(this)" title="Remove spacer">✕</button>';
+  col.insertBefore(spacer, btn);
+  // Attach drag events to new spacer
+  const chart = col.closest('.admin-depth-chart');
+  attachCardDrag(spacer, chart, teamAbbrev);
+  saveTeamOrder(teamAbbrev, chart);
+}
+
+function removeSpacer(deleteBtn) {
+  const spacer = deleteBtn.parentElement;
+  const chart = spacer.closest('.admin-depth-chart');
+  const teamAbbrev = chart.dataset.team;
+  spacer.remove();
+  saveTeamOrder(teamAbbrev, chart);
+}
+
+function attachCardDrag(card, container, teamAbbrev) {
+  makeDraggable(card, container, teamAbbrev, '.admin-player-card', '.admin-position-column');
+}
+
+// =====================================================
+// EXPORT HTML — shared generator
+// =====================================================
+function generateExportHTML(teamOrders, withHeadshots, startIdx, endIdx) {
+  const positions = ['PG','SG','SF','PF','C'];
+  const playerMap = {}; allPlayers.forEach(p => playerMap[p.name] = p);
+  const S = 'border:none;padding:4px;text-align:center;';
+  const iS = 'display:block;width:80px;height:80px;object-fit:cover;margin:0 auto;';
+
+  let out = '<div style="font-family:sans-serif;max-width:800px;margin:0 auto;overflow-x:auto;font-size:16px;text-align:center;">';
+
+  const teamsSlice = NBA_TEAMS.slice(startIdx, endIdx);
+  for (const team of teamsSlice) {
+    const order = teamOrders[team.abbrev];
+    if (!order) continue;
+    const posCols = {}; let maxRows = 0;
+    positions.forEach(pos => {
+      const names = order[pos]||[];
+      posCols[pos] = names.map(n => n === '__SPACER__' ? null : (playerMap[n]||null));
+      if (posCols[pos].length > maxRows) maxRows = posCols[pos].length;
+    });
+    while (maxRows > 0) {
+      const row = positions.map(pos => posCols[pos][maxRows-1] || null);
+      if (row.some(p => p !== null)) break;
+      maxRows--;
+    }
+    if (maxRows < 1) maxRows = 1;
+
+    out += `<div style="text-align:center;font-size:1.2em;margin-bottom:.5em;"><strong>${team.name.toUpperCase()}</strong></div>`;
+    out += `<table style="width:100%;text-align:center;border-collapse:collapse;font-size:12px;"><tbody>`;
+    out += `<tr style="background-color:#f2f2f2;">`;
+    positions.forEach(pos => { out += `<th style="${S}">${pos}</th>`; });
+    out += `</tr>`;
+
+    for (let r = 0; r < maxRows; r++) {
+      const rp = positions.map(pos => posCols[pos][r] || null);
+      if (!rp.some(p => p !== null)) continue;
+      const cc = rp.map(p => {
+        if (!p) return '';
+        if (p.contractStatus === '10-DAY') return 'background-color:yellow;';
+        if (p.colorCode === 'twoway') return 'background-color:#e1bee7;';
+        if (p.colorCode === 'injured') return 'background-color:lightcoral;';
+        if (p.colorCode === 'questionable') return 'background-color:#f5b7b1;';
+        return '';
+      });
+      if (withHeadshots) {
+        out += `<tr style="background-color:#fff;">`;
+        rp.forEach((p,i) => {
+          out += p && p.headshot ? `<td style="${S}"><img src="${p.headshot}" style="${iS}"/></td>` : `<td style="${S}"></td>`;
+        });
+        out += `</tr>`;
+      }
+      out += `<tr style="background-color:#f2f2f2;">`;
+      rp.forEach((p,i) => { out += `<td style="${S}${cc[i]}">${p ? `<strong>${p.name}</strong>` : ''}</td>`; });
+      out += `</tr>`;
+      out += `<tr style="background-color:#f2f2f2;">`;
+      rp.forEach((p,i) => { out += `<td style="${S}${cc[i]}">${p ? fmtSalFull(p.salary) : ''}</td>`; });
+      out += `</tr>`;
+    }
+    out += `</tbody></table><br>`;
+  }
+  out += '</div>';
+  return out;
+}
+
+function exportHTML(withHeadshots, startIdx, endIdx) {
+  // Read order from DOM
+  const teamOrders = {};
+  document.querySelectorAll('.admin-depth-chart').forEach(chart => {
+    const ta = chart.dataset.team; const order = {};
+    chart.querySelectorAll('.admin-position-column').forEach(col => {
+      const pos = col.dataset.position; if (!pos) return; order[pos] = [];
+      col.querySelectorAll('.admin-player-card').forEach(card => {
+        if (card.dataset.player === '__SPACER__') order[pos].push('__SPACER__');
+        else if (card.dataset.player) order[pos].push(card.dataset.player);
+      });
+    });
+    teamOrders[ta] = order;
+  });
+
+  const out = generateExportHTML(teamOrders, withHeadshots, startIdx, endIdx);
+  const teamsSlice = NBA_TEAMS.slice(startIdx, endIdx);
+  const firstTeam = teamsSlice[0]?.abbrev || '?';
+  const lastTeam = teamsSlice[teamsSlice.length-1]?.abbrev || '?';
+  const blockLabel = `${firstTeam}–${lastTeam}`;
+  const modeLabel = withHeadshots ? '📷 Headshots' : '📋 Compact';
+  const sizeKB = (new Blob([out]).size / 1024).toFixed(1);
+  document.getElementById('exportCode').value = out;
+  document.getElementById('exportModalTitle').textContent = `${modeLabel} — ${blockLabel} (${teamsSlice.length} teams, ${sizeKB} KB)`;
+  document.getElementById('exportModal').classList.add('active');
+}
+
+// =====================================================
+// SAVE ORDER JSON (for GitHub Pages export)
+// =====================================================
+function downloadOrderJSON() {
+  // Force immediate push to GitHub
+  const orders = loadAllOrders();
+  const btn = event.target;
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Pushing...';
+  btn.disabled = true;
+  pushToGitHub(orders).then(() => {
+    btn.textContent = '✓ Pushed!';
+    btn.style.background = '#16a34a'; btn.style.color = 'white';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; btn.style.color = ''; btn.disabled = false; }, 2000);
+  });
+}
+
+// =====================================================
+// EXPORT RENDER MODE (for iframe embed in Presto)
+// ?export=1 → first half, ?export=2 → second half
+// ?headshots=0 → compact (default: headshots on)
+// =====================================================
+async function renderExportView(exportParam, withHeadshots) {
+  // Replace entire page with clean white canvas
+  document.body.style.cssText = 'background:white;margin:0;padding:0;color:#1a1a2e;';
+  document.querySelector('.container').style.display = 'none';
+  document.getElementById('adminBanner').style.display = 'none';
+
+  const statusEl = document.getElementById('loading');
+  statusEl.style.display = 'block';
+  statusEl.style.color = '#333';
+  statusEl.querySelector('p').textContent = 'Loading depth charts...';
+  statusEl.querySelector('.loading-spinner').style.borderTopColor = '#667eea';
+
+  try {
+    const orderURL = new URL('order.json', window.location.href.split('?')[0]).href;
+    const [tvR, rR, oR] = await Promise.all([
+      fetch(TV_CSV_URL), fetch(ROSTER_CSV_URL), fetch(orderURL)
+    ]);
+    if (!tvR.ok || !rR.ok) throw new Error('Failed to fetch player data');
+    if (!oR.ok) throw new Error('order.json not found — save your order from admin mode first');
+
+    const [tvText, rText, orderData] = await Promise.all([tvR.text(), rR.text(), oR.json()]);
+    tradeValueMap = computeTradeValues(tvText);
+    allPlayers = parseRosterCSV(rText);
+    try { const ijR = await fetch(INJURIES_JSON_URL + '?t=' + Date.now()); if (ijR.ok) applyInjuriesJSON(await ijR.json()); } catch(e) {}
+
+    let startIdx, endIdx;
+    if (exportParam === '2') { startIdx = 15; endIdx = 30; }
+    else if (exportParam === 'all') { startIdx = 0; endIdx = 30; }
+    else { startIdx = 0; endIdx = 15; }
+
+    const html = generateExportHTML(orderData, withHeadshots, startIdx, endIdx);
+
+    statusEl.style.display = 'none';
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    document.body.appendChild(wrapper);
+
+    // Fix mobile scroll: prevent horizontal scroll capture from blocking vertical scroll
+    const style = document.createElement('style');
+    style.textContent = '* { touch-action: pan-y !important; } div { overflow-x: visible !important; }';
+    document.head.appendChild(style);
+
+    // Auto-resize iframe if embedded
+    function notifyHeight() {
+      const h = document.body.scrollHeight;
+      window.parent.postMessage({type:'resize', height: h}, '*');
+    }
+    notifyHeight();
+    // Re-check after images load
+    window.addEventListener('load', notifyHeight);
+    setTimeout(notifyHeight, 3000);
+  } catch (err) {
+    console.error('Export render error:', err);
+    statusEl.style.display = 'none';
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'text-align:center;padding:2rem;color:#c00;font-family:sans-serif;';
+    errDiv.textContent = 'Error: ' + err.message;
+    document.body.appendChild(errDiv);
+  }
+}
+
+function copyExportDirect(withHeadshots, startIdx, endIdx) {
+  const teamOrders = {};
+  document.querySelectorAll('.admin-depth-chart').forEach(chart => {
+    const ta = chart.dataset.team; const order = {};
+    chart.querySelectorAll('.admin-position-column').forEach(col => {
+      const pos = col.dataset.position; if (!pos) return; order[pos] = [];
+      col.querySelectorAll('.admin-player-card').forEach(card => {
+        if (card.dataset.player === '__SPACER__') order[pos].push('__SPACER__');
+        else if (card.dataset.player) order[pos].push(card.dataset.player);
+      });
+    });
+    teamOrders[ta] = order;
+  });
+  const out = generateExportHTML(teamOrders, withHeadshots, startIdx, endIdx);
+  const btn = event.target.closest('.export-btn');
+  const orig = btn.textContent;
+  const blob = new Blob([out], {type: 'text/plain'});
+  navigator.clipboard.write([new ClipboardItem({'text/plain': blob})]).then(() => {
+    btn.textContent = '✓ Copied!';
+    btn.style.background = '#16a34a'; btn.style.color = 'white';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; btn.style.color = ''; }, 2000);
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = out; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+function copyExportCode() {
+  const text = document.getElementById('exportCode').value;
+  // Force plain text only — no HTML clipboard metadata
+  const blob = new Blob([text], {type: 'text/plain'});
+  navigator.clipboard.write([new ClipboardItem({'text/plain': blob})]).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✓ Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copy to Clipboard'; btn.classList.remove('copied'); }, 2000);
+  }).catch(() => {
+    // Fallback
+    const ta = document.getElementById('exportCode');
+    ta.select(); ta.setSelectionRange(0, ta.value.length);
+    document.execCommand('copy');
+  });
+}
+
+function downloadExportCode() {
+  const text = document.getElementById('exportCode').value;
+  const blob = new Blob([text], {type: 'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'depth-charts-export.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function closeExportModal() { document.getElementById('exportModal').classList.remove('active'); }
+
+// =====================================================
+// AUTO-REFRESH DATA (updates cards in-place, preserves order)
+// =====================================================
+async function autoRefreshData() {
+  try {
+    const [tvR, rR] = await Promise.all([fetch(TV_CSV_URL), fetch(ROSTER_CSV_URL)]);
+    if (!tvR.ok || !rR.ok) return;
+    const [tvText, rText] = await Promise.all([tvR.text(), rR.text()]);
+    tradeValueMap = computeTradeValues(tvText);
+    allPlayers = parseRosterCSV(rText);
+    try { const ijR = await fetch(INJURIES_JSON_URL + '?t=' + Date.now()); if (ijR.ok) applyInjuriesJSON(await ijR.json()); } catch(e) {}
+    // Full re-render to move players between healthy/injured sections
+    renderAdminAllTeams();
+    const el = document.getElementById('refreshStatus');
+    if (el) {
+      const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      el.textContent = `Updated ${t}`;
+      el.style.opacity = '1';
+      setTimeout(() => el.style.opacity = '0.7', 2000);
+    }
+  } catch (e) {
+    console.warn('Auto-refresh failed:', e);
+  }
+}
+
+async function manualRefresh(btn) {
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Refreshing...';
+  btn.disabled = true;
+  try {
+    const [tvR, rR] = await Promise.all([fetch(TV_CSV_URL), fetch(ROSTER_CSV_URL)]);
+    if (!tvR.ok || !rR.ok) throw new Error('Fetch failed');
+    const [tvText, rText] = await Promise.all([tvR.text(), rR.text()]);
+    tradeValueMap = computeTradeValues(tvText);
+    allPlayers = parseRosterCSV(rText);
+    try { const ijR = await fetch(INJURIES_JSON_URL + '?t=' + Date.now()); if (ijR.ok) applyInjuriesJSON(await ijR.json()); } catch(e) {}
+    // Full re-render preserving saved orders
+    renderAdminAllTeams();
+    const el = document.getElementById('refreshStatus');
+    const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    if (el) { el.textContent = `Updated ${t}`; el.style.opacity = '1'; setTimeout(() => el.style.opacity = '0.7', 2000); }
+  } catch(e) { console.warn('Refresh failed:', e); }
+  btn.textContent = '✓ Updated!';
+  btn.style.background = '#16a34a'; btn.style.color = 'white';
+  setTimeout(() => { btn.textContent = orig; btn.style.background = ''; btn.style.color = ''; btn.disabled = false; }, 2000);
+}
+
+// =====================================================
+// INIT
+// =====================================================
 async function init() {
-  document.getElementById('loadingState').style.display = 'block';
-  renderTeamGrid();
+  const params = new URLSearchParams(window.location.search);
+  const exportParam = params.get('export');
+  const teamParam = params.get('team')?.toUpperCase();
+  const adminParam = params.get('admin');
+  isAdmin = (adminParam === ADMIN_KEY);
 
-  const csv = await fetchData();
-  if (!csv) {
-    document.getElementById('loadingState').innerHTML = '<p style="color:var(--red)">Failed to load data. Try refreshing.</p>';
-    return;
+  // Export render mode — iframe-friendly, no UI
+  if (exportParam) {
+    const withHeadshots = params.get('headshots') !== '0';
+    return renderExportView(exportParam, withHeadshots);
   }
 
-  allPlayers = parseAllPlayers(csv);
-  document.getElementById('loadingState').style.display = 'none';
-  renderTeamGrid(); // re-render with logos
-
-  // Check if team was previously selected
-  const lastTeam = localStorage.getItem('rm_last_team');
-  if (lastTeam && TEAMS[lastTeam]) selectTeam(lastTeam);
+  try {
+    // Fetch player data + order.json from GitHub in parallel
+    const fetches = [fetch(TV_CSV_URL), fetch(ROSTER_CSV_URL), fetchFromGitHub()];
+    const [tvR, rR, ghOrders] = await Promise.all(fetches);
+    if (!tvR.ok || !rR.ok) throw new Error('Failed to fetch data');
+    const [tvText, rText] = await Promise.all([tvR.text(), rR.text()]);
+    tradeValueMap = computeTradeValues(tvText);
+    allPlayers = parseRosterCSV(rText);
+    try { const ijR = await fetch(INJURIES_JSON_URL + '?t=' + Date.now()); if (ijR.ok) applyInjuriesJSON(await ijR.json()); } catch(e) { console.warn('Injuries JSON unavailable:', e); }
+    document.getElementById('loading').style.display = 'none';
+    if (isAdmin && !teamParam) {
+      renderAdminAllTeams();
+      setInterval(autoRefreshData, 60000);
+    }
+    else if (teamParam && NBA_TEAMS.some(t=>t.abbrev===teamParam)) renderDepthChart(teamParam);
+    else renderTeamGrid();
+  } catch (err) {
+    console.error('Error:', err);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').textContent = 'Error loading data. Please refresh.';
+    document.getElementById('error').style.display = 'block';
+  }
 }
-
-// Override selectTeam to also save last team
-const _selectTeam = selectTeam;
-selectTeam = function(team) {
-  localStorage.setItem('rm_last_team', team);
-  _selectTeam(team);
-};
-
 init();
 </script>
 </body>
