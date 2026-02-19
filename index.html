@@ -309,30 +309,26 @@ function parseAllPlayers(csv) {
 }
 
 function calcCapHold(priorSalary, exception) {
+  const maxSalary = Math.round(T.cap * 0.35); // absolute max for any player
   if (!priorSalary) return MIN_SALARY_CAP_HOLD;
+  let hold;
   const exc = exception.toLowerCase();
   if (exc.includes('bird') && !exc.includes('early') && !exc.includes('non')) {
-    // Full Bird: 190% of prior salary (if under avg), 250% if over
-    return Math.round(priorSalary * (priorSalary > EST_AVG_SALARY ? 2.50 : 1.90));
+    hold = Math.round(priorSalary * (priorSalary > EST_AVG_SALARY ? 2.50 : 1.90));
+  } else if (exc.includes('early bird')) {
+    hold = Math.max(Math.round(priorSalary * 1.90), Math.round(EST_AVG_SALARY * 1.30));
+  } else if (exc.includes('non-bird') || exc.includes('non bird')) {
+    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
+  } else if (exc.includes('minimum')) {
+    hold = MIN_SALARY_CAP_HOLD;
+  } else if (exc.includes('mid-level') || exc.includes('taxpayer') || exc.includes('room')) {
+    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
+  } else if (exc.includes('rookie')) {
+    hold = Math.round(priorSalary * 1.90);
+  } else {
+    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
   }
-  if (exc.includes('early bird')) {
-    return Math.max(Math.round(priorSalary * 1.90), Math.round(EST_AVG_SALARY * 1.30));
-  }
-  if (exc.includes('non-bird') || exc.includes('non bird')) {
-    return Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
-  }
-  if (exc.includes('minimum')) {
-    return MIN_SALARY_CAP_HOLD;
-  }
-  if (exc.includes('mid-level') || exc.includes('taxpayer') || exc.includes('room')) {
-    return Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
-  }
-  if (exc.includes('rookie')) {
-    // Rookie scale - treated as Bird if qualifying
-    return Math.round(priorSalary * 1.90);
-  }
-  // Default
-  return Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
+  return Math.min(hold, maxSalary);
 }
 
 // ======================== CAP ENGINE ========================
@@ -377,10 +373,13 @@ function calcCapSheet(team) {
           rosterCount++;
           roster.team_option.push({ ...p, status: 'picked_up' });
         } else if (optDecision === 'decline') {
-          // Becomes free agent with cap hold
           const hold = calcCapHold(p.sal26, p.exception);
-          capHolds += hold;
-          roster.team_option.push({ ...p, status: 'declined', capHold: hold });
+          if (STATE.renounced.has(p.name)) {
+            roster.team_option.push({ ...p, status: 'renounced', capHold: hold });
+          } else {
+            capHolds += hold;
+            roster.team_option.push({ ...p, status: 'declined', capHold: hold });
+          }
         } else {
           // Undecided - show as pending, count salary for now
           activeSalaries += p.sal27;
@@ -396,8 +395,12 @@ function calcCapSheet(team) {
           roster.player_option.push({ ...p, status: 'exercised' });
         } else if (optDecision === 'decline') {
           const hold = calcCapHold(p.sal26, p.exception);
-          capHolds += hold;
-          roster.player_option.push({ ...p, status: 'declined', capHold: hold });
+          if (STATE.renounced.has(p.name)) {
+            roster.player_option.push({ ...p, status: 'renounced', capHold: hold });
+          } else {
+            capHolds += hold;
+            roster.player_option.push({ ...p, status: 'declined', capHold: hold });
+          }
         } else {
           activeSalaries += p.sal27;
           rosterCount++;
@@ -533,7 +536,7 @@ function renderRoster(cap) {
     h += `<div class="section-body">`;
 
     for (const p of players.sort((a, b) => (b.sal27 || b.capHold || b.sal26 || 0) - (a.sal27 || a.capHold || a.sal26 || 0))) {
-      const acted = p.status === 'waived' || p.status === 'renounced' || p.status === 'declined';
+      const acted = p.status === 'waived' || p.status === 'renounced';
       h += `<div class="player-row${acted ? ' acted' : ''}">`;
 
       // Headshot
@@ -557,6 +560,8 @@ function renderRoster(cap) {
         }
       } else if (p.status === 'declined') {
         h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27)}</div><div class="ch">declined → ${fmtMoney(p.capHold)} hold</div></div>`;
+      } else if (p.status === 'renounced' && (sec.key === 'team_option' || sec.key === 'player_option')) {
+        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">declined + renounced</div></div>`;
       } else if (p.status === 'waived') {
         const dead = p.category === 'partial_guaranteed' ? p.ch27 : 0;
         h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27)}</div><div class="ch">waived${dead ? ' · ' + fmtMoney(dead) + ' dead' : ''}</div></div>`;
@@ -574,9 +579,13 @@ function renderRoster(cap) {
       if (sec.key === 'team_option' && p.status === 'pending') {
         h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
         h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
+      } else if (sec.key === 'team_option' && p.status === 'declined' && !STATE.renounced.has(p.name)) {
+        h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
       } else if (sec.key === 'player_option' && p.status === 'pending') {
         h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','exercise')">Exercise</button>`;
         h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
+      } else if (sec.key === 'player_option' && p.status === 'declined' && !STATE.renounced.has(p.name)) {
+        h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
       } else if (sec.key === 'free_agent' && p.status === 'held') {
         h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
       } else if ((sec.key === 'non_guaranteed' || sec.key === 'partial_guaranteed') && p.status === 'active') {
