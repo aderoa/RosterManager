@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roster Manager – HoopsMatic</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--surface:#111827;--card:#1a2236;--border:#1e2d4a;
+  --text:#e2e8f0;--muted:#64748b;--accent:#667eea;--accent2:#764ba2;
+  --green:#4caf50;--red:#ef5350;--orange:#ff9800;--yellow:#ffd600;--cyan:#26c6da;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+
+/* Header */
+.header{background:linear-gradient(135deg,var(--accent),var(--accent2));padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100}
+.header h1{font-size:1.2rem;font-weight:700;letter-spacing:.5px}
+.header .subtitle{font-size:.75rem;opacity:.8}
+.header .season-badge{margin-left:auto;background:rgba(0,0,0,.25);padding:.3rem .8rem;border-radius:20px;font-size:.8rem;font-weight:600}
+
+/* Team Selector */
+.team-select-wrap{padding:1rem;background:var(--surface);border-bottom:1px solid var(--border)}
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;max-width:1400px;margin:0 auto}
+.team-btn{background:var(--card);border:2px solid transparent;border-radius:8px;padding:.5rem;cursor:pointer;text-align:center;transition:all .15s}
+.team-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+.team-btn.active{border-color:var(--accent);background:rgba(102,126,234,.15)}
+.team-btn img{width:40px;height:40px;object-fit:contain}
+.team-btn .tn{font-size:.6rem;color:var(--muted);margin-top:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Main Layout */
+.main{display:grid;grid-template-columns:1fr 340px;gap:1rem;padding:1rem;max-width:1400px;margin:0 auto}
+@media(max-width:900px){.main{grid-template-columns:1fr}}
+
+/* Roster Panel */
+.roster-panel{display:flex;flex-direction:column;gap:.75rem}
+.section{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.section-hdr{padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
+.section-hdr .dot{width:10px;height:10px;border-radius:50%}
+.section-hdr h3{font-size:.8rem;font-weight:600;flex:1}
+.section-hdr .badge{font-size:.65rem;padding:.15rem .5rem;border-radius:10px;font-weight:600}
+.section-body{padding:.5rem}
+
+/* Player Row */
+.player-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:6px;transition:background .1s}
+.player-row:hover{background:rgba(255,255,255,.03)}
+.player-row .hs{width:36px;height:28px;border-radius:4px;object-fit:cover;background:var(--surface)}
+.player-row .hs-ini{width:36px;height:28px;border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.55rem;color:var(--muted)}
+.player-row .info{flex:1;min-width:0}
+.player-row .pname{font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-row .pdet{font-size:.6rem;color:var(--muted)}
+.player-row .sal{font-size:.78rem;font-weight:600;text-align:right;min-width:70px}
+.player-row .sal.g{color:var(--green)}.player-row .sal.ng{color:var(--red)}.player-row .sal.to{color:var(--orange)}.player-row .sal.po{color:var(--cyan)}.player-row .sal.pg{color:var(--yellow)}
+.player-row .ch{font-size:.6rem;color:var(--muted);text-align:right}
+.player-row .action-btn{
+  font-size:.6rem;padding:.2rem .5rem;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s
+}
+.player-row .action-btn:hover{border-color:var(--accent);color:var(--accent)}
+.player-row .action-btn.pickup{border-color:var(--green);color:var(--green)}
+.player-row .action-btn.pickup:hover{background:rgba(76,175,80,.15)}
+.player-row .action-btn.decline{border-color:var(--red);color:var(--red)}
+.player-row .action-btn.decline:hover{background:rgba(239,83,80,.15)}
+.player-row .action-btn.renounce{border-color:var(--orange);color:var(--orange)}
+.player-row .action-btn.renounce:hover{background:rgba(255,152,0,.15)}
+.player-row .action-btn.waive{border-color:var(--red);color:var(--red)}
+.player-row .action-btn.waive:hover{background:rgba(239,83,80,.15)}
+.player-row .action-btn.done{opacity:.5;pointer-events:none}
+.player-row.acted{opacity:.45}
+
+/* Cap Panel */
+.cap-panel{position:sticky;top:60px;display:flex;flex-direction:column;gap:.75rem;align-self:start}
+.cap-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem}
+.cap-card h3{font-size:.8rem;font-weight:700;margin-bottom:.75rem;color:var(--accent)}
+.cap-row{display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.75rem}
+.cap-row:last-child{border-bottom:none}
+.cap-row .label{color:var(--muted)}
+.cap-row .value{font-weight:600}
+.cap-row .value.pos{color:var(--green)}.cap-row .value.neg{color:var(--red)}
+.cap-bar{height:8px;border-radius:4px;background:var(--surface);margin:.5rem 0;overflow:hidden;position:relative}
+.cap-bar-fill{height:100%;border-radius:4px;transition:width .3s}
+.cap-bar-marker{position:absolute;top:-2px;height:12px;width:2px;border-radius:1px}
+
+/* Exception chips */
+.exc-list{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
+.exc-chip{font-size:.65rem;padding:.2rem .5rem;border-radius:4px;background:var(--surface);border:1px solid var(--border)}
+.exc-chip.available{border-color:var(--green);color:var(--green)}
+.exc-chip.unavailable{border-color:var(--border);color:var(--muted);opacity:.5}
+
+/* Move log */
+.move-log{max-height:200px;overflow-y:auto}
+.move-entry{font-size:.68rem;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04);color:var(--muted)}
+.move-entry .action{color:var(--accent)}
+
+/* Controls */
+.controls{display:flex;gap:.5rem;margin-top:.5rem}
+.ctrl-btn{font-size:.7rem;padding:.35rem .75rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;transition:all .15s}
+.ctrl-btn:hover{border-color:var(--accent);color:var(--accent)}
+.ctrl-btn.reset{border-color:var(--red);color:var(--red)}
+.ctrl-btn.reset:hover{background:rgba(239,83,80,.15)}
+
+/* Loading */
+.loading{text-align:center;padding:3rem;color:var(--muted)}
+.loading .spin{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Empty state */
+.empty{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🏀 ROSTER MANAGER</h1>
+    <div class="subtitle">HoopsMatic GM Simulator</div>
+  </div>
+  <div class="season-badge">2026-27 OFFSEASON</div>
+</div>
+
+<div class="team-select-wrap" id="teamSelectWrap">
+  <div class="team-grid" id="teamGrid"></div>
+</div>
+
+<div id="appContent" style="display:none">
+  <div class="main">
+    <div class="roster-panel" id="rosterPanel"></div>
+    <div class="cap-panel" id="capPanel"></div>
+  </div>
+</div>
+
+<div id="loadingState" class="loading" style="display:none">
+  <div class="spin"></div>
+  <p style="margin-top:.5rem;font-size:.8rem">Loading roster data...</p>
+</div>
+
+<script>
+// ======================== CONSTANTS ========================
+const SEASON = '2026-27';
+const THRESHOLDS = {
+  '2025-2026': {cap:154647000,tax:187895000,apron1:195945000,apron2:207824000,bae:5134000,ntmle:14104000,tmle:5685000,rmle:8781000},
+  '2026-2027': {cap:166000000,tax:201690000,apron1:210690000,apron2:223690000,bae:5511000,ntmle:15139000,tmle:6102000,rmle:9425000},
+  '2027-2028': {cap:174300000,tax:211775000,apron1:220812000,apron2:234200000,bae:5787000,ntmle:15896000,tmle:6407000,rmle:9897000},
+};
+const T = THRESHOLDS['2026-2027'];
+const MIN_SALARY_0YOS = 1272870; // approximate 2026-27 minimum for 0 YOS
+const MIN_SALARY_CAP_HOLD = Math.round(MIN_SALARY_0YOS * 1.5); // ~$1.9M
+const EST_AVG_SALARY = 13200000; // approximate
+
+const SSID = '11llk0icQqoi0JwJXat5KO8y2RQeBMN5rS9FhAY56Idc';
+const TEAMS = {
+  'Atlanta':'ATL','Boston':'BOS','Brooklyn':'BKN','Charlotte':'CHA','Chicago':'CHI',
+  'Cleveland':'CLE','Dallas':'DAL','Denver':'DEN','Detroit':'DET','Golden State':'GSW',
+  'Houston':'HOU','Indiana':'IND','LA Clippers':'LAC','LA Lakers':'LAL','Memphis':'MEM',
+  'Miami':'MIA','Milwaukee':'MIL','Minnesota':'MIN','New Orleans':'NOP','New York':'NYK',
+  'Oklahoma City':'OKC','Orlando':'ORL','Philadelphia':'PHI','Phoenix':'PHX','Portland':'POR',
+  'Sacramento':'SAC','San Antonio':'SAS','Toronto':'TOR','Utah':'UTA','Washington':'WAS'
+};
+
+// ======================== STATE ========================
+let allPlayers = []; // raw parsed data
+let teamLogos = {}; // team -> logo URL
+let STATE = null; // current GM state: { team, roster, moves, options }
+
+function defaultState(team) {
+  return { team, moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set() };
+}
+
+function saveState() {
+  if (!STATE) return;
+  const s = {
+    ...STATE,
+    renounced: [...STATE.renounced],
+    waived: [...STATE.waived]
+  };
+  localStorage.setItem('rm_state_' + STATE.team, JSON.stringify(s));
+}
+
+function loadState(team) {
+  const raw = localStorage.getItem('rm_state_' + team);
+  if (raw) {
+    try {
+      const s = JSON.parse(raw);
+      s.renounced = new Set(s.renounced || []);
+      s.waived = new Set(s.waived || []);
+      return s;
+    } catch(e) {}
+  }
+  return defaultState(team);
+}
+
+// ======================== DATA LOADING ========================
+function parseMoney(s) {
+  if (!s) return 0;
+  const neg = s.includes('-');
+  const num = parseInt(s.replace(/[$,\s()-]/g, '')) || 0;
+  return neg ? -num : num;
+}
+
+function fmtMoney(n) {
+  if (n === 0) return '$0';
+  const abs = Math.abs(n);
+  const s = abs >= 1e6 ? '$' + (abs / 1e6).toFixed(1) + 'M' : abs >= 1e3 ? '$' + (abs / 1e3).toFixed(0) + 'K' : '$' + abs;
+  return n < 0 ? '-' + s : s;
+}
+
+function fmtMoneyFull(n) {
+  if (n === 0) return '$0';
+  const abs = Math.abs(n);
+  const s = '$' + abs.toLocaleString('en-US');
+  return n < 0 ? '-' + s : s;
+}
+
+async function fetchData() {
+  const gid = '0';
+  const urls = [
+    `https://docs.google.com/spreadsheets/d/${SSID}/gviz/tq?tqx=out:csv&gid=${gid}`,
+    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${gid}`
+  ];
+  for (const url of urls) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const txt = await r.text();
+      if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
+      return txt;
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
+function parseCSV(text) {
+  const rows = []; let row = []; let cell = ''; let inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"' && text[i+1] === '"') { cell += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cell += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i+1] === '\n') i++;
+        row.push(cell); cell = '';
+        if (row.some(c => c.trim())) rows.push(row);
+        row = [];
+      } else cell += c;
+    }
+  }
+  if (cell || row.length) { row.push(cell); if (row.some(c => c.trim())) rows.push(row); }
+  return rows;
+}
+
+function parseAllPlayers(csv) {
+  const rows = parseCSV(csv);
+  const players = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const name = (r[0] || '').trim();
+    const team = (r[2] || '').trim();
+    if (!name || !team || !TEAMS[team]) continue;
+
+    const sal26 = parseMoney(r[3]);
+    const ch26 = parseMoney(r[4]);
+    const st26 = (r[5] || '').trim();
+    const sal27 = parseMoney(r[6]);
+    const ch27 = parseMoney(r[7]);
+    const st27 = (r[8] || '').trim();
+    const exception = (r[20] || '').trim();
+    const logo = (r[24] || '').trim();
+    const headshot = (r[25] || '').trim();
+    const pos = (r[26] || '').trim();
+    const age = (r[27] || '').trim();
+    const end = parseInt((r[29] || '').trim()) || 0;
+    const totalGuar = parseMoney(r[30]);
+    const tradeKicker = parseFloat((r[31] || '').trim()) || 0;
+
+    if (logo && team) teamLogos[team] = logo;
+
+    // Determine player category for 2026-27 offseason
+    let category, capHold = 0;
+    if (st26 === 'TWO-WAY' || st27 === 'TWO-WAY') {
+      category = 'twoway';
+    } else if (!sal27 && !st27) {
+      // No 2026-27 salary = expiring, becomes free agent
+      category = 'free_agent';
+      capHold = calcCapHold(sal26, exception);
+    } else if (st27 === 'TEAM OPT') {
+      category = 'team_option';
+    } else if (st27 === 'PLAYER OPT') {
+      category = 'player_option';
+    } else if (st27 === 'NOT G') {
+      category = 'non_guaranteed';
+    } else if (st27 === 'PARTIAL G') {
+      category = 'partial_guaranteed';
+    } else {
+      category = 'under_contract'; // GUARANTEED
+    }
+
+    players.push({
+      name, team, sal26, ch26, st26, sal27, ch27, st27,
+      exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
+      category, capHold
+    });
+  }
+  return players;
+}
+
+function calcCapHold(priorSalary, exception) {
+  if (!priorSalary) return MIN_SALARY_CAP_HOLD;
+  const exc = exception.toLowerCase();
+  if (exc.includes('bird') && !exc.includes('early') && !exc.includes('non')) {
+    // Full Bird: 190% of prior salary (if under avg), 250% if over
+    return Math.round(priorSalary * (priorSalary > EST_AVG_SALARY ? 2.50 : 1.90));
+  }
+  if (exc.includes('early bird')) {
+    return Math.max(Math.round(priorSalary * 1.90), Math.round(EST_AVG_SALARY * 1.30));
+  }
+  if (exc.includes('non-bird') || exc.includes('non bird')) {
+    return Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
+  }
+  if (exc.includes('minimum')) {
+    return MIN_SALARY_CAP_HOLD;
+  }
+  if (exc.includes('mid-level') || exc.includes('taxpayer') || exc.includes('room')) {
+    return Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
+  }
+  if (exc.includes('rookie')) {
+    // Rookie scale - treated as Bird if qualifying
+    return Math.round(priorSalary * 1.90);
+  }
+  // Default
+  return Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
+}
+
+// ======================== CAP ENGINE ========================
+function calcCapSheet(team) {
+  const players = allPlayers.filter(p => p.team === team);
+  let activeSalaries = 0, capHolds = 0, deadMoney = 0;
+  let rosterCount = 0, twowayCount = 0;
+
+  const roster = { under_contract: [], team_option: [], player_option: [], non_guaranteed: [], partial_guaranteed: [], free_agent: [], twoway: [] };
+
+  for (const p of players) {
+    const waived = STATE.waived.has(p.name);
+    const renounced = STATE.renounced.has(p.name);
+    const optDecision = STATE.optionDecisions[p.name]; // 'pickup' or 'decline'
+
+    if (waived) {
+      // Waived: guaranteed portion becomes dead money
+      if (p.category === 'non_guaranteed') {
+        // No dead money for non-guaranteed
+      } else if (p.category === 'partial_guaranteed') {
+        deadMoney += p.ch27; // CH column = guaranteed portion
+      }
+      roster[p.category].push({ ...p, status: 'waived' });
+      continue;
+    }
+
+    if (renounced && p.category === 'free_agent') {
+      roster.free_agent.push({ ...p, status: 'renounced' });
+      continue; // No cap hold
+    }
+
+    switch (p.category) {
+      case 'under_contract':
+        activeSalaries += p.sal27;
+        rosterCount++;
+        roster.under_contract.push({ ...p, status: 'active' });
+        break;
+
+      case 'team_option':
+        if (optDecision === 'pickup') {
+          activeSalaries += p.sal27;
+          rosterCount++;
+          roster.team_option.push({ ...p, status: 'picked_up' });
+        } else if (optDecision === 'decline') {
+          // Becomes free agent with cap hold
+          const hold = calcCapHold(p.sal26, p.exception);
+          capHolds += hold;
+          roster.team_option.push({ ...p, status: 'declined', capHold: hold });
+        } else {
+          // Undecided - show as pending, count salary for now
+          activeSalaries += p.sal27;
+          rosterCount++;
+          roster.team_option.push({ ...p, status: 'pending' });
+        }
+        break;
+
+      case 'player_option':
+        if (optDecision === 'exercise') {
+          activeSalaries += p.sal27;
+          rosterCount++;
+          roster.player_option.push({ ...p, status: 'exercised' });
+        } else if (optDecision === 'decline') {
+          const hold = calcCapHold(p.sal26, p.exception);
+          capHolds += hold;
+          roster.player_option.push({ ...p, status: 'declined', capHold: hold });
+        } else {
+          activeSalaries += p.sal27;
+          rosterCount++;
+          roster.player_option.push({ ...p, status: 'pending' });
+        }
+        break;
+
+      case 'non_guaranteed':
+        activeSalaries += p.sal27;
+        rosterCount++;
+        roster.non_guaranteed.push({ ...p, status: 'active' });
+        break;
+
+      case 'partial_guaranteed':
+        activeSalaries += p.sal27;
+        rosterCount++;
+        roster.partial_guaranteed.push({ ...p, status: 'active' });
+        break;
+
+      case 'free_agent':
+        capHolds += p.capHold;
+        roster.free_agent.push({ ...p, status: 'held' });
+        break;
+
+      case 'twoway':
+        twowayCount++;
+        roster.twoway.push({ ...p, status: 'active' });
+        break;
+    }
+  }
+
+  // Incomplete roster charge: if < 12 standard contracts, add minimum cap hold per empty slot
+  const incompleteCharge = rosterCount < 12 ? (12 - rosterCount) * MIN_SALARY_CAP_HOLD : 0;
+
+  const teamSalary = activeSalaries + capHolds + deadMoney + incompleteCharge;
+  const capSpace = T.cap - teamSalary;
+  const taxRoom = T.tax - teamSalary;
+  const apron1Room = T.apron1 - teamSalary;
+  const apron2Room = T.apron2 - teamSalary;
+
+  // Available exceptions
+  const hasCapSpace = capSpace > 0;
+  const belowTax = taxRoom > 0;
+  const belowApron1 = apron1Room > 0;
+  const belowApron2 = apron2Room > 0;
+
+  const exceptions = [];
+  if (hasCapSpace) {
+    exceptions.push({ name: 'Cap Space', amount: capSpace, available: true });
+    exceptions.push({ name: 'Room MLE', amount: T.rmle, available: true });
+  } else {
+    exceptions.push({ name: 'Cap Space', amount: 0, available: false });
+  }
+  if (!hasCapSpace && belowApron1) {
+    exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: true });
+    exceptions.push({ name: 'BAE', amount: T.bae, available: true });
+  } else if (!hasCapSpace && !belowApron1 && belowApron2) {
+    exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: true });
+  } else if (!hasCapSpace) {
+    exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false });
+    exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: !hasCapSpace && !belowApron1 ? false : true });
+    exceptions.push({ name: 'BAE', amount: T.bae, available: false });
+  }
+  exceptions.push({ name: 'Minimum', amount: MIN_SALARY_0YOS, available: true });
+
+  return {
+    roster, activeSalaries, capHolds, deadMoney, incompleteCharge,
+    teamSalary, capSpace, taxRoom, apron1Room, apron2Room,
+    rosterCount, twowayCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2
+  };
+}
+
+// ======================== RENDERING ========================
+function renderTeamGrid() {
+  const grid = document.getElementById('teamGrid');
+  grid.innerHTML = '';
+  for (const [full, abbr] of Object.entries(TEAMS)) {
+    const btn = document.createElement('div');
+    btn.className = 'team-btn' + (STATE && STATE.team === full ? ' active' : '');
+    const logo = teamLogos[full] || '';
+    btn.innerHTML = `${logo ? `<img src="${logo}" alt="${abbr}">` : `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent)">${abbr}</div>`}<div class="tn">${full}</div>`;
+    btn.onclick = () => selectTeam(full);
+    grid.appendChild(btn);
+  }
+}
+
+function selectTeam(team) {
+  STATE = loadState(team);
+  renderTeamGrid();
+  document.getElementById('appContent').style.display = 'block';
+  render();
+}
+
+function render() {
+  if (!STATE) return;
+  const cap = calcCapSheet(STATE.team);
+  renderRoster(cap);
+  renderCapPanel(cap);
+}
+
+function renderRoster(cap) {
+  const panel = document.getElementById('rosterPanel');
+  let h = '';
+
+  const sections = [
+    { key: 'under_contract', label: 'Under Contract', color: '#4caf50', icon: '✅' },
+    { key: 'team_option', label: 'Team Options', color: '#ff9800', icon: '⚡' },
+    { key: 'player_option', label: 'Player Options', color: '#26c6da', icon: '🎯' },
+    { key: 'non_guaranteed', label: 'Non-Guaranteed', color: '#ef5350', icon: '⚠️' },
+    { key: 'partial_guaranteed', label: 'Partially Guaranteed', color: '#ffd600', icon: '🔶' },
+    { key: 'free_agent', label: 'Free Agents (Cap Holds)', color: '#667eea', icon: '🔓' },
+    { key: 'twoway', label: 'Two-Way', color: '#64748b', icon: '🔄' },
+  ];
+
+  for (const sec of sections) {
+    const players = cap.roster[sec.key];
+    if (!players.length) continue;
+
+    const totalSal = players.reduce((s, p) => {
+      if (p.status === 'waived' || p.status === 'renounced') return s;
+      if (sec.key === 'free_agent') return s + (p.capHold || 0);
+      if (p.status === 'declined') return s + (p.capHold || 0);
+      return s + (p.sal27 || 0);
+    }, 0);
+
+    h += `<div class="section">`;
+    h += `<div class="section-hdr" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">`;
+    h += `<div class="dot" style="background:${sec.color}"></div>`;
+    h += `<h3>${sec.icon} ${sec.label}</h3>`;
+    h += `<span class="badge" style="background:${sec.color}22;color:${sec.color}">${players.filter(p=>p.status!=='waived'&&p.status!=='renounced').length} players</span>`;
+    h += `<span style="font-size:.75rem;font-weight:600;color:${sec.color}">${fmtMoney(totalSal)}</span>`;
+    h += `</div>`;
+    h += `<div class="section-body">`;
+
+    for (const p of players.sort((a, b) => (b.sal27 || b.capHold || b.sal26 || 0) - (a.sal27 || a.capHold || a.sal26 || 0))) {
+      const acted = p.status === 'waived' || p.status === 'renounced' || p.status === 'declined';
+      h += `<div class="player-row${acted ? ' acted' : ''}">`;
+
+      // Headshot
+      if (p.headshot) {
+        h += `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">`;
+      } else {
+        h += `<div class="hs-ini">${p.name.split(' ').map(w => w[0]).join('')}</div>`;
+      }
+
+      // Info
+      h += `<div class="info"><div class="pname">${p.name}</div>`;
+      h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}${p.end ? ' · thru ' + p.end : ''}${p.tradeKicker ? ' · TK ' + p.tradeKicker + '%' : ''}</div>`;
+      h += `</div>`;
+
+      // Salary display
+      if (sec.key === 'free_agent') {
+        if (p.status === 'renounced') {
+          h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
+        } else {
+          h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
+        }
+      } else if (p.status === 'declined') {
+        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27)}</div><div class="ch">declined → ${fmtMoney(p.capHold)} hold</div></div>`;
+      } else if (p.status === 'waived') {
+        const dead = p.category === 'partial_guaranteed' ? p.ch27 : 0;
+        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27)}</div><div class="ch">waived${dead ? ' · ' + fmtMoney(dead) + ' dead' : ''}</div></div>`;
+      } else {
+        const cls = { 'GUARANTEED': 'g', 'NOT G': 'ng', 'TEAM OPT': 'to', 'PLAYER OPT': 'po', 'PARTIAL G': 'pg' }[p.st27] || 'g';
+        h += `<div><div class="sal ${cls}">${fmtMoney(p.sal27)}</div>`;
+        if (p.ch27 && p.ch27 !== p.sal27 && (p.st27 === 'PARTIAL G' || p.st27 === 'NOT G')) {
+          h += `<div class="ch">G: ${fmtMoney(p.ch27)}</div>`;
+        }
+        h += `</div>`;
+      }
+
+      // Action buttons
+      h += `<div style="display:flex;gap:.3rem">`;
+      if (sec.key === 'team_option' && p.status === 'pending') {
+        h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
+        h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
+      } else if (sec.key === 'player_option' && p.status === 'pending') {
+        h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','exercise')">Exercise</button>`;
+        h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
+      } else if (sec.key === 'free_agent' && p.status === 'held') {
+        h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
+      } else if ((sec.key === 'non_guaranteed' || sec.key === 'partial_guaranteed') && p.status === 'active') {
+        h += `<button class="action-btn waive" onclick="doWaive('${esc(p.name)}')">Waive</button>`;
+      }
+      h += `</div>`;
+
+      h += `</div>`; // player-row
+    }
+    h += `</div></div>`; // section-body, section
+  }
+
+  panel.innerHTML = h;
+}
+
+function renderCapPanel(cap) {
+  const panel = document.getElementById('capPanel');
+  let h = '';
+
+  // Team Salary breakdown
+  h += `<div class="cap-card">`;
+  h += `<h3>💰 Team Salary</h3>`;
+  h += capRow('Active Salaries', cap.activeSalaries);
+  h += capRow('Cap Holds', cap.capHolds);
+  h += capRow('Dead Money', cap.deadMoney);
+  if (cap.incompleteCharge) h += capRow('Incomplete Roster', cap.incompleteCharge, 'neg');
+  h += `<div class="cap-row" style="border-top:1px solid var(--border);margin-top:.3rem;padding-top:.5rem">`;
+  h += `<span class="label" style="font-weight:700;color:var(--text)">TEAM SALARY</span>`;
+  h += `<span class="value" style="font-size:.85rem">${fmtMoneyFull(cap.teamSalary)}</span>`;
+  h += `</div></div>`;
+
+  // Cap Space & Thresholds
+  h += `<div class="cap-card">`;
+  h += `<h3>📊 Cap Space & Thresholds</h3>`;
+  h += capRow('Salary Cap', T.cap);
+  h += capRowDelta('Cap Space', cap.capSpace);
+  h += `<div class="cap-bar"><div class="cap-bar-fill" style="width:${Math.min(100, cap.teamSalary / T.apron2 * 100)}%;background:${cap.teamSalary > T.apron2 ? 'var(--red)' : cap.teamSalary > T.apron1 ? 'var(--orange)' : cap.teamSalary > T.tax ? 'var(--yellow)' : 'var(--green)'}"></div></div>`;
+  h += capRow('Luxury Tax', T.tax);
+  h += capRowDelta('Tax Room', cap.taxRoom);
+  h += capRow('1st Apron', T.apron1);
+  h += capRowDelta('1st Apron Room', cap.apron1Room);
+  h += capRow('2nd Apron', T.apron2);
+  h += capRowDelta('2nd Apron Room', cap.apron2Room);
+  h += `</div>`;
+
+  // Roster count
+  h += `<div class="cap-card">`;
+  h += `<h3>👥 Roster</h3>`;
+  h += capRow('Standard Contracts', cap.rosterCount + '/15');
+  h += capRow('Two-Way Slots', cap.twowayCount + '/3');
+  if (cap.rosterCount < 14) {
+    h += `<div style="font-size:.65rem;color:var(--red);margin-top:.3rem">⚠️ Need at least 14 standard contracts by opening night</div>`;
+  }
+  h += `</div>`;
+
+  // Exceptions
+  h += `<div class="cap-card">`;
+  h += `<h3>🎫 Available Exceptions</h3>`;
+  h += `<div class="exc-list">`;
+  for (const exc of cap.exceptions) {
+    h += `<div class="exc-chip ${exc.available ? 'available' : 'unavailable'}">${exc.name}: ${fmtMoney(exc.amount)}</div>`;
+  }
+  h += `</div></div>`;
+
+  // Move log
+  h += `<div class="cap-card">`;
+  h += `<h3>📝 Move Log</h3>`;
+  if (STATE.moves.length) {
+    h += `<div class="move-log">`;
+    for (const m of [...STATE.moves].reverse()) {
+      h += `<div class="move-entry"><span class="action">${m.action}</span> ${m.detail}</div>`;
+    }
+    h += `</div>`;
+  } else {
+    h += `<div style="font-size:.7rem;color:var(--muted)">No moves yet. Use the roster panel to make decisions.</div>`;
+  }
+  h += `<div class="controls">`;
+  h += `<button class="ctrl-btn" onclick="undoLast()">↩ Undo</button>`;
+  h += `<button class="ctrl-btn reset" onclick="resetTeam()">🗑 Reset All</button>`;
+  h += `</div></div>`;
+
+  panel.innerHTML = h;
+}
+
+function capRow(label, value, cls) {
+  const display = typeof value === 'number' ? fmtMoneyFull(value) : value;
+  return `<div class="cap-row"><span class="label">${label}</span><span class="value ${cls || ''}">${display}</span></div>`;
+}
+
+function capRowDelta(label, value) {
+  const cls = value >= 0 ? 'pos' : 'neg';
+  return `<div class="cap-row"><span class="label">${label}</span><span class="value ${cls}">${fmtMoneyFull(value)}</span></div>`;
+}
+
+function shortExc(e) {
+  return { 'Bird Exception': 'Bird', 'Early Bird Exception': 'Early Bird', 'Non-Bird Exception': 'Non-Bird',
+    'Mid-Level Exception': 'MLE', 'Taxpayer Mid-Level Exception': 'Tax MLE', 'Room Mid-Level Exception': 'Room MLE',
+    'Biannual Exception': 'BAE', 'Minimum Salary Exception': 'Min', 'Rookie Exception': 'Rookie',
+    'Second Round Exception': '2nd Rnd' }[e] || e || '';
+}
+
+function esc(s) { return s.replace(/'/g, "\\'"); }
+
+// ======================== ACTIONS ========================
+function doOption(name, decision) {
+  STATE.optionDecisions[name] = decision;
+  const label = decision === 'pickup' ? 'Picked up' : decision === 'exercise' ? 'Exercised' : 'Declined';
+  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
+  STATE.moves.push({ action: label, detail: `${name}'s option (${fmtMoney(p?.sal27 || 0)})`, undo: { type: 'option', name } });
+  saveState();
+  render();
+}
+
+function doRenounce(name) {
+  STATE.renounced.add(name);
+  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
+  STATE.moves.push({ action: 'Renounced', detail: `${name} (freed ${fmtMoney(p?.capHold || 0)} cap hold)`, undo: { type: 'renounce', name } });
+  saveState();
+  render();
+}
+
+function doWaive(name) {
+  STATE.waived.add(name);
+  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
+  const dead = p?.category === 'partial_guaranteed' ? p.ch27 : 0;
+  STATE.moves.push({ action: 'Waived', detail: `${name} (${fmtMoney(p?.sal27 || 0)}${dead ? ', ' + fmtMoney(dead) + ' dead cap' : ''})`, undo: { type: 'waive', name } });
+  saveState();
+  render();
+}
+
+function undoLast() {
+  if (!STATE.moves.length) return;
+  const last = STATE.moves.pop();
+  if (last.undo) {
+    if (last.undo.type === 'option') delete STATE.optionDecisions[last.undo.name];
+    if (last.undo.type === 'renounce') STATE.renounced.delete(last.undo.name);
+    if (last.undo.type === 'waive') STATE.waived.delete(last.undo.name);
+  }
+  saveState();
+  render();
+}
+
+function resetTeam() {
+  if (!confirm(`Reset all moves for ${STATE.team}?`)) return;
+  localStorage.removeItem('rm_state_' + STATE.team);
+  STATE = defaultState(STATE.team);
+  render();
+}
+
+// ======================== INIT ========================
+async function init() {
+  document.getElementById('loadingState').style.display = 'block';
+  renderTeamGrid();
+
+  const csv = await fetchData();
+  if (!csv) {
+    document.getElementById('loadingState').innerHTML = '<p style="color:var(--red)">Failed to load data. Try refreshing.</p>';
+    return;
+  }
+
+  allPlayers = parseAllPlayers(csv);
+  document.getElementById('loadingState').style.display = 'none';
+  renderTeamGrid(); // re-render with logos
+
+  // Check if team was previously selected
+  const lastTeam = localStorage.getItem('rm_last_team');
+  if (lastTeam && TEAMS[lastTeam]) selectTeam(lastTeam);
+}
+
+// Override selectTeam to also save last team
+const _selectTeam = selectTeam;
+selectTeam = function(team) {
+  localStorage.setItem('rm_last_team', team);
+  _selectTeam(team);
+};
+
+init();
+</script>
+</body>
+</html>
