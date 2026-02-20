@@ -255,18 +255,6 @@ a{color:var(--accent);text-decoration:none}
   </div>
 </div>
 
-<!-- Trade Modal -->
-<div id="tradeOverlay" class="trade-overlay" style="display:none" onclick="if(event.target===this)closeTradeModal()">
-  <div class="trade-modal">
-    <div class="trade-modal-hdr">
-      <span style="font-size:1.1rem">🔄</span>
-      <h3 id="tradeModalTitle">Trade</h3>
-      <button class="close-btn" onclick="closeTradeModal()">✕</button>
-    </div>
-    <div class="trade-modal-body" id="tradeModalBody"></div>
-  </div>
-</div>
-
 <!-- Signing Modal -->
 <div id="signOverlay" class="sign-overlay" style="display:none" onclick="if(event.target===this)closeSignModal()">
   <div class="sign-modal">
@@ -1236,138 +1224,59 @@ function resetTeam() {
 let _tradeContext = null; // { playerName } or null for team-level
 
 function openTradeModal(playerName) {
-  _tradeContext = playerName ? { playerName } : null;
   const abbrev = TEAMS[STATE.team];
-  const modal = document.getElementById('tradeModalBody');
-  document.getElementById('tradeModalTitle').textContent = playerName ? `Trade ${playerName}` : `${STATE.team} Trades`;
-
-  let h = '';
-
-  // Link to Trade Machine (compact URL format: ?t=TEAM1,TEAM2&p=playerId&pd=0-)
-  h += `<div class="trade-link-row">`;
+  
+  // Build Trade Machine URL with RM mode flag
+  let tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev}`;
+  
   if (playerName) {
+    // Find player ID from headshot URL for precise matching
     const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
     const playerId = p?.headshot ? (p.headshot.match(/\/(\d+)\.png/)?.[1] || '') : '';
     const pParam = playerId || playerName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const tmUrl = `${TRADE_MACHINE_URL}/?t=${abbrev}&p=${encodeURIComponent(pParam)}&pd=0-`;
-    h += `<button class="trade-link-btn" onclick="window.open('${tmUrl}','_blank')">🔗 Open in Trade Machine with ${playerName}</button>`;
+    tmUrl += `&p=${encodeURIComponent(pParam)}&pd=0-`;
+  }
+  
+  // Open Trade Machine in popup (desktop) or new tab (mobile)
+  const isMobile = window.innerWidth < 768;
+  if (isMobile) {
+    window.open(tmUrl, '_blank');
   } else {
-    const tmUrl = `${TRADE_MACHINE_URL}/?t=${abbrev}`;
-    h += `<button class="trade-link-btn" onclick="window.open('${tmUrl}','_blank')">🔗 Open Trade Machine for ${STATE.team}</button>`;
-  }
-  h += `</div>`;
-
-  h += `<div style="font-size:.7rem;color:var(--muted);margin-bottom:.8rem;padding:.5rem;background:var(--surface);border-radius:6px">`;
-  h += `Complete a trade in the Trade Machine, then record the results below to update your cap sheet.`;
-  h += `</div>`;
-
-  // Record a trade
-  h += `<div class="trade-record-section">`;
-  h += `<h4>📤 Players Sent Out</h4>`;
-  h += `<div id="tradeOutList"></div>`;
-  h += `<div class="trade-input-row">`;
-  h += `<select id="tradeOutSelect" class="trade-input">`;
-  // Populate with current roster
-  const teamPlayers = allPlayers.filter(p => p.team === STATE.team && !STATE.waived.has(p.name));
-  const tradedOut = new Set((STATE.trades || []).flatMap(t => (t.out || []).map(p => p.name)));
-  for (const p of teamPlayers.filter(p => p.sal27 > 0 && !tradedOut.has(p.name)).sort((a,b) => b.sal27 - a.sal27)) {
-    h += `<option value="${esc(p.name)}" data-sal="${p.sal27}">${p.name} (${fmtMoney(p.sal27)})</option>`;
-  }
-  h += `</select>`;
-  h += `<button class="trade-add-btn" onclick="addTradeOut()">+ Add</button>`;
-  h += `</div>`;
-
-  h += `<h4 style="margin-top:.75rem">📥 Players Received</h4>`;
-  h += `<div id="tradeInList"></div>`;
-  h += `<div class="trade-input-row">`;
-  h += `<input id="tradeInName" class="trade-input" placeholder="Player name" style="flex:2">`;
-  h += `<input id="tradeInSalary" class="trade-input" placeholder="Salary (e.g. 15000000)" style="flex:1" type="number">`;
-  h += `<input id="tradeInTeam" class="trade-input" placeholder="From (e.g. LAL)" style="flex:.7" maxlength="3">`;
-  h += `<button class="trade-add-btn" onclick="addTradeIn()">+ Add</button>`;
-  h += `</div>`;
-
-  h += `<button class="trade-confirm-btn" id="tradeConfirmBtn" onclick="confirmTrade()" disabled>✅ Record Trade</button>`;
-  h += `</div>`;
-
-  // Cancel
-  h += `<button class="waive-cancel" onclick="closeTradeModal()">Cancel</button>`;
-
-  modal.innerHTML = h;
-  document.getElementById('tradeOverlay').style.display = 'flex';
-
-  // Init temp trade state
-  window._tempTradeOut = [];
-  window._tempTradeIn = [];
-  if (playerName) {
-    const p = teamPlayers.find(p => p.name === playerName);
-    if (p) {
-      window._tempTradeOut.push({ name: p.name, salary: p.sal27, pos: p.pos, headshot: p.headshot });
-      updateTradePreview();
-    }
+    const w = Math.min(1400, screen.width - 100);
+    const h = Math.min(900, screen.height - 100);
+    const left = (screen.width - w) / 2;
+    const top = (screen.height - h) / 2;
+    window.open(tmUrl, 'TradeMachine', `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`);
   }
 }
 
 function closeTradeModal() {
-  document.getElementById('tradeOverlay').style.display = 'none';
-  _tradeContext = null;
+  // No-op — popup closes itself
 }
 
-function addTradeOut() {
-  const sel = document.getElementById('tradeOutSelect');
-  const name = sel.value;
-  if (!name || window._tempTradeOut.find(p => p.name === name)) return;
-  const sal = parseInt(sel.options[sel.selectedIndex].dataset.sal) || 0;
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  window._tempTradeOut.push({ name, salary: sal, pos: p?.pos || '', headshot: p?.headshot || '' });
-  updateTradePreview();
-}
-
-function addTradeIn() {
-  const name = document.getElementById('tradeInName').value.trim();
-  const salary = parseInt(document.getElementById('tradeInSalary').value) || 0;
-  const fromTeam = document.getElementById('tradeInTeam').value.trim().toUpperCase();
-  if (!name || !salary) return;
-  window._tempTradeIn.push({ name, salary, fromTeam, pos: '', headshot: '' });
-  document.getElementById('tradeInName').value = '';
-  document.getElementById('tradeInSalary').value = '';
-  document.getElementById('tradeInTeam').value = '';
-  updateTradePreview();
-}
-
-function removeTradeOut(idx) { window._tempTradeOut.splice(idx, 1); updateTradePreview(); }
-function removeTradeIn(idx) { window._tempTradeIn.splice(idx, 1); updateTradePreview(); }
-
-function updateTradePreview() {
-  const outList = document.getElementById('tradeOutList');
-  const inList = document.getElementById('tradeInList');
-  let oh = '', ih = '';
-
-  for (let i = 0; i < window._tempTradeOut.length; i++) {
-    const p = window._tempTradeOut[i];
-    oh += `<span class="trade-player-tag">${p.name} (${fmtMoney(p.salary)}) <span class="remove" onclick="removeTradeOut(${i})">✕</span></span>`;
+// Listen for trade data from Trade Machine popup
+window.addEventListener('message', function(event) {
+  if (!event.data || event.data.type !== 'ROSTER_MANAGER_TRADE') return;
+  if (!STATE) return;
+  
+  const data = event.data;
+  const teamAbbrev = TEAMS[STATE.team];
+  
+  // Verify this trade is for the current team
+  if (data.team !== teamAbbrev) {
+    console.warn('[RM] Trade team mismatch:', data.team, 'vs', teamAbbrev);
+    return;
   }
-  for (let i = 0; i < window._tempTradeIn.length; i++) {
-    const p = window._tempTradeIn[i];
-    ih += `<span class="trade-player-tag">${p.name} (${fmtMoney(p.salary)})${p.fromTeam ? ' from ' + p.fromTeam : ''} <span class="remove" onclick="removeTradeIn(${i})">✕</span></span>`;
-  }
-
-  outList.innerHTML = oh || '<div style="font-size:.65rem;color:var(--muted);margin:.3rem 0">No players selected</div>';
-  inList.innerHTML = ih || '<div style="font-size:.65rem;color:var(--muted);margin:.3rem 0">No players added</div>';
-
-  const btn = document.getElementById('tradeConfirmBtn');
-  btn.disabled = !(window._tempTradeOut.length > 0 || window._tempTradeIn.length > 0);
-}
-
-function confirmTrade() {
-  if (!window._tempTradeOut.length && !window._tempTradeIn.length) return;
-
+  
+  // Record the trade
   const trade = {
-    out: [...window._tempTradeOut],
-    in: [...window._tempTradeIn],
-    timestamp: Date.now()
+    out: (data.out || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '' })),
+    in: (data.in || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '', fromTeam: p.fromTeam || '' })),
+    timestamp: data.timestamp || Date.now()
   };
+  
   STATE.trades.push(trade);
-
+  
   const outNames = trade.out.map(p => p.name).join(', ') || 'none';
   const inNames = trade.in.map(p => `${p.name}${p.fromTeam ? ' (' + p.fromTeam + ')' : ''}`).join(', ') || 'none';
   STATE.moves.push({
@@ -1375,10 +1284,12 @@ function confirmTrade() {
     detail: `Sent: ${outNames} → Received: ${inNames}`,
     undo: { type: 'trade' }
   });
+  
   saveState();
-  closeTradeModal();
   render();
-}
+  
+  console.log('[RM] Trade received from Trade Machine:', trade);
+});
 
 // ======================== FREE AGENCY SIGNING ========================
 function openSignModal(faName, isResign) {
