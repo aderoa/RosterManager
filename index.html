@@ -135,6 +135,37 @@ a{color:var(--accent);text-decoration:none}
 .coming-soon{font-size:.55rem;padding:.1rem .3rem;border-radius:3px;background:var(--surface);color:var(--muted);border:1px solid var(--border);margin-left:.3rem}
 .action-btn.trade{background:rgba(38,198,218,.12);color:var(--cyan);border-color:rgba(38,198,218,.3)}
 .action-btn.extend{background:rgba(102,126,234,.12);color:var(--accent);border-color:rgba(102,126,234,.3)}
+.ext-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:.5rem}
+.ext-modal{background:var(--card);border-radius:12px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.ext-modal-hdr{display:flex;align-items:center;gap:.5rem;padding:.75rem 1rem;border-bottom:1px solid var(--border)}
+.ext-modal-hdr h3{flex:1;font-size:.85rem;margin:0}
+.ext-modal-body{padding:1rem}
+.ext-player-info{display:flex;align-items:center;gap:.75rem;padding:.6rem;background:var(--surface);border-radius:8px;margin-bottom:.75rem}
+.ext-player-info img{width:48px;height:36px;object-fit:cover;border-radius:4px}
+.ext-player-info .name{font-weight:600;font-size:.8rem}
+.ext-player-info .meta{font-size:.65rem;color:var(--muted)}
+.ext-type-badge{display:inline-block;padding:.15rem .45rem;border-radius:4px;font-size:.6rem;font-weight:600;margin-left:.4rem}
+.ext-type-badge.rse{background:rgba(102,126,234,.15);color:#667eea}
+.ext-type-badge.vet{background:rgba(245,158,11,.15);color:#f59e0b}
+.ext-config{margin:.75rem 0}
+.ext-config label{display:block;font-size:.7rem;color:var(--muted);margin-bottom:.25rem}
+.ext-config .row{display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem}
+.ext-config input[type="range"]{flex:1;accent-color:var(--accent)}
+.ext-config input[type="number"]{width:120px;padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;font-size:.75rem}
+.ext-config select{padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;font-size:.75rem}
+.ext-config .sal-display{font-size:.8rem;font-weight:600;color:var(--accent);min-width:80px;text-align:right}
+.ext-breakdown{margin:.75rem 0}
+.ext-breakdown h4{font-size:.7rem;color:var(--muted);margin:0 0 .35rem}
+.ext-year-row{display:flex;justify-content:space-between;padding:.3rem .5rem;font-size:.7rem;border-radius:4px}
+.ext-year-row:nth-child(even){background:var(--surface)}
+.ext-year-row .yr{color:var(--muted);min-width:60px}
+.ext-year-row .sal{font-weight:600}
+.ext-total-row{display:flex;justify-content:space-between;padding:.4rem .5rem;font-size:.75rem;font-weight:700;border-top:1px solid var(--border);margin-top:.25rem}
+.ext-note{font-size:.6rem;color:var(--muted);padding:.4rem;background:var(--surface);border-radius:4px;margin:.5rem 0}
+.ext-confirm-btn{width:100%;padding:.6rem;background:var(--accent);color:white;border:none;border-radius:8px;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer;margin-top:.5rem}
+.ext-confirm-btn:hover{opacity:.9}
+.ext-confirm-btn:disabled{opacity:.4;cursor:not-allowed}
+.extended-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(102,126,234,.15);color:#667eea;font-weight:600;white-space:nowrap}
 
 /* Draft Picker Modal */
 .draft-picker-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
@@ -255,6 +286,18 @@ a{color:var(--accent);text-decoration:none}
   </div>
 </div>
 
+<!-- Extension Modal -->
+<div id="extOverlay" class="ext-overlay" style="display:none" onclick="if(event.target===this)closeExtModal()">
+  <div class="ext-modal">
+    <div class="ext-modal-hdr">
+      <span style="font-size:1.1rem">📝</span>
+      <h3 id="extModalTitle">Extend Player</h3>
+      <button class="close-btn" onclick="closeExtModal()">✕</button>
+    </div>
+    <div class="ext-modal-body" id="extModalBody"></div>
+  </div>
+</div>
+
 <!-- Signing Modal -->
 <div id="signOverlay" class="sign-overlay" style="display:none" onclick="if(event.target===this)closeSignModal()">
   <div class="sign-modal">
@@ -321,7 +364,7 @@ const PHASES = [
 const TRADE_MACHINE_URL = 'https://hoopsmatic.com';
 
 function defaultState(team) {
-  return { team, phase: 'pre_draft', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), draftSelections: {}, trades: [], signings: [] };
+  return { team, phase: 'pre_draft', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [] };
 }
 
 function saveState() {
@@ -346,6 +389,7 @@ function loadState(team) {
       s.draftSelections = s.draftSelections || {};
       s.trades = s.trades || [];
       s.signings = s.signings || [];
+      s.extensions = s.extensions || [];
       s.phase = s.phase || 'pre_draft';
       return s;
     } catch(e) {}
@@ -470,6 +514,9 @@ function parseCSV(text) {
 function parseAllPlayers(csv) {
   const rows = parseCSV(csv);
   const players = [];
+  // Header-based lookup for EXT_ELIGIBLE column
+  const headers = rows[0] || [];
+  const extColIdx = headers.findIndex(h => (h || '').trim().toUpperCase() === 'EXT_ELIGIBLE');
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
     const name = (r[0] || '').trim();
@@ -490,6 +537,7 @@ function parseAllPlayers(csv) {
     const end = parseInt((r[29] || '').trim()) || 0;
     const totalGuar = parseMoney(r[30]);
     const tradeKicker = parseFloat((r[31] || '').trim()) || 0;
+    const extEligible = extColIdx >= 0 ? (r[extColIdx] || '').trim() : '';
 
     if (logo && team) teamLogos[team] = logo;
 
@@ -516,7 +564,7 @@ function parseAllPlayers(csv) {
     players.push({
       name, team, sal26, ch26, st26, sal27, ch27, st27,
       exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
-      category, capHold
+      category, capHold, extEligible
     });
   }
   return players;
@@ -969,9 +1017,17 @@ function renderRoster(cap) {
       }
       // Extend button: available in pre_draft and pre_fa
       if (!acted && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed' && (phase === 'pre_draft' || phase === 'pre_fa')) {
-        if (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') {
-          h += `<button class="action-btn extend" onclick="alert('Extensions coming in v0.8!')">Extend</button>`;
+        if ((p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && p.extEligible) {
+          const alreadyExtended = (STATE.extensions || []).some(e => e.name === p.name);
+          if (!alreadyExtended) {
+            h += `<button class="action-btn extend" onclick="openExtModal('${esc(p.name)}')">Extend</button>`;
+          }
         }
+      }
+      // Extended badge
+      const extRecord = (STATE.extensions || []).find(e => e.name === p.name);
+      if (extRecord) {
+        h += `<span class="extended-badge">EXTENDED thru ${extRecord.endYear}</span>`;
       }
       // Traded-in badge
       if (p.status === 'traded_in') {
@@ -1208,6 +1264,9 @@ function undoLast() {
     if (last.undo.type === 'signing') {
       STATE.signings.pop();
     }
+    if (last.undo.type === 'extension') {
+      STATE.extensions.pop();
+    }
   }
   saveState();
   render();
@@ -1290,6 +1349,198 @@ window.addEventListener('message', function(event) {
   
   console.log('[RM] Trade received from Trade Machine:', trade);
 });
+
+// ======================== EXTENSION ENGINE ========================
+const EXT_CAP = 166000000; // 2026-27 projected salary cap
+const EXT_RAISE_PCT = 0.08; // 8% annual raises for extensions
+
+function parseExtCode(code) {
+  // Format: RSE:25:5 or VET:30:4
+  if (!code) return null;
+  const parts = code.split(':');
+  if (parts.length < 3) return null;
+  const type = parts[0].toUpperCase(); // RSE or VET
+  const maxPct = parseInt(parts[1]) || 25;
+  const maxYears = parseInt(parts[2]) || 4;
+  if (type !== 'RSE' && type !== 'VET') return null;
+  return { type, maxPct, maxYears };
+}
+
+function calcExtension(maxPct, years, customStartSalary) {
+  // Starting salary = cap × maxPct (or custom if user adjusts)
+  const maxStarting = Math.round(EXT_CAP * (maxPct / 100));
+  const startSalary = customStartSalary || maxStarting;
+  const breakdown = [];
+  let total = 0;
+  for (let y = 0; y < years; y++) {
+    // 8% raise each year from starting salary (not compounding from prior year in NBA extensions)
+    // Actually NBA extensions use 8% of year-1 salary as the raise amount each year
+    const raise = Math.round(startSalary * EXT_RAISE_PCT);
+    const sal = startSalary + (raise * y);
+    breakdown.push({ year: y + 1, salary: sal });
+    total += sal;
+  }
+  return { startSalary, maxStarting, breakdown, total };
+}
+
+function openExtModal(playerName) {
+  const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
+  if (!p || !p.extEligible) return;
+
+  const ext = parseExtCode(p.extEligible);
+  if (!ext) { alert('Invalid extension code: ' + p.extEligible); return; }
+
+  document.getElementById('extModalTitle').textContent = `Extend ${playerName}`;
+  const modal = document.getElementById('extModalBody');
+
+  const maxStarting = Math.round(EXT_CAP * (ext.maxPct / 100));
+  const initCalc = calcExtension(ext.maxPct, ext.maxYears);
+
+  // Determine extension start year
+  const extStartYear = p.end > 0 ? p.end + 1 : 2027;
+
+  let h = '';
+
+  // Player info
+  h += `<div class="ext-player-info">`;
+  if (p.headshot) h += `<img src="${p.headshot}" alt="">`;
+  h += `<div>`;
+  h += `<div class="name">${p.name}`;
+  h += `<span class="ext-type-badge ${ext.type.toLowerCase()}">${ext.type === 'RSE' ? 'Rookie Scale' : 'Veteran'}</span>`;
+  h += `</div>`;
+  h += `<div class="meta">${p.pos || ''} · ${p.age || ''} · Current: ${fmtMoney(p.sal27 || p.sal26)}/yr · Under contract thru ${p.end || '—'}</div>`;
+  h += `</div></div>`;
+
+  // Extension config
+  h += `<div class="ext-config">`;
+
+  // Max % info
+  h += `<div class="ext-note">📊 Max starting salary: <strong>${ext.maxPct}% of cap</strong> = <strong>${fmtMoneyFull(maxStarting)}</strong> · 8% annual raises · Up to ${ext.maxYears} years</div>`;
+
+  // Starting salary
+  h += `<label>Starting Salary (Year 1)</label>`;
+  h += `<div class="row">`;
+  h += `<input type="range" id="extSalRange" min="${Math.round(maxStarting * 0.3)}" max="${maxStarting}" step="100000" value="${maxStarting}" oninput="updateExtPreview()">`;
+  h += `<span class="sal-display" id="extSalDisplay">${fmtMoneyFull(maxStarting)}</span>`;
+  h += `</div>`;
+  h += `<div class="row">`;
+  h += `<input type="number" id="extSalInput" value="${maxStarting}" min="1000000" max="${maxStarting}" step="100000" style="flex:1" oninput="syncExtSlider()">`;
+  h += `</div>`;
+
+  // Years
+  h += `<label style="margin-top:.5rem">Extension Length</label>`;
+  h += `<div class="row">`;
+  h += `<select id="extYears" onchange="updateExtPreview()">`;
+  for (let y = 1; y <= ext.maxYears; y++) {
+    h += `<option value="${y}" ${y === ext.maxYears ? 'selected' : ''}>${y} year${y > 1 ? 's' : ''} (thru ${extStartYear + y - 1})</option>`;
+  }
+  h += `</select>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  // Breakdown placeholder
+  h += `<div class="ext-breakdown" id="extBreakdown"></div>`;
+
+  // Note about cap impact
+  if (extStartYear > 2027) {
+    h += `<div class="ext-note">ℹ️ Extension starts in ${extStartYear}-${String(extStartYear + 1).slice(2)}, after current contract. No impact on 2026-27 cap.</div>`;
+  } else {
+    h += `<div class="ext-note">⚡ Extension starts in 2026-27. First-year salary will apply to the cap sheet.</div>`;
+  }
+
+  // Confirm
+  h += `<button class="ext-confirm-btn" id="extConfirmBtn" onclick="confirmExtension()">✅ Confirm Extension</button>`;
+  h += `<button class="waive-cancel" onclick="closeExtModal()">Cancel</button>`;
+
+  modal.innerHTML = h;
+
+  // Store context
+  window._extContext = { playerName, ext, extStartYear, maxStarting };
+
+  document.getElementById('extOverlay').style.display = 'flex';
+
+  // Initial breakdown
+  updateExtPreview();
+}
+
+function closeExtModal() {
+  document.getElementById('extOverlay').style.display = 'none';
+  window._extContext = null;
+}
+
+function syncExtSlider() {
+  const val = parseInt(document.getElementById('extSalInput').value) || 0;
+  const ctx = window._extContext;
+  if (!ctx) return;
+  const clamped = Math.max(Math.round(ctx.maxStarting * 0.3), Math.min(val, ctx.maxStarting));
+  document.getElementById('extSalRange').value = clamped;
+  updateExtPreview();
+}
+
+function updateExtPreview() {
+  const ctx = window._extContext;
+  if (!ctx) return;
+
+  const startSalary = parseInt(document.getElementById('extSalRange').value) || ctx.maxStarting;
+  const years = parseInt(document.getElementById('extYears').value) || ctx.ext.maxYears;
+
+  // Sync input field
+  document.getElementById('extSalInput').value = startSalary;
+  document.getElementById('extSalDisplay').textContent = fmtMoneyFull(startSalary);
+
+  const calc = calcExtension(ctx.ext.maxPct, years, startSalary);
+
+  let h = `<h4>📋 Year-by-Year Breakdown</h4>`;
+  for (const yr of calc.breakdown) {
+    const season = (ctx.extStartYear + yr.year - 1);
+    const seasonLabel = `${season}-${String(season + 1).slice(2)}`;
+    h += `<div class="ext-year-row">`;
+    h += `<span class="yr">${seasonLabel}</span>`;
+    h += `<span class="sal">${fmtMoneyFull(yr.salary)}</span>`;
+    h += `</div>`;
+  }
+  h += `<div class="ext-total-row">`;
+  h += `<span>Total Value</span>`;
+  h += `<span>${fmtMoneyFull(calc.total)} / ${years}yr</span>`;
+  h += `</div>`;
+
+  document.getElementById('extBreakdown').innerHTML = h;
+}
+
+function confirmExtension() {
+  const ctx = window._extContext;
+  if (!ctx) return;
+
+  const startSalary = parseInt(document.getElementById('extSalRange').value) || ctx.maxStarting;
+  const years = parseInt(document.getElementById('extYears').value) || ctx.ext.maxYears;
+  const calc = calcExtension(ctx.ext.maxPct, years, startSalary);
+  const endYear = ctx.extStartYear + years - 1;
+
+  const extension = {
+    name: ctx.playerName,
+    type: ctx.ext.type,
+    maxPct: ctx.ext.maxPct,
+    startSalary,
+    years,
+    endYear,
+    extStartYear: ctx.extStartYear,
+    breakdown: calc.breakdown,
+    total: calc.total,
+    timestamp: Date.now()
+  };
+
+  STATE.extensions.push(extension);
+
+  STATE.moves.push({
+    action: 'Extended',
+    detail: `${ctx.playerName} — ${years}yr / ${fmtMoney(calc.total)} (${fmtMoney(startSalary)}/yr starting, thru ${endYear})`,
+    undo: { type: 'extension' }
+  });
+
+  saveState();
+  closeExtModal();
+  render();
+}
 
 // ======================== FREE AGENCY SIGNING ========================
 function openSignModal(faName, isResign) {
