@@ -1243,13 +1243,16 @@ function openTradeModal(playerName) {
 
   let h = '';
 
-  // Link to Trade Machine
+  // Link to Trade Machine (compact URL format: ?t=TEAM1,TEAM2&p=playerId&pd=0-)
   h += `<div class="trade-link-row">`;
   if (playerName) {
-    const tmUrl = `${TRADE_MACHINE_URL}/?t1=${abbrev}&p1_1=${encodeURIComponent(playerName)}`;
-    h += `<button class="trade-link-btn" onclick="window.open('${tmUrl}','_blank')">🔗 Open Trade Machine with ${playerName}</button>`;
+    const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
+    const playerId = p?.headshot ? (p.headshot.match(/\/(\d+)\.png/)?.[1] || '') : '';
+    const pParam = playerId || playerName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const tmUrl = `${TRADE_MACHINE_URL}/?t=${abbrev}&p=${encodeURIComponent(pParam)}&pd=0-`;
+    h += `<button class="trade-link-btn" onclick="window.open('${tmUrl}','_blank')">🔗 Open in Trade Machine with ${playerName}</button>`;
   } else {
-    const tmUrl = `${TRADE_MACHINE_URL}/?t1=${abbrev}`;
+    const tmUrl = `${TRADE_MACHINE_URL}/?t=${abbrev}`;
     h += `<button class="trade-link-btn" onclick="window.open('${tmUrl}','_blank')">🔗 Open Trade Machine for ${STATE.team}</button>`;
   }
   h += `</div>`;
