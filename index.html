@@ -108,6 +108,34 @@ a{color:var(--accent);text-decoration:none}
 /* Empty state */
 .empty{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem}
 
+/* Phase Stepper */
+.phase-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem;justify-content:center}
+.phase-step{display:flex;align-items:center;gap:.4rem;font-size:.7rem;font-weight:600;padding:.35rem .8rem;border-radius:20px;color:var(--muted);background:transparent;border:1px solid transparent;cursor:pointer;transition:all .15s}
+.phase-step.active{background:rgba(102,126,234,.15);color:var(--accent);border-color:var(--accent)}
+.phase-step.completed{color:var(--green);opacity:.8}
+.phase-step.locked{opacity:.4;cursor:not-allowed}
+.phase-arrow{color:var(--muted);font-size:.6rem;opacity:.5}
+.phase-advance{font-size:.65rem;padding:.3rem .7rem;border-radius:6px;border:1px solid var(--green);background:rgba(76,175,80,.1);color:var(--green);cursor:pointer;font-weight:600;margin-left:.5rem;transition:all .15s}
+.phase-advance:hover{background:rgba(76,175,80,.25)}
+
+/* Waive modal */
+.waive-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.waive-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:380px;max-width:90vw;padding:1.2rem}
+.waive-modal h3{font-size:.9rem;font-weight:700;margin-bottom:.8rem;color:var(--text)}
+.waive-modal .player-info{font-size:.75rem;color:var(--muted);margin-bottom:1rem;padding:.5rem;background:var(--surface);border-radius:6px}
+.waive-modal .player-info .name{color:var(--text);font-weight:600;font-size:.85rem}
+.waive-option{display:flex;flex-direction:column;gap:.3rem;padding:.7rem;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:.5rem;transition:all .15s}
+.waive-option:hover{border-color:var(--accent);background:rgba(102,126,234,.06)}
+.waive-option .opt-title{font-size:.75rem;font-weight:600;color:var(--text)}
+.waive-option .opt-desc{font-size:.65rem;color:var(--muted)}
+.waive-option .opt-amount{font-size:.8rem;font-weight:700;color:var(--red)}
+.waive-cancel{font-size:.7rem;padding:.35rem .75rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:.3rem;width:100%;text-align:center}
+
+/* Coming soon badge */
+.coming-soon{font-size:.55rem;padding:.1rem .3rem;border-radius:3px;background:var(--surface);color:var(--muted);border:1px solid var(--border);margin-left:.3rem}
+.action-btn.trade{background:rgba(38,198,218,.12);color:var(--cyan);border-color:rgba(38,198,218,.3)}
+.action-btn.extend{background:rgba(102,126,234,.12);color:var(--accent);border-color:rgba(102,126,234,.3)}
+
 /* Draft Picker Modal */
 .draft-picker-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
 .draft-picker{background:var(--card);border:1px solid var(--border);border-radius:12px;width:400px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
@@ -134,7 +162,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.5</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.6</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div class="season-badge">2026-27 OFFSEASON</div>
@@ -145,6 +173,7 @@ a{color:var(--accent);text-decoration:none}
 </div>
 
 <div id="appContent" style="display:none">
+  <div class="phase-bar" id="phaseBar"></div>
   <div class="main">
     <div class="roster-panel" id="rosterPanel"></div>
     <div class="cap-panel" id="capPanel"></div>
@@ -154,6 +183,11 @@ a{color:var(--accent);text-decoration:none}
 <div id="loadingState" class="loading" style="display:none">
   <div class="spin"></div>
   <p style="margin-top:.5rem;font-size:.8rem">Loading roster data...</p>
+</div>
+
+<!-- Waive Decision Modal -->
+<div id="waiveOverlay" class="waive-overlay" style="display:none" onclick="if(event.target===this)closeWaiveModal()">
+  <div class="waive-modal" id="waiveModal"></div>
 </div>
 
 <!-- Draft Picker Modal -->
@@ -213,8 +247,14 @@ let STATE = null; // current GM state: { team, roster, moves, options, draftSele
 const TEAMS_REV = {};
 for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
 
+const PHASES = [
+  { id: 'pre_draft', label: 'Pre-Draft', icon: '📋' },
+  { id: 'draft', label: 'Draft', icon: '🏀' },
+  { id: 'free_agency', label: 'Free Agency', icon: '✍️' }
+];
+
 function defaultState(team) {
-  return { team, moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), draftSelections: {} };
+  return { team, phase: 'pre_draft', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), draftSelections: {} };
 }
 
 function saveState() {
@@ -222,7 +262,8 @@ function saveState() {
   const s = {
     ...STATE,
     renounced: [...STATE.renounced],
-    waived: [...STATE.waived]
+    waived: [...STATE.waived],
+    stretched: [...STATE.stretched]
   };
   localStorage.setItem('rm_state_' + STATE.team, JSON.stringify(s));
 }
@@ -234,7 +275,9 @@ function loadState(team) {
       const s = JSON.parse(raw);
       s.renounced = new Set(s.renounced || []);
       s.waived = new Set(s.waived || []);
+      s.stretched = new Set(s.stretched || []);
       s.draftSelections = s.draftSelections || {};
+      s.phase = s.phase || 'pre_draft';
       return s;
     } catch(e) {}
   }
@@ -449,9 +492,21 @@ function calcCapSheet(team) {
     // === WAIVED ===
     if (waived) {
       let dead = 0;
-      if (p.category === 'partial_guaranteed') dead = p.ch27;
+      const isStretched = STATE.stretched.has(p.name);
+      const wasPickedUp = STATE.optionDecisions[p.name] === 'pickup' || STATE.optionDecisions[p.name] === 'exercise';
+      if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp) {
+        dead = p.sal27; // full guaranteed salary
+      } else if (p.category === 'partial_guaranteed') {
+        dead = p.ch27; // guaranteed portion
+      }
+      // Stretch provision: divide over (2*remaining_years + 1)
+      if (isStretched && dead > 0) {
+        const remainingYrs = Math.max(1, (p.end || 2027) - 2026);
+        const stretchPeriod = 2 * remainingYrs + 1;
+        dead = Math.round(dead / stretchPeriod);
+      }
       if (dead) deadMoney += dead;
-      roster.waived.push({ ...p, status: 'waived', deadAmount: dead });
+      roster.waived.push({ ...p, status: 'waived', deadAmount: dead, isStretched });
       continue;
     }
 
@@ -616,9 +671,26 @@ function selectTeam(team) {
 
 function render() {
   if (!STATE) return;
+  renderPhaseBar();
   const cap = calcCapSheet(STATE.team);
   renderRoster(cap);
   renderCapPanel(cap);
+}
+
+function renderPhaseBar() {
+  const bar = document.getElementById('phaseBar');
+  const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
+  let h = '';
+  PHASES.forEach((phase, i) => {
+    if (i > 0) h += `<span class="phase-arrow">▶</span>`;
+    const cls = i === currentIdx ? 'active' : i < currentIdx ? 'completed' : 'locked';
+    h += `<div class="phase-step ${cls}" onclick="${i <= currentIdx ? `setPhase('${phase.id}')` : ''}">${phase.icon} ${phase.label}</div>`;
+  });
+  if (currentIdx < PHASES.length - 1) {
+    const next = PHASES[currentIdx + 1];
+    h += `<button class="phase-advance" onclick="advancePhase()">Proceed to ${next.label} →</button>`;
+  }
+  bar.innerHTML = h;
 }
 
 function renderRoster(cap) {
@@ -672,8 +744,12 @@ function renderRoster(cap) {
         h += `</div>`;
         h += `<div><div class="sal" style="color:var(--orange)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
         h += `<div style="display:flex;gap:.3rem">`;
-        h += `<button class="action-btn draft-swap" onclick="openDraftPicker(${p.draftRnk})">🔄 Swap</button>`;
-        if (isSwapped) h += `<button class="action-btn decline" onclick="resetDraftPick(${p.draftRnk})">↩</button>`;
+        if (STATE.phase === 'draft' || STATE.phase === 'free_agency') {
+          h += `<button class="action-btn draft-swap" onclick="openDraftPicker(${p.draftRnk})">🔄 Swap</button>`;
+          if (isSwapped) h += `<button class="action-btn decline" onclick="resetDraftPick(${p.draftRnk})">↩</button>`;
+        } else {
+          h += `<span style="font-size:.6rem;color:var(--muted)">available in Draft phase</span>`;
+        }
         h += `</div>`;
         h += `</div>`;
         continue;
@@ -697,7 +773,7 @@ function renderRoster(cap) {
       // Salary display
       if (sec.key === 'waived') {
         h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27 || p.sal26)}</div>`;
-        h += `<div class="ch">${p.deadAmount ? fmtMoney(p.deadAmount) + ' dead cap' : 'no dead cap'}</div></div>`;
+        h += `<div class="ch">${p.deadAmount ? fmtMoney(p.deadAmount) + ' dead cap' + (p.isStretched ? ' (stretched)' : '') : 'no dead cap'}</div></div>`;
       } else if (sec.key === 'free_agent') {
         if (p.status === 'renounced') {
           h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
@@ -717,8 +793,9 @@ function renderRoster(cap) {
         h += `</div>`;
       }
 
-      // Action buttons
-      h += `<div style="display:flex;gap:.3rem">`;
+      // Action buttons (phase-aware)
+      const phase = STATE.phase;
+      h += `<div style="display:flex;gap:.3rem;flex-wrap:wrap">`;
       if (p.status === 'pending_to') {
         h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
         h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
@@ -727,8 +804,16 @@ function renderRoster(cap) {
         h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
       } else if (sec.key === 'free_agent' && p.status === 'held') {
         h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
-      } else if ((sec.key === 'non_guaranteed' || sec.key === 'partial_guaranteed') && p.status === 'active') {
-        h += `<button class="action-btn waive" onclick="doWaive('${esc(p.name)}')">Waive</button>`;
+      } else if (sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'twoway' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised')) {
+        // Waive available for all contracted players (guaranteed, non-g, partial, picked-up options)
+        h += `<button class="action-btn waive" onclick="openWaiveModal('${esc(p.name)}')">Waive</button>`;
+      }
+      // Trade & Extend placeholders (pre-draft phase, active players only)
+      if (phase === 'pre_draft' && !acted && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks') {
+        if (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') {
+          h += `<button class="action-btn trade" onclick="alert('Trade Machine integration coming soon!')">Trade</button>`;
+          h += `<button class="action-btn extend" onclick="alert('Extensions coming soon!')">Extend</button>`;
+        }
       }
       h += `</div>`;
 
@@ -847,13 +932,94 @@ function doRenounce(name) {
   render();
 }
 
-function doWaive(name) {
+function doWaive(name, stretch = false) {
   STATE.waived.add(name);
+  if (stretch) STATE.stretched.add(name);
   const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  const dead = p?.category === 'partial_guaranteed' ? p.ch27 : 0;
-  STATE.moves.push({ action: 'Waived', detail: `${name} (${fmtMoney(p?.sal27 || 0)}${dead ? ', ' + fmtMoney(dead) + ' dead cap' : ''})`, undo: { type: 'waive', name } });
+  let dead = 0;
+  if (p?.category === 'under_contract' || p?.st27 === 'GUARANTEED') dead = p.sal27;
+  else if (p?.category === 'partial_guaranteed') dead = p.ch27;
+  if (stretch && dead > 0) {
+    const rem = Math.max(1, (p.end || 2027) - 2026);
+    const period = 2 * rem + 1;
+    dead = Math.round(dead / period);
+  }
+  const detail = `${name} (${fmtMoney(p?.sal27 || 0)}${dead ? ', ' + fmtMoney(dead) + ' dead cap' + (stretch ? ' stretched' : '') : ''})`;
+  STATE.moves.push({ action: stretch ? 'Waived & Stretched' : 'Waived', detail, undo: { type: 'waive', name } });
   saveState();
   render();
+}
+
+function openWaiveModal(name) {
+  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
+  if (!p) return;
+  const modal = document.getElementById('waiveModal');
+
+  // Calculate dead cap amounts
+  let fullDead = 0;
+  const wasPickedUp = STATE.optionDecisions[p.name] === 'pickup' || STATE.optionDecisions[p.name] === 'exercise';
+  if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp) fullDead = p.sal27;
+  else if (p.category === 'partial_guaranteed') fullDead = p.ch27;
+
+  const remainingYrs = Math.max(1, (p.end || 2027) - 2026);
+  const stretchPeriod = 2 * remainingYrs + 1;
+  const stretchedDead = fullDead > 0 ? Math.round(fullDead / stretchPeriod) : 0;
+  const canStretch = fullDead > 0 && stretchPeriod > 1;
+
+  let h = `<h3>Waive ${p.name}?</h3>`;
+  h += `<div class="player-info"><div class="name">${p.name}</div>`;
+  h += `${p.pos || ''} · ${fmtMoney(p.sal27)} salary · ${p.st27 || 'GUARANTEED'}`;
+  if (p.end) h += ` · contract thru ${p.end}`;
+  h += `</div>`;
+
+  if (p.category === 'non_guaranteed') {
+    h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}')">`;
+    h += `<div class="opt-title">Waive — No dead cap</div>`;
+    h += `<div class="opt-desc">Non-guaranteed contract, team owes nothing</div>`;
+    h += `<div class="opt-amount" style="color:var(--green)">$0 dead cap</div>`;
+    h += `</div>`;
+  } else {
+    h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}')">`;
+    h += `<div class="opt-title">Waive</div>`;
+    h += `<div class="opt-desc">Full guaranteed amount hits cap immediately</div>`;
+    h += `<div class="opt-amount">${fmtMoney(fullDead)} dead cap in 2026-27</div>`;
+    h += `</div>`;
+    if (canStretch) {
+      h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}', true)">`;
+      h += `<div class="opt-title">Waive & Stretch</div>`;
+      h += `<div class="opt-desc">Spread dead cap over ${stretchPeriod} years (${remainingYrs} remaining × 2 + 1)</div>`;
+      h += `<div class="opt-amount">${fmtMoney(stretchedDead)}/yr for ${stretchPeriod} years</div>`;
+      h += `</div>`;
+    }
+  }
+  h += `<button class="waive-cancel" onclick="closeWaiveModal()">Cancel</button>`;
+  modal.innerHTML = h;
+  document.getElementById('waiveOverlay').style.display = 'flex';
+}
+
+function closeWaiveModal() {
+  document.getElementById('waiveOverlay').style.display = 'none';
+}
+
+// ======================== PHASE NAVIGATION ========================
+function setPhase(id) {
+  const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
+  const targetIdx = PHASES.findIndex(p => p.id === id);
+  if (targetIdx <= currentIdx) {
+    STATE.phase = id;
+    saveState();
+    render();
+  }
+}
+
+function advancePhase() {
+  const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
+  if (currentIdx < PHASES.length - 1) {
+    STATE.phase = PHASES[currentIdx + 1].id;
+    STATE.moves.push({ action: 'Phase', detail: `Advanced to ${PHASES[currentIdx + 1].label}`, undo: { type: 'phase', prev: PHASES[currentIdx].id } });
+    saveState();
+    render();
+  }
 }
 
 function undoLast() {
@@ -862,10 +1028,16 @@ function undoLast() {
   if (last.undo) {
     if (last.undo.type === 'option') delete STATE.optionDecisions[last.undo.name];
     if (last.undo.type === 'renounce') STATE.renounced.delete(last.undo.name);
-    if (last.undo.type === 'waive') STATE.waived.delete(last.undo.name);
+    if (last.undo.type === 'waive') {
+      STATE.waived.delete(last.undo.name);
+      STATE.stretched.delete(last.undo.name);
+    }
     if (last.undo.type === 'draft') {
       if (last.undo.prev) STATE.draftSelections[last.undo.slot] = last.undo.prev;
       else delete STATE.draftSelections[last.undo.slot];
+    }
+    if (last.undo.type === 'phase') {
+      STATE.phase = last.undo.prev;
     }
   }
   saveState();
