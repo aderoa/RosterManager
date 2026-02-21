@@ -565,7 +565,12 @@ async function fetchContractsData() {
       rows = null;
     } catch(e) { continue; }
   }
-  if (!rows || rows.length < 2) { console.warn('[CONTRACTS] Could not load contracts data'); return; }
+  if (!rows || rows.length < 2) {
+    console.warn('[CONTRACTS] Could not load contracts data');
+    window._contractsDataFailed = true;
+    return;
+  }
+  window._contractsDataFailed = false;
 
   const awardsRaw = [];
   const players = [];
@@ -954,6 +959,28 @@ function calcCapSheet(team) {
     });
   }
 
+  // === EXTENSION SALARY ADJUSTMENTS ===
+  // If an extension kicks in during 2026-27 (extStartYear <= 2027), replace the player's salary
+  let extensionAdjustment = 0;
+  for (const ext of (STATE.extensions || [])) {
+    if (ext.extStartYear && ext.extStartYear <= 2027 && ext.breakdown && ext.breakdown.length > 0) {
+      const extSalary = ext.breakdown[0].salary; // first-year salary of the extension
+      // Find the player in any roster bucket and adjust
+      for (const bucket of Object.values(roster)) {
+        const rp = bucket.find(p => p.name === ext.name);
+        if (rp && !rp._extAdjusted) {
+          const oldSal = rp.sal27;
+          rp.sal27 = extSalary;
+          rp.st27 = 'GUARANTEED';
+          rp._extAdjusted = true;
+          extensionAdjustment += extSalary - oldSal;
+          break;
+        }
+      }
+    }
+  }
+  activeSalaries += extensionAdjustment;
+
   const teamSalary = activeSalaries + capHolds + deadMoney + incompleteCharge;
   const capSpace = T.cap - teamSalary;
   const taxRoom = T.tax - teamSalary;
@@ -1002,7 +1029,8 @@ function calcCapSheet(team) {
   return {
     roster, activeSalaries, capHolds, deadMoney, incompleteCharge, draftCapHolds,
     teamSalary, capSpace, taxRoom, apron1Room, apron2Room,
-    rosterCount, twowayCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2
+    rosterCount, twowayCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2,
+    extensionAdjustment
   };
 }
 
@@ -1066,10 +1094,15 @@ function renderRoster(cap) {
   }
   h += `</div>`;
 
-  // Training camp warnings
+  // Contracts data warning
+  if (window._contractsDataFailed) {
+    h += `<div style="background:rgba(255,152,0,.1);border:1px solid rgba(255,152,0,.3);border-radius:6px;padding:.5rem .75rem;margin-bottom:.5rem;font-size:.7rem;color:var(--orange)">⚠️ Extension eligibility data unavailable — Contracts sheet could not be loaded.</div>`;
+  }
+
+  // Roster count (all phases — informational; training camp gets hard warnings)
+  const total = cap.rosterCount;
+  const twoWay = cap.twowayCount;
   if (phase === 'training_camp') {
-    const total = cap.rosterCount;
-    const twoWay = cap.twowayCount;
     if (total > 15) {
       h += `<div class="camp-warning"><h4>⚠️ Roster Over Limit</h4><p>You have ${total} standard contracts — must cut ${total - 15} player(s) to reach the 15-player limit.</p></div>`;
     } else if (total < 14) {
@@ -1080,6 +1113,14 @@ function renderRoster(cap) {
     if (twoWay > 3) {
       h += `<div class="camp-warning"><h4>⚠️ Too Many Two-Way</h4><p>You have ${twoWay} two-way contracts — must cut ${twoWay - 3} to reach the 3-player limit.</p></div>`;
     }
+  } else {
+    // Soft roster tracker for non-training-camp phases
+    const rosterColor = total > 15 ? 'var(--red)' : total < 14 ? 'var(--orange)' : 'var(--green)';
+    h += `<div style="font-size:.65rem;color:var(--muted);margin-bottom:.5rem">`;
+    h += `<span style="color:${rosterColor};font-weight:600">${total}/15</span> standard`;
+    if (total > 15) h += ` <span style="color:var(--red)">(${total - 15} over)</span>`;
+    h += ` · <span>${twoWay}/3</span> two-way`;
+    h += `</div>`;
   }
 
   const sections = [
@@ -1308,6 +1349,7 @@ function renderCapPanel(cap) {
   h += `<div class="cap-card">`;
   h += `<h3>💰 Team Salary</h3>`;
   h += capRow('Active Salaries', cap.activeSalaries);
+  if (cap.extensionAdjustment) h += `<div class="cap-row" style="font-size:.6rem"><span class="label" style="color:var(--accent)">↳ includes extension adjustment</span><span class="value" style="color:var(--accent)">${cap.extensionAdjustment > 0 ? '+' : ''}${fmtMoney(cap.extensionAdjustment)}</span></div>`;
   h += capRow('Cap Holds (FAs)', cap.capHolds - (cap.draftCapHolds || 0));
   if (cap.draftCapHolds) h += capRow('Cap Holds (Draft)', cap.draftCapHolds);
   h += capRow('Dead Money', cap.deadMoney);
@@ -1455,10 +1497,10 @@ function openWaiveModal(name) {
   if (p.end) h += ` · contract thru ${p.end}`;
   h += `</div>`;
 
-  if (p.category === 'non_guaranteed' && !wasGuaranteed) {
+  if ((p.category === 'non_guaranteed' && !wasGuaranteed) || (p.category === 'twoway' && !wasConverted)) {
     h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}')">`;
     h += `<div class="opt-title">Waive — No dead cap</div>`;
-    h += `<div class="opt-desc">Non-guaranteed contract, team owes nothing</div>`;
+    h += `<div class="opt-desc">${p.category === 'twoway' ? 'Two-way contract' : 'Non-guaranteed contract'}, team owes nothing</div>`;
     h += `<div class="opt-amount" style="color:var(--green)">$0 dead cap</div>`;
     h += `</div>`;
   } else {
@@ -1555,10 +1597,14 @@ function undoLast() {
       STATE.trades.pop();
     }
     if (last.undo.type === 'signing') {
-      STATE.signings.pop();
+      const idx = STATE.signings.findIndex(s => s.name === last.undo.name);
+      if (idx >= 0) STATE.signings.splice(idx, 1);
+      else STATE.signings.pop();
     }
     if (last.undo.type === 'extension') {
-      STATE.extensions.pop();
+      const idx = STATE.extensions.findIndex(e => e.name === last.undo.name);
+      if (idx >= 0) STATE.extensions.splice(idx, 1);
+      else STATE.extensions.pop(); // fallback
     }
     if (last.undo.type === 'guarantee') {
       STATE.guaranteed.delete(last.undo.name);
@@ -2081,7 +2127,7 @@ function confirmExtension() {
   STATE.moves.push({
     action: 'Extended',
     detail: `${ctx.playerName} — ${years}yr / ${fmtMoney(calc.total)} (${fmtMoney(startSalary)}/yr starting, thru ${endYear})`,
-    undo: { type: 'extension' }
+    undo: { type: 'extension', name: ctx.playerName }
   });
 
   saveState();
@@ -2226,7 +2272,7 @@ function confirmSigning() {
   STATE.moves.push({
     action: 'Signed',
     detail: `${name} for ${fmtMoney(salary)}/yr × ${years}yr via ${window._signContext.exception || 'FA'}`,
-    undo: { type: 'signing' }
+    undo: { type: 'signing', name }
   });
   saveState();
   closeSignModal();
