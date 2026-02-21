@@ -139,6 +139,8 @@ a{color:var(--accent);text-decoration:none}
 .action-btn.convert{background:rgba(255,152,0,.12);color:var(--orange);border-color:rgba(255,152,0,.3)}
 .guaranteed-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(76,175,80,.15);color:#4caf50;font-weight:600;white-space:nowrap}
 .converted-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(255,152,0,.15);color:#ff9800;font-weight:600;white-space:nowrap}
+.twoway-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(100,116,139,.15);color:#94a3b8;font-weight:600;white-space:nowrap}
+.rfa-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(102,126,234,.15);color:#667eea;font-weight:600;white-space:nowrap}
 .ext-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:.5rem}
 .ext-modal{background:var(--card);border-radius:12px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)}
 .ext-modal-hdr{display:flex;align-items:center;gap:.5rem;padding:.75rem 1rem;border-bottom:1px solid var(--border)}
@@ -519,15 +521,16 @@ async function fetchDraftPicks() {
         if (!prospect) continue;
         prospects.push(prospect);
 
-        // Only first-round picks (1-30) get cap holds
-        if (pickPos < 1 || pickPos > 30 || !rawTeam) continue;
+        // First round (1-30): rookie scale cap holds. Second round (31-60): minimum salary cap hold
+        if (pickPos < 1 || pickPos > 60 || !rawTeam) continue;
         const abbrev = rawTeam.length <= 3 ? rawTeam : (TEAMS[rawTeam] || rawTeam);
-        const capHold = ROOKIE_SCALE[pickPos - 1] || 0;
+        const isFirstRound = pickPos <= 30;
+        const capHold = isFirstRound ? (ROOKIE_SCALE[pickPos - 1] || 0) : MIN_SALARY_CAP_HOLD;
 
         pickSlots[pickPos] = { team: abbrev, defaultProspect: prospect };
 
         if (!picks[abbrev]) picks[abbrev] = [];
-        picks[abbrev].push({ prospect, draftRnk: pickPos, capHold });
+        picks[abbrev].push({ prospect, draftRnk: pickPos, capHold, round: isFirstRound ? 1 : 2 });
       }
 
       for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
@@ -768,6 +771,23 @@ function calcCapHold(priorSalary, exception) {
   return Math.min(hold, maxSalary);
 }
 
+// ======================== RFA & QUALIFYING OFFER ========================
+function isRestrictedFA(p) {
+  // Restricted FA = rookie scale exception + expiring (no 26-27 salary)
+  const exc = (p.exception || '').toLowerCase();
+  if (exc.includes('rookie')) return true;
+  // Also check contracts data notes
+  const notes = (p.contractNotes || '').toLowerCase();
+  if (notes.includes('rookie scale') && p.category === 'free_agent') return true;
+  return false;
+}
+
+function calcQualifyingOffer(p) {
+  // QO for rookie scale: 130% of prior season salary (sal26)
+  if (!p.sal26) return MIN_SALARY_0YOS;
+  return Math.round(p.sal26 * 1.30);
+}
+
 // ======================== CAP ENGINE ========================
 function calcCapSheet(team) {
   const players = allPlayers.filter(p => p.team === team);
@@ -782,7 +802,7 @@ function calcCapSheet(team) {
     for (const p of (trade.in || [])) tradedIn.push(p);
   }
 
-  const roster = { under_contract: [], free_agent: [], non_guaranteed: [], partial_guaranteed: [], twoway: [], waived: [], draft_picks: [], signed: [] };
+  const roster = { under_contract: [], free_agent: [], non_guaranteed: [], partial_guaranteed: [], waived: [], draft_picks: [], signed: [] };
 
   for (const p of players) {
     // Skip traded-out players
@@ -822,10 +842,20 @@ function calcCapSheet(team) {
         const convertSal = p.sal27 || MIN_SALARY_CAP_HOLD;
         activeSalaries += convertSal;
         rosterCount++;
-        roster.under_contract.push({ ...p, sal27: convertSal, status: 'converted', st27: 'GUARANTEED' });
-      } else {
+        roster.under_contract.push({ ...p, sal27: convertSal, status: 'converted', st27: 'GUARANTEED', twoWay: false });
+      } else if (p.st27 === 'TWO-WAY') {
+        // Under contract as two-way for 26-27 — counts toward twoway slots, NOT salary cap
         twowayCount++;
-        roster.twoway.push({ ...p, status: 'active' });
+        roster.under_contract.push({ ...p, status: 'active', twoWay: true });
+      } else {
+        // Expiring two-way → free agent (no longer counts toward two-way slots)
+        const hold = Math.round(MIN_SALARY_0YOS * 1.2); // two-way cap hold
+        if (renounced) {
+          roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, twoWay: true });
+        } else {
+          capHolds += hold;
+          roster.free_agent.push({ ...p, status: 'held', capHold: hold, twoWay: true });
+        }
       }
       continue;
     }
@@ -877,11 +907,13 @@ function calcCapSheet(team) {
 
     // === FREE AGENT ===
     if (p.category === 'free_agent') {
+      const isRFA = isRestrictedFA(p);
+      const qo = isRFA ? calcQualifyingOffer(p) : 0;
       if (renounced) {
-        roster.free_agent.push({ ...p, status: 'renounced' });
+        roster.free_agent.push({ ...p, status: 'renounced', isRFA, qualifyingOffer: qo });
       } else {
         capHolds += p.capHold;
-        roster.free_agent.push({ ...p, status: 'held' });
+        roster.free_agent.push({ ...p, status: 'held', isRFA, qualifyingOffer: qo });
       }
       continue;
     }
@@ -1130,7 +1162,6 @@ function renderRoster(cap) {
     { key: 'signed', label: 'Signed (Free Agency)', color: '#26c6da', icon: '✍️' },
     { key: 'draft_picks', label: 'Draft Picks (Cap Holds)', color: '#ff9800', icon: '🏀' },
     { key: 'free_agent', label: 'Free Agents (Cap Holds)', color: '#667eea', icon: '🔓' },
-    { key: 'twoway', label: 'Two-Way', color: '#64748b', icon: '🔄' },
     { key: 'waived', label: 'Waived', color: '#ef5350', icon: '🗑️' },
   ];
 
@@ -1164,13 +1195,15 @@ function renderRoster(cap) {
       // === DRAFT PICK ROW ===
       if (sec.key === 'draft_picks') {
         const isSwapped = p.selectedProspect !== p.prospect;
+        const rdLabel = p.round === 1 ? '1st' : '2nd';
+        const rdColor = p.round === 1 ? 'var(--orange)' : 'var(--muted)';
         h += `<div class="player-row">`;
-        h += `<div class="hs-ini" style="background:var(--orange);color:#000;font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
+        h += `<div class="hs-ini" style="background:${rdColor};color:#000;font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
         h += `<div class="info">`;
         h += `<div class="pname">${p.selectedProspect || 'TBD'}${isSwapped ? ' <span style="font-size:.55rem;color:var(--muted)">(was: ' + p.prospect + ')</span>' : ''}</div>`;
-        h += `<div class="pdet">1st Rd Pick #${p.draftRnk} · Rookie Scale</div>`;
+        h += `<div class="pdet">${rdLabel} Rd Pick #${p.draftRnk}${p.round === 1 ? ' · Rookie Scale' : ' · Min Salary'}</div>`;
         h += `</div>`;
-        h += `<div><div class="sal" style="color:var(--orange)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
+        h += `<div><div class="sal" style="color:${rdColor}">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
         h += `<div style="display:flex;gap:.3rem">`;
         if (STATE.phase === 'draft') {
           h += `<button class="action-btn draft-swap" onclick="openDraftPicker(${p.draftRnk})">🔄 Swap</button>`;
@@ -1206,7 +1239,12 @@ function renderRoster(cap) {
         if (p.status === 'renounced') {
           h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
         } else {
-          h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
+          h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div>`;
+          h += `<div class="ch">cap hold</div>`;
+          if (p.isRFA && p.qualifyingOffer) {
+            h += `<div class="ch" style="color:var(--accent);font-size:.55rem">QO: ${fmtMoney(p.qualifyingOffer)}</div>`;
+          }
+          h += `</div>`;
         }
       } else if (sec.key === 'signed') {
         h += `<div><div class="sal g">${fmtMoney(p.sal27)}</div>`;
@@ -1247,7 +1285,7 @@ function renderRoster(cap) {
         h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','exercise')">Exercise</button>`;
         h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
 
-      // --- Free agent actions ---
+      // --- Free agent actions (including two-way FAs) ---
       } else if (sec.key === 'free_agent' && p.status === 'held') {
         // Renounce: pre_draft, draft, pre_fa
         if (preFA) {
@@ -1258,16 +1296,15 @@ function renderRoster(cap) {
           h += `<button class="action-btn pickup" onclick="openSignModal('${esc(p.name)}', true)">Re-sign</button>`;
         }
 
-      // --- Two-way: Convert button ---
-      } else if (sec.key === 'twoway' && p.status === 'active' && !STATE.conversions.has(p.name)) {
+      // --- Two-way under contract: Convert + Waive ---
+      } else if (p.twoWay && p.status === 'active' && !STATE.conversions.has(p.name) && sec.key === 'under_contract') {
         if (phase === 'pre_fa' || phase === 'free_agency' || phase === 'training_camp') {
           h += `<button class="action-btn convert" onclick="doConvertTwoWay('${esc(p.name)}')">Convert</button>`;
         }
-        // Waive two-way: all phases
         h += `<button class="action-btn waive" onclick="openWaiveModal('${esc(p.name)}')">Waive</button>`;
 
       // --- Standard contract actions ---
-      } else if (sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'twoway' && sec.key !== 'signed' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'guaranteed_ng' || p.status === 'guaranteed_pg' || p.status === 'converted')) {
+      } else if (sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'guaranteed_ng' || p.status === 'guaranteed_pg' || p.status === 'converted')) {
         // Waive: all phases
         h += `<button class="action-btn waive" onclick="openWaiveModal('${esc(p.name)}')">Waive</button>`;
       }
@@ -1277,8 +1314,8 @@ function renderRoster(cap) {
         h += `<button class="action-btn guarantee" onclick="doGuarantee('${esc(p.name)}')">Guarantee</button>`;
       }
 
-      // --- Trade: all phases, all under-contract/option players ---
-      if (!acted && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed') {
+      // --- Trade: all phases, all under-contract/option players (not two-way) ---
+      if (!acted && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed' && !p.twoWay) {
         if (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'guaranteed_ng' || p.status === 'guaranteed_pg' || p.status === 'converted') {
           h += `<button class="action-btn trade" onclick="openTradeModal('${esc(p.name)}')">Trade</button>`;
         }
@@ -1302,20 +1339,27 @@ function renderRoster(cap) {
       if (extRecord) {
         h += `<span class="extended-badge">EXTENDED thru ${extRecord.endYear}</span>`;
       }
-      // Extension eligibility mini-badge (only for under-contract players, not already extended)
-      if (!extRecord && p.ext && p.ext.status !== 'no_data' && p.ext.status !== 'na' && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed') {
+      // Extension eligibility mini-badge (only for players eligible before Nov 1 2026)
+      if (!extRecord && p.ext && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed') {
         const eb = p.ext;
+        // Nov 1 2026 cutoff: only show if eligible now, conditional, or future with date before Nov 1
+        const nov1 = new Date(2026, 10, 1); // month is 0-indexed
+        const showFuture = eb.status === 'future' && eb.detail && (() => {
+          // Parse date from detail string to check if before Nov 1
+          const m = eb.detail.match(/(\w+ \d+, \d{4})/);
+          if (m) { const d = new Date(m[1]); return d <= nov1; }
+          return false;
+        })();
         if (eb.status === 'eligible') {
           h += `<span class="ext-elig-badge eligible" title="${eb.detail || ''}">EXT ✓</span>`;
         } else if (eb.status === 'conditional') {
           h += `<span class="ext-elig-badge conditional" title="${eb.detail || ''}">EXT?</span>`;
-        } else if (eb.status === 'future') {
+        } else if (showFuture) {
           h += `<span class="ext-elig-badge future" title="${eb.detail || ''}">EXT soon</span>`;
-        } else if (eb.status === 'ineligible') {
-          h += `<span class="ext-elig-badge ineligible" title="${eb.detail || ''}">No EXT</span>`;
         } else if (eb.status === 'extended') {
           h += `<span class="ext-elig-badge extended" title="${eb.detail || ''}">Extended</span>`;
         }
+        // ineligible, no_data, na, far-future → nothing shown
       }
       // Traded-in badge
       if (p.status === 'traded_in') {
@@ -1330,6 +1374,14 @@ function renderRoster(cap) {
       // Converted badge
       if (p.status === 'converted') {
         h += `<span class="converted-badge">CONVERTED from Two-Way</span>`;
+      }
+      // Two-way badge
+      if (p.twoWay) {
+        h += `<span class="twoway-badge">2W</span>`;
+      }
+      // RFA badge
+      if (p.isRFA && sec.key === 'free_agent' && p.status !== 'renounced') {
+        h += `<span class="rfa-badge" title="Qualifying Offer: ${fmtMoney(p.qualifyingOffer || 0)}">RFA</span>`;
       }
       h += `</div>`;
 
@@ -1922,16 +1974,30 @@ function calcVeteranElig(p, pct, dvInfo) {
 
 // --- Trade Restriction Check ---
 function checkTradeRestriction(p) {
-  // 6-month rule: player signed with team A, now on team B → recently traded
-  if (p.sigTeam && p.team && p.sigTeam !== p.team) {
-    return { restricted: true, reason: `Signed by ${p.sigTeam}, now on ${p.team} — extension may have trade aggregation restrictions` };
-  }
-  // Check if player was traded IN during this RM session
+  // Check if player was traded IN during this RM session → always restricted
   if (STATE) {
     for (const trade of (STATE.trades || [])) {
       const tradedIn = (trade.in || []).find(tp => tp.name === p.name);
       if (tradedIn) {
         return { restricted: true, reason: `Traded in from ${tradedIn.fromTeam || 'another team'} — 6-month aggregation restriction applies after extension` };
+      }
+    }
+  }
+  // 6-month rule: if sigTeam differs from current team, player was traded
+  if (p.sigTeam && p.team && p.sigTeam !== p.team) {
+    // We don't know the exact trade date, so assume restricted
+    return { restricted: true, reason: `Signed by ${p.sigTeam}, now on ${p.team} — trade aggregation restriction may apply (6-month rule)` };
+  }
+  // If sigTeam matches and we have sigDate, check if >6 months ago
+  if (p.sigTeam && p.sigDate && p.sigTeam === p.team) {
+    const parts = p.sigDate.split('/');
+    if (parts.length === 3) {
+      const sigDt = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+      const sixMonths = new Date(sigDt);
+      sixMonths.setMonth(sixMonths.getMonth() + 6);
+      const now = new Date();
+      if (now < sixMonths) {
+        return { restricted: true, reason: `Signed ${p.sigDate} — within 6-month trade restriction window (expires ${sixMonths.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})})` };
       }
     }
   }
