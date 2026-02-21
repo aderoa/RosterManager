@@ -3,2278 +3,872 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Roster Manager – HoopsMatic</title>
+<title>NBA Injury Report</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bg:#0a0e1a;--surface:#111827;--card:#1a2236;--border:#1e2d4a;
-  --text:#e2e8f0;--muted:#64748b;--accent:#667eea;--accent2:#764ba2;
-  --green:#4caf50;--red:#ef5350;--orange:#ff9800;--yellow:#ffd600;--cyan:#26c6da;
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0a0a0c;
+  --surface: #141418;
+  --surface2: #1c1c22;
+  --border: #2a2a32;
+  --text: #e8e8ec;
+  --text2: #8a8a96;
+  --accent: #3b82f6;
+  --out: #ef4444;
+  --left-game: #f43f5e;
+  --doubtful: #f97316;
+  --questionable: #eab308;
+  --probable: #22c55e;
+  --available: #10b981;
+  --modified-bg: rgba(59,130,246,0.06);
+  --modified-border: rgba(59,130,246,0.25);
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-a{color:var(--accent);text-decoration:none}
 
-/* Header */
-.header{background:linear-gradient(135deg,var(--accent),var(--accent2));padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100}
-.header h1{font-size:1.2rem;font-weight:700;letter-spacing:.5px}
-.header .subtitle{font-size:.75rem;opacity:.8}
-.header .season-badge{margin-left:auto;background:rgba(0,0,0,.25);padding:.3rem .8rem;border-radius:20px;font-size:.8rem;font-weight:600}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
 
-/* Team Selector */
-.team-select-wrap{padding:1rem;background:var(--surface);border-bottom:1px solid var(--border)}
-.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;max-width:1400px;margin:0 auto}
-.team-btn{background:var(--card);border:2px solid transparent;border-radius:8px;padding:.5rem;cursor:pointer;text-align:center;transition:all .15s}
-.team-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
-.team-btn.active{border-color:var(--accent);background:rgba(102,126,234,.15)}
-.team-btn img{width:40px;height:40px;object-fit:contain}
-.team-btn .tn{font-size:.6rem;color:var(--muted);margin-top:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ============ ADMIN VIEW ============ */
+.admin-container { max-width:1100px; margin:0 auto; padding:16px 20px 80px; }
 
-/* Main Layout */
-.main{display:grid;grid-template-columns:1fr 340px;gap:1rem;padding:1rem;max-width:1400px;margin:0 auto}
-@media(max-width:900px){.main{grid-template-columns:1fr}}
-
-/* Roster Panel */
-.roster-panel{display:flex;flex-direction:column;gap:.75rem}
-.section{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-.section-hdr{padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
-.section-hdr .dot{width:10px;height:10px;border-radius:50%}
-.section-hdr h3{font-size:.8rem;font-weight:600;flex:1}
-.section-hdr .badge{font-size:.65rem;padding:.15rem .5rem;border-radius:10px;font-weight:600}
-.section-body{padding:.5rem}
-
-/* Player Row */
-.player-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:6px;transition:background .1s}
-.player-row:hover{background:rgba(255,255,255,.03)}
-.player-row .hs{width:36px;height:28px;border-radius:4px;object-fit:cover;background:var(--surface)}
-.player-row .hs-ini{width:36px;height:28px;border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.55rem;color:var(--muted)}
-.player-row .info{flex:1;min-width:0}
-.player-row .pname{font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.player-row .pdet{font-size:.6rem;color:var(--muted)}
-.player-row .sal{font-size:.78rem;font-weight:600;text-align:right;min-width:70px}
-.player-row .sal.g{color:var(--green)}.player-row .sal.ng{color:var(--red)}.player-row .sal.to{color:var(--orange)}.player-row .sal.po{color:var(--cyan)}.player-row .sal.pg{color:var(--yellow)}
-.player-row .ch{font-size:.6rem;color:var(--muted);text-align:right}
-.player-row .action-btn{
-  font-size:.6rem;padding:.2rem .5rem;border-radius:4px;border:1px solid var(--border);
-  background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s
+.admin-header {
+  display:flex; align-items:center; gap:16px; padding:20px 0 16px;
+  border-bottom:1px solid var(--border); margin-bottom:16px;
 }
-.player-row .action-btn:hover{border-color:var(--accent);color:var(--accent)}
-.player-row .action-btn.pickup{border-color:var(--green);color:var(--green)}
-.player-row .action-btn.pickup:hover{background:rgba(76,175,80,.15)}
-.player-row .action-btn.decline{border-color:var(--red);color:var(--red)}
-.player-row .action-btn.decline:hover{background:rgba(239,83,80,.15)}
-.player-row .action-btn.renounce{border-color:var(--orange);color:var(--orange)}
-.player-row .action-btn.renounce:hover{background:rgba(255,152,0,.15)}
-.player-row .action-btn.waive{border-color:var(--red);color:var(--red)}
-.player-row .action-btn.waive:hover{background:rgba(239,83,80,.15)}
-.player-row .action-btn.done{opacity:.5;pointer-events:none}
-.player-row.acted{opacity:.45}
+.admin-header h1 { font-size:20px; font-weight:700; letter-spacing:-0.02em; }
+.admin-header .subtitle { color:var(--text2); font-size:13px; margin-left:auto; }
 
-/* Cap Panel */
-.cap-panel{position:sticky;top:60px;display:flex;flex-direction:column;gap:.75rem;align-self:start}
-.cap-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem}
-.cap-card h3{font-size:.8rem;font-weight:700;margin-bottom:.75rem;color:var(--accent)}
-.cap-row{display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.75rem}
-.cap-row:last-child{border-bottom:none}
-.cap-row .label{color:var(--muted)}
-.cap-row .value{font-weight:600}
-.cap-row .value.pos{color:var(--green)}.cap-row .value.neg{color:var(--red)}
-.cap-bar{height:8px;border-radius:4px;background:var(--surface);margin:.5rem 0;overflow:hidden;position:relative}
-.cap-bar-fill{height:100%;border-radius:4px;transition:width .3s}
-.cap-bar-marker{position:absolute;top:-2px;height:12px;width:2px;border-radius:1px}
+/* Sticky toolbar */
+.admin-toolbar {
+  position:sticky; top:0; z-index:100; background:var(--bg);
+  border-bottom:1px solid var(--border);
+  padding:10px 0; margin-bottom:16px;
+  display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+}
+.admin-toolbar button {
+  font-family:inherit; font-size:12px; font-weight:600;
+  padding:7px 14px; border-radius:6px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text); cursor:pointer;
+  transition:all 0.15s;
+}
+.admin-toolbar button:hover { background:var(--surface2); border-color:#444; }
+.admin-toolbar button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.admin-toolbar button.primary:hover { background:#2563eb; }
+.admin-toolbar button.success { background:#059669!important; border-color:#059669!important; color:#fff!important; }
+.admin-toolbar .spacer { flex:1; }
+.admin-toolbar .badge {
+  font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:500;
+  padding:4px 10px; border-radius:99px; background:var(--surface2); color:var(--text2);
+}
+.admin-toolbar .badge.has-changes { background:rgba(59,130,246,0.15); color:var(--accent); }
 
-/* Exception chips */
-.exc-list{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
-.exc-chip{font-size:.65rem;padding:.2rem .5rem;border-radius:4px;background:var(--surface);border:1px solid var(--border)}
-.exc-chip.available{border-color:var(--green);color:var(--green)}
-.exc-chip.unavailable{border-color:var(--border);color:var(--muted);opacity:.5}
+/* Search / filter */
+.filter-bar {
+  display:flex; gap:8px; margin-bottom:16px; align-items:center;
+}
+.filter-bar input {
+  font-family:inherit; font-size:13px; padding:8px 12px; border-radius:6px;
+  border:1px solid var(--border); background:var(--surface); color:var(--text);
+  flex:1; max-width:320px; outline:none;
+}
+.filter-bar input:focus { border-color:var(--accent); }
+.filter-bar .filter-btn {
+  font-family:inherit; font-size:12px; font-weight:600;
+  padding:7px 12px; border-radius:6px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text2); cursor:pointer; transition:all 0.15s;
+}
+.filter-bar .filter-btn:hover { color:var(--text); border-color:#444; }
+.filter-bar .filter-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
 
-/* Move log */
-.move-log{max-height:200px;overflow-y:auto}
-.move-entry{font-size:.68rem;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04);color:var(--muted)}
-.move-entry .action{color:var(--accent)}
+/* Team sections */
+.team-section { margin-bottom:8px; }
+.team-header {
+  display:flex; align-items:center; gap:10px; padding:10px 12px;
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  cursor:pointer; user-select:none; transition:all 0.15s;
+}
+.team-header:hover { background:var(--surface2); }
+.team-header img { width:28px; height:28px; }
+.team-header .team-name { font-size:14px; font-weight:600; }
+.team-header .team-count { font-size:12px; color:var(--text2); margin-left:auto; }
+.team-header .team-injured {
+  font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px;
+  background:rgba(239,68,68,0.12); color:var(--out);
+}
+.team-header .team-injured.none { display:none; }
+.team-header .chevron {
+  color:var(--text2); font-size:14px; transition:transform 0.2s;
+  margin-left:8px;
+}
+.team-section.collapsed .chevron { transform:rotate(-90deg); }
+.team-section.collapsed .team-players { display:none; }
 
-/* Controls */
-.controls{display:flex;gap:.5rem;margin-top:.5rem}
-.ctrl-btn{font-size:.7rem;padding:.35rem .75rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;transition:all .15s}
-.ctrl-btn:hover{border-color:var(--accent);color:var(--accent)}
-.ctrl-btn.reset{border-color:var(--red);color:var(--red)}
-.ctrl-btn.reset:hover{background:rgba(239,83,80,.15)}
+.team-players { border:1px solid var(--border); border-top:none; border-radius:0 0 8px 8px; overflow:hidden; }
 
-/* Loading */
-.loading{text-align:center;padding:3rem;color:var(--muted)}
-.loading .spin{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
+/* Player row */
+.player-row {
+  display:grid;
+  grid-template-columns: 1fr 90px 130px 1fr 110px;
+  gap:8px; align-items:center;
+  padding:6px 12px; border-bottom:1px solid var(--border);
+  font-size:13px; transition:background 0.15s;
+}
+.player-row:last-child { border-bottom:none; }
+.player-row:hover { background:rgba(255,255,255,0.02); }
+.player-row.modified { background:var(--modified-bg); border-color:var(--modified-border); }
 
-/* Empty state */
-.empty{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem}
+.player-name { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.player-salary { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text2); text-align:right; }
 
-/* Phase Stepper */
-.phase-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;gap:.4rem;justify-content:center;flex-wrap:wrap}
-.phase-step{display:flex;align-items:center;gap:.3rem;font-size:.65rem;font-weight:600;padding:.3rem .6rem;border-radius:20px;color:var(--muted);background:transparent;border:1px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap}
-.phase-step.active{background:rgba(102,126,234,.15);color:var(--accent);border-color:var(--accent)}
-.phase-step.completed{color:var(--green);opacity:.8}
-.phase-step.locked{opacity:.4;cursor:not-allowed}
-.phase-arrow{color:var(--muted);font-size:.6rem;opacity:.5}
-.phase-advance{font-size:.65rem;padding:.3rem .7rem;border-radius:6px;border:1px solid var(--green);background:rgba(76,175,80,.1);color:var(--green);cursor:pointer;font-weight:600;margin-left:.5rem;transition:all .15s}
-.phase-advance:hover{background:rgba(76,175,80,.25)}
+.player-row select {
+  font-family:inherit; font-size:12px; font-weight:600; padding:4px 6px;
+  border-radius:4px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text); cursor:pointer; outline:none; width:100%;
+}
+.player-row select:focus { border-color:var(--accent); }
+.player-row select.s-out { color:var(--out); }
+.player-row select.s-left-game { color:var(--left-game); }
+.player-row select.s-doubtful { color:var(--doubtful); }
+.player-row select.s-questionable { color:var(--questionable); }
+.player-row select.s-probable { color:var(--probable); }
+.player-row select.s-available { color:var(--available); }
 
-/* Waive modal */
-.waive-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-.waive-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:380px;max-width:90vw;padding:1.2rem}
-.waive-modal h3{font-size:.9rem;font-weight:700;margin-bottom:.8rem;color:var(--text)}
-.waive-modal .player-info{font-size:.75rem;color:var(--muted);margin-bottom:1rem;padding:.5rem;background:var(--surface);border-radius:6px}
-.waive-modal .player-info .name{color:var(--text);font-weight:600;font-size:.85rem}
-.waive-option{display:flex;flex-direction:column;gap:.3rem;padding:.7rem;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:.5rem;transition:all .15s}
-.waive-option:hover{border-color:var(--accent);background:rgba(102,126,234,.06)}
-.waive-option .opt-title{font-size:.75rem;font-weight:600;color:var(--text)}
-.waive-option .opt-desc{font-size:.65rem;color:var(--muted)}
-.waive-option .opt-amount{font-size:.8rem;font-weight:700;color:var(--red)}
-.waive-cancel{font-size:.7rem;padding:.35rem .75rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:.3rem;width:100%;text-align:center}
+.player-row input[type="text"] {
+  font-family:inherit; font-size:12px; padding:4px 6px;
+  border-radius:4px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text); outline:none; width:100%;
+}
+.player-row input[type="text"]:focus { border-color:var(--accent); }
+.player-row input[type="text"].inactive { color:var(--text2); border-color:transparent; background:transparent; }
 
-/* Coming soon badge */
-.coming-soon{font-size:.55rem;padding:.1rem .3rem;border-radius:3px;background:var(--surface);color:var(--muted);border:1px solid var(--border);margin-left:.3rem}
-.action-btn.trade{background:rgba(38,198,218,.12);color:var(--cyan);border-color:rgba(38,198,218,.3)}
-.action-btn.extend{background:rgba(102,126,234,.12);color:var(--accent);border-color:rgba(102,126,234,.3)}
-.ext-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:.5rem}
-.ext-modal{background:var(--card);border-radius:12px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)}
-.ext-modal-hdr{display:flex;align-items:center;gap:.5rem;padding:.75rem 1rem;border-bottom:1px solid var(--border)}
-.ext-modal-hdr h3{flex:1;font-size:.85rem;margin:0}
-.ext-modal-body{padding:1rem}
-.ext-player-info{display:flex;align-items:center;gap:.75rem;padding:.6rem;background:var(--surface);border-radius:8px;margin-bottom:.75rem}
-.ext-player-info img{width:48px;height:36px;object-fit:cover;border-radius:4px}
-.ext-player-info .name{font-weight:600;font-size:.8rem}
-.ext-player-info .meta{font-size:.65rem;color:var(--muted)}
-.ext-type-badge{display:inline-block;padding:.15rem .45rem;border-radius:4px;font-size:.6rem;font-weight:600;margin-left:.4rem}
-.ext-type-badge.rse{background:rgba(102,126,234,.15);color:#667eea}
-.ext-type-badge.vet{background:rgba(245,158,11,.15);color:#f59e0b}
-.ext-config{margin:.75rem 0}
-.ext-config label{display:block;font-size:.7rem;color:var(--muted);margin-bottom:.25rem}
-.ext-config .row{display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem}
-.ext-config input[type="range"]{flex:1;accent-color:var(--accent)}
-.ext-config input[type="number"]{width:120px;padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;font-size:.75rem}
-.ext-config select{padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;font-size:.75rem}
-.ext-config .sal-display{font-size:.8rem;font-weight:600;color:var(--accent);min-width:80px;text-align:right}
-.ext-breakdown{margin:.75rem 0}
-.ext-breakdown h4{font-size:.7rem;color:var(--muted);margin:0 0 .35rem}
-.ext-year-row{display:flex;justify-content:space-between;padding:.3rem .5rem;font-size:.7rem;border-radius:4px}
-.ext-year-row:nth-child(even){background:var(--surface)}
-.ext-year-row .yr{color:var(--muted);min-width:60px}
-.ext-year-row .sal{font-weight:600}
-.ext-total-row{display:flex;justify-content:space-between;padding:.4rem .5rem;font-size:.75rem;font-weight:700;border-top:1px solid var(--border);margin-top:.25rem}
-.ext-note{font-size:.6rem;color:var(--muted);padding:.4rem;background:var(--surface);border-radius:4px;margin:.5rem 0}
-.ext-confirm-btn{width:100%;padding:.6rem;background:var(--accent);color:white;border:none;border-radius:8px;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer;margin-top:.5rem}
-.ext-confirm-btn:hover{opacity:.9}
-.ext-confirm-btn:disabled{opacity:.4;cursor:not-allowed}
-.extended-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(102,126,234,.15);color:#667eea;font-weight:600;white-space:nowrap}
-.ext-elig-badge{font-size:.5rem;padding:.1rem .3rem;border-radius:3px;font-weight:600;white-space:nowrap;cursor:help}
-.ext-elig-badge.eligible{background:rgba(76,175,80,.12);color:#4caf50}
-.ext-elig-badge.future{background:rgba(255,152,0,.12);color:#ff9800}
-.ext-elig-badge.ineligible{background:rgba(239,83,80,.08);color:#ef5350}
-.ext-elig-badge.extended{background:rgba(102,126,234,.12);color:#667eea}
-.ext-elig-badge.conditional{background:rgba(255,214,0,.12);color:#ffd600}
-.ext-detail-row{font-size:.6rem;color:var(--muted);padding:.3rem .5rem;background:var(--surface);border-radius:4px;margin:.35rem 0;line-height:1.4}
-.ext-detail-row .elig-reason{color:var(--accent);font-weight:600}
-.ext-detail-row .trade-warn{color:var(--orange);font-weight:600}
-.ext-modal-elig{padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.65rem;line-height:1.5}
-.ext-modal-elig .elig-status{font-weight:700;margin-bottom:.25rem}
-.ext-modal-elig .elig-status.eligible{color:#4caf50}
-.ext-modal-elig .elig-status.conditional{color:#ff9800}
-.ext-dv-badge{display:inline-block;padding:.1rem .35rem;border-radius:3px;background:rgba(255,214,0,.12);color:#ffd600;font-size:.55rem;font-weight:600;margin-left:.3rem}
-.ext-trade-warn{padding:.4rem;background:rgba(255,152,0,.08);border:1px solid rgba(255,152,0,.2);border-radius:4px;font-size:.6rem;color:var(--orange);margin:.5rem 0}
-.ext-option-note{padding:.4rem;background:rgba(38,198,218,.08);border:1px solid rgba(38,198,218,.2);border-radius:4px;font-size:.6rem;color:var(--cyan);margin:.5rem 0}
+.player-row input[type="date"] {
+  font-family:'JetBrains Mono',monospace; font-size:11px; padding:4px 4px;
+  border-radius:4px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text); outline:none; width:100%;
+  color-scheme:dark;
+}
+.player-row input[type="date"]:focus { border-color:var(--accent); }
+.player-row input[type="date"].inactive { color:var(--text2); border-color:transparent; background:transparent; }
 
-/* Draft Picker Modal */
-.draft-picker-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-.draft-picker{background:var(--card);border:1px solid var(--border);border-radius:12px;width:400px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
-.draft-picker-hdr{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
-.draft-picker-hdr h3{flex:1;font-size:.85rem;font-weight:700;color:var(--orange)}
-.draft-picker-hdr .close-btn{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:.2rem}
-.draft-picker-hdr .close-btn:hover{color:var(--text)}
-.draft-picker-search{padding:.5rem 1rem;border-bottom:1px solid var(--border)}
-.draft-picker-search input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;color:var(--text);font-size:.75rem;outline:none}
-.draft-picker-search input:focus{border-color:var(--accent)}
-.draft-picker-list{overflow-y:auto;flex:1;padding:.3rem}
-.draft-pick-option{display:flex;align-items:center;gap:.6rem;padding:.45rem .8rem;border-radius:6px;cursor:pointer;font-size:.75rem;transition:background .1s}
-.draft-pick-option:hover{background:rgba(255,255,255,.06)}
-.draft-pick-option.current{background:rgba(255,152,0,.12);border:1px solid rgba(255,152,0,.3)}
-.draft-pick-option.taken{opacity:.35;cursor:not-allowed}
-.draft-pick-option .rank{color:var(--muted);font-size:.65rem;min-width:30px}
-.draft-pick-option .name{flex:1;font-weight:500}
-.draft-pick-option .assigned{font-size:.6rem;color:var(--muted);padding:.1rem .4rem;background:var(--surface);border-radius:3px}
-.action-btn.draft-swap{background:rgba(255,152,0,.15);color:var(--orange);border-color:rgba(255,152,0,.3)}
-.action-btn.draft-swap:hover{background:rgba(255,152,0,.25)}
+/* Column headers */
+.col-headers {
+  display:grid;
+  grid-template-columns: 1fr 90px 130px 1fr 110px;
+  gap:8px; padding:8px 12px;
+  font-size:11px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:0.05em;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  position:sticky; top:50px; z-index:50;
+}
+.col-headers span:nth-child(2) { text-align:right; }
 
-/* Trade modal */
-.trade-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-.trade-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:520px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
-.trade-modal-hdr{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
-.trade-modal-hdr h3{flex:1;font-size:.85rem;font-weight:700;color:var(--cyan)}
-.trade-modal-hdr .close-btn{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:.2rem}
-.trade-modal-body{padding:1rem;overflow-y:auto;flex:1}
-.trade-link-row{display:flex;gap:.5rem;margin-bottom:1rem}
-.trade-link-btn{font-size:.7rem;padding:.4rem .8rem;border-radius:6px;border:1px solid var(--cyan);background:rgba(38,198,218,.1);color:var(--cyan);cursor:pointer;font-weight:600;transition:all .15s;flex:1;text-align:center}
-.trade-link-btn:hover{background:rgba(38,198,218,.2)}
-.trade-record-section{margin-top:.5rem}
-.trade-record-section h4{font-size:.75rem;color:var(--muted);margin-bottom:.5rem;font-weight:600}
-.trade-input-row{display:flex;gap:.5rem;margin-bottom:.4rem;align-items:center}
-.trade-input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;color:var(--text);font-size:.75rem;outline:none}
-.trade-input:focus{border-color:var(--accent)}
-.trade-input::placeholder{color:var(--muted)}
-.trade-add-btn{font-size:.65rem;padding:.3rem .6rem;border-radius:4px;border:1px solid var(--green);color:var(--green);background:transparent;cursor:pointer}
-.trade-add-btn:hover{background:rgba(76,175,80,.15)}
-.trade-player-tag{display:inline-flex;align-items:center;gap:.3rem;font-size:.65rem;padding:.2rem .5rem;border-radius:4px;background:var(--surface);border:1px solid var(--border);margin:.15rem .15rem}
-.trade-player-tag .remove{cursor:pointer;color:var(--red);font-weight:700}
-.trade-confirm-btn{width:100%;padding:.5rem;border-radius:6px;border:1px solid var(--green);background:rgba(76,175,80,.15);color:var(--green);cursor:pointer;font-weight:600;font-size:.75rem;margin-top:.75rem;transition:all .15s}
-.trade-confirm-btn:hover{background:rgba(76,175,80,.3)}
-.trade-confirm-btn:disabled{opacity:.4;cursor:not-allowed}
+/* Loading state */
+.loading-state {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:80px 0; color:var(--text2);
+}
+.loading-spinner {
+  width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--accent);
+  border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:16px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
 
-/* Signing modal */
-.sign-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-.sign-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:420px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
-.sign-modal-hdr{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
-.sign-modal-hdr h3{flex:1;font-size:.85rem;font-weight:700;color:var(--green)}
-.sign-modal-body{padding:1rem;overflow-y:auto;flex:1}
-.sign-exc-option{display:flex;flex-direction:column;gap:.2rem;padding:.6rem;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:.4rem;transition:all .15s}
-.sign-exc-option:hover{border-color:var(--accent);background:rgba(102,126,234,.06)}
-.sign-exc-option.unavailable{opacity:.35;cursor:not-allowed}
-.sign-exc-option .exc-name{font-size:.75rem;font-weight:600}
-.sign-exc-option .exc-detail{font-size:.65rem;color:var(--muted)}
-.sign-salary-input{display:flex;gap:.5rem;align-items:center;margin:.75rem 0}
-.sign-salary-input label{font-size:.7rem;color:var(--muted);min-width:60px}
+/* ============ REPORT VIEW (non-admin) ============ */
+.report-container { max-width:900px; margin:0 auto; padding:16px 20px 80px; }
 
-/* Training camp warning */
-.camp-warning{background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem}
-.camp-warning h4{font-size:.8rem;color:var(--red);margin-bottom:.3rem}
-.camp-warning p{font-size:.7rem;color:var(--muted)}
-.camp-ok{background:rgba(76,175,80,.1);border:1px solid rgba(76,175,80,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem}
-.camp-ok h4{font-size:.8rem;color:var(--green);margin-bottom:.3rem}
-.camp-ok p{font-size:.7rem;color:var(--muted)}
+.report-toolbar {
+  display:flex; gap:8px; flex-wrap:wrap; padding:12px 0;
+  border-bottom:1px solid var(--border); margin-bottom:16px;
+}
+.report-toolbar button {
+  font-family:inherit; font-size:12px; font-weight:600;
+  padding:7px 14px; border-radius:6px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text); cursor:pointer; transition:all 0.15s;
+}
+.report-toolbar button:hover { background:var(--surface2); }
+.report-toolbar button.success { background:#059669!important; border-color:#059669!important; color:#fff!important; }
 
-/* Traded badge */
-.traded-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(38,198,218,.15);color:var(--cyan);border:1px solid rgba(38,198,218,.3);margin-left:.3rem;font-weight:600}
-.signed-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(76,175,80,.15);color:var(--green);border:1px solid rgba(76,175,80,.3);margin-left:.3rem;font-weight:600}
+.tab-bar { display:flex; gap:4px; margin-bottom:16px; }
+.tab-bar button {
+  font-family:inherit; font-size:12px; font-weight:600;
+  padding:7px 14px; border-radius:6px; border:1px solid transparent;
+  background:transparent; color:var(--text2); cursor:pointer; transition:all 0.15s;
+}
+.tab-bar button:hover { color:var(--text); }
+.tab-bar button.active { background:var(--surface); color:var(--text); border-color:var(--border); }
+
+.preview { padding:8px 0; }
+.preview table { font-size:13px; }
+
+.error-msg { padding:40px; text-align:center; color:var(--out); }
+
+/* Purge button */
+.btn-purge {
+  font-family:inherit; font-size:12px; font-weight:600;
+  padding:7px 14px; border-radius:6px; border:1px solid rgba(239,68,68,0.3);
+  background:rgba(239,68,68,0.08); color:var(--out); cursor:pointer; transition:all 0.15s;
+}
+.btn-purge:hover { background:rgba(239,68,68,0.15); }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.7</span></h1>
-    <div class="subtitle">HoopsMatic GM Simulator</div>
-  </div>
-  <div class="season-badge">2026-27 OFFSEASON</div>
-</div>
-
-<div class="team-select-wrap" id="teamSelectWrap">
-  <div class="team-grid" id="teamGrid"></div>
-</div>
-
-<div id="appContent" style="display:none">
-  <div class="phase-bar" id="phaseBar"></div>
-  <div class="main">
-    <div class="roster-panel" id="rosterPanel"></div>
-    <div class="cap-panel" id="capPanel"></div>
-  </div>
-</div>
-
-<div id="loadingState" class="loading" style="display:none">
-  <div class="spin"></div>
-  <p style="margin-top:.5rem;font-size:.8rem">Loading roster data...</p>
-</div>
-
-<!-- Waive Decision Modal -->
-<div id="waiveOverlay" class="waive-overlay" style="display:none" onclick="if(event.target===this)closeWaiveModal()">
-  <div class="waive-modal" id="waiveModal"></div>
-</div>
-
-<!-- Draft Picker Modal -->
-<div id="draftPickerOverlay" class="draft-picker-overlay" style="display:none" onclick="if(event.target===this)closeDraftPicker()">
-  <div class="draft-picker">
-    <div class="draft-picker-hdr">
-      <span style="font-size:1.1rem">🏀</span>
-      <h3 id="draftPickerTitle">Select Prospect</h3>
-      <button class="close-btn" onclick="closeDraftPicker()">✕</button>
-    </div>
-    <div class="draft-picker-search">
-      <input type="text" placeholder="Search prospects..." oninput="renderDraftPickerList(this.value)">
-    </div>
-    <div class="draft-picker-list" id="draftPickerList"></div>
-  </div>
-</div>
-
-<!-- Extension Modal -->
-<div id="extOverlay" class="ext-overlay" style="display:none" onclick="if(event.target===this)closeExtModal()">
-  <div class="ext-modal">
-    <div class="ext-modal-hdr">
-      <span style="font-size:1.1rem">📝</span>
-      <h3 id="extModalTitle">Extend Player</h3>
-      <button class="close-btn" onclick="closeExtModal()">✕</button>
-    </div>
-    <div class="ext-modal-body" id="extModalBody"></div>
-  </div>
-</div>
-
-<!-- Signing Modal -->
-<div id="signOverlay" class="sign-overlay" style="display:none" onclick="if(event.target===this)closeSignModal()">
-  <div class="sign-modal">
-    <div class="sign-modal-hdr">
-      <span style="font-size:1.1rem">✍️</span>
-      <h3 id="signModalTitle">Sign Free Agent</h3>
-      <button class="close-btn" onclick="closeSignModal()">✕</button>
-    </div>
-    <div class="sign-modal-body" id="signModalBody"></div>
-  </div>
-</div>
-
 <script>
-// ======================== CONSTANTS ========================
-const SEASON = '2026-27';
-const THRESHOLDS = {
-  '2025-2026': {cap:154647000,tax:187895000,apron1:195945000,apron2:207824000,bae:5134000,ntmle:14104000,tmle:5685000,rmle:8781000},
-  '2026-2027': {cap:166000000,tax:201690000,apron1:210690000,apron2:223690000,bae:5511000,ntmle:15139000,tmle:6102000,rmle:9425000},
-  '2027-2028': {cap:174300000,tax:211775000,apron1:220812000,apron2:234200000,bae:5787000,ntmle:15896000,tmle:6407000,rmle:9897000},
+// ===== CONFIG =====
+const SHEET_ID = '2PACX-1vQ-TNS1Zxbcq2Altxh0-yY0LFEPvOXlwI8DjD8FdbSypf_sSWc3Xi6F88DwiOdSmR0FmXLzNicgCDwL';
+const INJ_GID = '306285159';
+const CSV_URL = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pub?gid=${INJ_GID}&single=true&output=csv`;
+const ROSTER_SHEET_ID = '2PACX-1vSg6im6IYB6HXMGzQbmmBnLw9SfQLzxCSo8OfChxlJLhsB6BBCO0wPF_TMch0YgAbtFqYkwDWrsxRe7';
+const ROSTER_GID = '0';
+const ROSTER_CSV_URL = `https://docs.google.com/spreadsheets/d/e/${ROSTER_SHEET_ID}/pub?gid=${ROSTER_GID}&single=true&output=csv`;
+const JSON_URL = 'injuries.json';
+
+const NBA_TEAMS = [
+  'Atlanta','Boston','Brooklyn','Charlotte','Chicago','Cleveland',
+  'Dallas','Denver','Detroit','Golden State','Houston','Indiana',
+  'LA Clippers','LA Lakers','Memphis','Miami','Milwaukee','Minnesota',
+  'New Orleans','New York','Oklahoma City','Orlando','Philadelphia','Phoenix',
+  'Portland','Sacramento','San Antonio','Toronto','Utah','Washington'
+];
+const TEAM_IDS = {
+  'Atlanta':1610612737,'Boston':1610612738,'Brooklyn':1610612751,
+  'Charlotte':1610612766,'Chicago':1610612741,'Cleveland':1610612739,
+  'Dallas':1610612742,'Denver':1610612743,'Detroit':1610612765,
+  'Golden State':1610612744,'Houston':1610612745,'Indiana':1610612754,
+  'LA Clippers':1610612746,'LA Lakers':1610612747,'Memphis':1610612763,
+  'Miami':1610612748,'Milwaukee':1610612749,'Minnesota':1610612750,
+  'New Orleans':1610612740,'New York':1610612752,'Oklahoma City':1610612760,
+  'Orlando':1610612753,'Philadelphia':1610612755,'Phoenix':1610612756,
+  'Portland':1610612757,'Sacramento':1610612758,'San Antonio':1610612759,
+  'Toronto':1610612761,'Utah':1610612762,'Washington':1610612764
 };
-const T = THRESHOLDS['2026-2027'];
-const MIN_SALARY_0YOS = 1272870; // approximate 2026-27 minimum for 0 YOS
-const MIN_SALARY_CAP_HOLD = Math.round(MIN_SALARY_0YOS * 1.5); // ~$1.9M
-const EST_AVG_SALARY = 13200000; // approximate
-
-// 2026-27 Rookie Scale at 120% (Year 1 cap holds), picks 1-30
-const ROOKIE_SCALE = [
-  13825920,12370320,11108880,10015680,9069840,8237640,7520040,6889200,6332520,6016080,
-  5715120,5429520,5157960,4900320,4655040,4422360,4201080,3991320,3811560,3658800,
-  3512520,3372240,3237480,3108120,2983320,2884560,2801280,2783880,2763960,2743800
-];
-
-const SSID = '11llk0icQqoi0JwJXat5KO8y2RQeBMN5rS9FhAY56Idc';
-const PUB_ID = '2PACX-1vSg6im6IYB6HXMGzQbmmBnLw9SfQLzxCSo8OfChxlJLhsB6BBCO0wPF_TMch0YgAbtFqYkwDWrsxRe7';
-const CONTRACT_GID = '1649473047';
-const DRAFT_GID_CONTRACTS = '1889032294';
-// Column mapping for Contracts sheet salary/cap hit/status per year
-const C_YEARS = [
-  { sc: 7, cc: 8, tc: 9 },   // 25-26
-  { sc: 10, cc: 11, tc: 12 }, // 26-27
-  { sc: 13, cc: 14, tc: 15 }, // 27-28
-  { sc: 16, cc: 17, tc: 18 }, // 28-29
-  { sc: 19, cc: 20, tc: 21 }, // 29-30
-  { sc: 22, cc: 23, tc: 24 }, // 30-31
-];
-const C_END_YEARS = [2026, 2027, 2028, 2029, 2030, 2031];
-
-// Name normalization for cross-sheet matching
-const normName = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\./g,'').replace(/\s+/g,' ').trim().toLowerCase().replace(/\s+(jr|sr|ii|iii|iv|v)$/,'');
-
-// Status normalization for Contracts sheet
-function normSt(v) {
-  const s = (v||'').trim().toUpperCase();
-  if (s.startsWith('GUAR') || s === 'GIUARANTEED' || s === 'GUARANTEEED') return 'GUARANTEED';
-  if (s === 'PARTIAL G') return 'PARTIAL G';
-  if (s === 'NOT G') return 'NOT G';
-  if (s === 'TEAM OPT') return 'TEAM OPT';
-  if (s === 'PLAYER OPT') return 'PLAYER OPT';
-  if (s === 'TWO-WAY') return 'TWO-WAY';
-  if (s === '10-DAY') return '10-DAY';
-  return s;
-}
-const TEAMS = {
-  'Atlanta':'ATL','Boston':'BOS','Brooklyn':'BKN','Charlotte':'CHA','Chicago':'CHI',
-  'Cleveland':'CLE','Dallas':'DAL','Denver':'DEN','Detroit':'DET','Golden State':'GSW',
-  'Houston':'HOU','Indiana':'IND','LA Clippers':'LAC','LA Lakers':'LAL','Memphis':'MEM',
-  'Miami':'MIA','Milwaukee':'MIL','Minnesota':'MIN','New Orleans':'NOP','New York':'NYK',
-  'Oklahoma City':'OKC','Orlando':'ORL','Philadelphia':'PHI','Phoenix':'PHX','Portland':'POR',
-  'Sacramento':'SAC','San Antonio':'SAS','Toronto':'TOR','Utah':'UTA','Washington':'WAS'
+const TEAM_ABBREV = {
+  'Atlanta':'ATL','Boston':'BOS','Brooklyn':'BKN','Charlotte':'CHA','Chicago':'CHI','Cleveland':'CLE',
+  'Dallas':'DAL','Denver':'DEN','Detroit':'DET','Golden State':'GSW','Houston':'HOU','Indiana':'IND',
+  'LA Clippers':'LAC','LA Lakers':'LAL','Memphis':'MEM','Miami':'MIA','Milwaukee':'MIL','Minnesota':'MIN',
+  'New Orleans':'NOP','New York':'NYK','Oklahoma City':'OKC','Orlando':'ORL','Philadelphia':'PHI','Phoenix':'PHX',
+  'Portland':'POR','Sacramento':'SAC','San Antonio':'SAS','Toronto':'TOR','Utah':'UTA','Washington':'WAS'
 };
+const STATUSES = ['Available','Probable','Questionable','Doubtful','Left Game','Out'];
+const STATUS_GRAVITY = { 'Out':0,'Left Game':1,'Doubtful':2,'Questionable':3,'Probable':4,'Available':5 };
 
-// ======================== STATE ========================
-let allPlayers = []; // raw parsed data
-let contractsMap = {}; // normName → {sigDate, sigTeam, notes, yos, draftYear, yrs[], dvEligible, dvAwards, allAwards, end}
-let teamLogos = {}; // team -> logo URL
-let teamDraftPicks = {}; // abbrev -> [{prospect, draftRnk, capHold}]
-let allProspects = []; // all prospect names from Draft Predictor
-let allPickSlots = {}; // pickSlot# -> {team (abbrev), defaultProspect}
-let STATE = null; // current GM state: { team, roster, moves, options, draftSelections }
-
-// Reverse team map: abbreviation -> full name
-const TEAMS_REV = {};
-for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
-
-const PHASES = [
-  { id: 'pre_draft', label: 'Pre-Draft', icon: '📋' },
-  { id: 'draft', label: 'Draft Night', icon: '🏀' },
-  { id: 'pre_fa', label: 'Pre-Free Agency', icon: '📝' },
-  { id: 'free_agency', label: 'Free Agency', icon: '✍️' },
-  { id: 'training_camp', label: 'Training Camp', icon: '⛺' }
-];
-
-// Trade Machine base URL
-const TRADE_MACHINE_URL = 'https://hoopsmatic.com';
-
-function defaultState(team) {
-  return { team, phase: 'pre_draft', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [] };
-}
-
-function saveState() {
-  if (!STATE) return;
-  const s = {
-    ...STATE,
-    renounced: [...STATE.renounced],
-    waived: [...STATE.waived],
-    stretched: [...STATE.stretched]
-  };
-  localStorage.setItem('rm_state_' + STATE.team, JSON.stringify(s));
-}
-
-function loadState(team) {
-  const raw = localStorage.getItem('rm_state_' + team);
-  if (raw) {
-    try {
-      const s = JSON.parse(raw);
-      s.renounced = new Set(s.renounced || []);
-      s.waived = new Set(s.waived || []);
-      s.stretched = new Set(s.stretched || []);
-      s.draftSelections = s.draftSelections || {};
-      s.trades = s.trades || [];
-      s.signings = s.signings || [];
-      s.extensions = s.extensions || [];
-      s.phase = s.phase || 'pre_draft';
-      return s;
-    } catch(e) {}
-  }
-  return defaultState(team);
-}
-
-// ======================== DATA LOADING ========================
-function parseMoney(s) {
-  if (!s) return 0;
-  const neg = s.includes('-');
-  const num = parseInt(s.replace(/[$,\s()-]/g, '')) || 0;
-  return neg ? -num : num;
-}
-
-function fmtMoney(n) {
-  if (n === 0) return '$0';
-  const abs = Math.abs(n);
-  const s = abs >= 1e6 ? '$' + (abs / 1e6).toFixed(1) + 'M' : abs >= 1e3 ? '$' + (abs / 1e3).toFixed(0) + 'K' : '$' + abs;
-  return n < 0 ? '-' + s : s;
-}
-
-function fmtMoneyFull(n) {
-  if (n === 0) return '$0';
-  const abs = Math.abs(n);
-  const s = '$' + abs.toLocaleString('en-US');
-  return n < 0 ? '-' + s : s;
-}
-
-async function fetchData() {
-  const gid = '0';
-  const urls = [
-    `https://docs.google.com/spreadsheets/d/${SSID}/gviz/tq?tqx=out:csv&gid=${gid}`,
-    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${gid}`
-  ];
-  for (const url of urls) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) continue;
-      const txt = await r.text();
-      if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
-      return txt;
-    } catch(e) { continue; }
-  }
-  return null;
-}
-
-async function fetchDraftPicks() {
-  const gid = '965849547';
-  const urls = [
-    `https://docs.google.com/spreadsheets/d/${SSID}/gviz/tq?tqx=out:csv&gid=${gid}`,
-    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${gid}`
-  ];
-  for (const url of urls) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) continue;
-      const txt = await r.text();
-      if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
-      const rows = parseCSV(txt);
-
-      // Columns: 0=Prospect name, 15=POS (pick position), 16=TEAM
-      const prospects = [];
-      const pickSlots = {};
-      const picks = {};
-
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        const prospect = (row[0] || '').trim();
-        const pickPos = parseInt((row[15] || '').trim()) || 0;
-        const rawTeam = (row[16] || '').trim().toUpperCase();
-
-        if (!prospect) continue;
-        prospects.push(prospect);
-
-        // Only first-round picks (1-30) get cap holds
-        if (pickPos < 1 || pickPos > 30 || !rawTeam) continue;
-        const abbrev = rawTeam.length <= 3 ? rawTeam : (TEAMS[rawTeam] || rawTeam);
-        const capHold = ROOKIE_SCALE[pickPos - 1] || 0;
-
-        pickSlots[pickPos] = { team: abbrev, defaultProspect: prospect };
-
-        if (!picks[abbrev]) picks[abbrev] = [];
-        picks[abbrev].push({ prospect, draftRnk: pickPos, capHold });
-      }
-
-      for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
-      allProspects = prospects;
-      allPickSlots = pickSlots;
-      teamDraftPicks = picks;
-      const totalPicks = Object.values(picks).reduce((s, arr) => s + arr.length, 0);
-      console.log(`[DP] Loaded ${prospects.length} prospects, ${totalPicks} first-round picks for ${Object.keys(picks).length} teams`);
-      return;
-    } catch(e) { console.warn('[DP] Failed:', e); continue; }
-  }
-  console.warn('[DP] Could not load draft predictor data');
-}
-
-// ======================== CONTRACTS DATA (for Extension Eligibility) ========================
-function parseSalC(v) {
-  const s = (v||'').trim().replace(/[$,]/g, '');
-  return s && /^\d+$/.test(s) ? parseInt(s) : 0;
-}
-
-async function fetchContractsData() {
-  const urls = [
-    `https://docs.google.com/spreadsheets/d/e/${PUB_ID}/pub?gid=${CONTRACT_GID}&single=true&output=csv`,
-    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${CONTRACT_GID}`
-  ];
-  let rows = null;
-  for (const url of urls) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) continue;
-      const txt = await r.text();
-      if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
-      rows = parseCSV(txt);
-      if (rows.length > 1) break;
-      rows = null;
-    } catch(e) { continue; }
-  }
-  if (!rows || rows.length < 2) { console.warn('[CONTRACTS] Could not load contracts data'); return; }
-
-  const awardsRaw = [];
-  const players = [];
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    const name = (r[0]||'').trim();
-    // Awards table (cols 40-42)
-    const awPlayer = (r[40]||'').trim();
-    const awAward = (r[41]||'').trim();
-    const awYear = parseInt((r[42]||'').trim()) || 0;
-    if (awPlayer && awAward && awYear) awardsRaw.push({ player: awPlayer, award: awAward, year: awYear });
-    if (!name) continue;
-
-    const team = (r[2]||'').trim() || null;
-    const yrs = C_YEARS.map(yr => ({ sal: parseSalC(r[yr.sc]), ch: parseSalC(r[yr.cc]), st: normSt(r[yr.tc]) }));
-
-    players.push({
-      name, team, yrs,
-      end: (r[27]||'').trim(),
-      sigDate: (r[29]||'').trim(),
-      sigTeam: (r[30]||'').trim(),
-      exc: (r[31]||'').trim(),
-      notes: (r[32]||'').trim(),
-      yos: parseInt((r[38]||'').trim()) || 0,
-      draftYear: 0,
-      dvEligible: false, dvAwards: [], allAwards: []
-    });
-  }
-
-  // Build awards map
-  const awardsMap = {};
-  awardsRaw.forEach(a => {
-    const n = normName(a.player);
-    if (!awardsMap[n]) awardsMap[n] = [];
-    awardsMap[n].push({ award: a.award, year: a.year });
-  });
-
-  // Attach DV eligibility
-  const DV_AWARDS = ['Most Valuable Player', 'Defensive Player of the Year', 'All-NBA First Team', 'All-NBA Second Team', 'All-NBA Third Team'];
-  const CURRENT_YEAR = 2025;
-  const DV_WINDOW = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
-
-  players.forEach(p => {
-    const pAwards = awardsMap[normName(p.name)] || [];
-    const dvAwards = pAwards.filter(a => DV_AWARDS.includes(a.award) && DV_WINDOW.includes(a.year));
-    const inMostRecent = dvAwards.some(a => a.year === CURRENT_YEAR);
-    p.dvEligible = inMostRecent || dvAwards.length >= 2;
-    p.dvAwards = dvAwards;
-    p.allAwards = pAwards;
-  });
-
-  // Fetch draft year data (separate sheet used by Contracts app)
-  try {
-    const dUrls = [
-      `https://docs.google.com/spreadsheets/d/e/${PUB_ID}/pub?gid=${DRAFT_GID_CONTRACTS}&single=true&output=csv`,
-      `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${DRAFT_GID_CONTRACTS}`
-    ];
-    for (const url of dUrls) {
-      try {
-        const dr = await fetch(url);
-        if (!dr.ok) continue;
-        const dtxt = await dr.text();
-        if (dtxt.includes('<!DOCTYPE')) continue;
-        const dRows = parseCSV(dtxt);
-        if (dRows.length < 2) continue;
-        const hdr = dRows[0].map(h => (h||'').trim().toUpperCase());
-        let di = hdr.lastIndexOf('DRAFT POS');
-        let ni = -1;
-        for (let k = di - 1; k >= 0; k--) { if (hdr[k] === 'PLAYER') { ni = k; break; } }
-        let dyi = hdr.lastIndexOf('DRAFT YEAR');
-        if (dyi < 0) dyi = 61;
-        if (ni >= 0 && di >= 0) {
-          const draftYearMap = {};
-          for (let j = 1; j < dRows.length; j++) {
-            const n = (dRows[j][ni]||'').trim();
-            const dy = parseInt((dRows[j][dyi]||'').trim());
-            if (n && dy > 0) draftYearMap[normName(n)] = dy;
-          }
-          players.forEach(p => { p.draftYear = draftYearMap[normName(p.name)] || 0; });
-          console.log(`[CONTRACTS] Draft years loaded for ${Object.keys(draftYearMap).length} players`);
-        }
-        break;
-      } catch(e) { continue; }
-    }
-  } catch(e) { console.warn('[CONTRACTS] Draft data fetch failed:', e); }
-
-  // Build contractsMap keyed by normalized name
-  contractsMap = {};
-  players.forEach(p => { contractsMap[normName(p.name)] = p; });
-  console.log(`[CONTRACTS] Loaded ${players.length} contracts, ${awardsRaw.length} awards`);
-}
+function teamLogo(t) { const id=TEAM_IDS[t]; return id ? `https://cdn.nba.com/logos/nba/${id}/primary/L/logo.svg` : ''; }
+function logoImg(t) { const u=teamLogo(t); return u ? `<img src="${u}" width="28" height="28" style="vertical-align:middle;">` : ''; }
+function fmtSal(n) { if(n>=1e6) return '$'+(n/1e6).toFixed(1)+'M'; if(n>=1e3) return '$'+(n/1e3).toFixed(0)+'K'; return '$'+n.toLocaleString(); }
+function fmtSalFull(n) { return '$'+n.toLocaleString(); }
+function fmtDate(iso) { const d=new Date(iso+'T00:00:00'); const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return m[d.getMonth()]+' '+d.getDate(); }
+function sColor(s) { return {Out:'#ef4444','Left Game':'#f43f5e',Doubtful:'#f97316',Questionable:'#eab308',Probable:'#22c55e',Available:'#10b981'}[s]||'#888'; }
+function sSpan(s) { return `<span style="color:${sColor(s)};font-weight:700;">${s}</span>`; }
+function statusClass(s) { return 's-'+s.toLowerCase().replace(/\s+/g,'-'); }
+function lastName(name) { const parts = name.trim().split(/\s+/); return parts.length > 1 ? parts[parts.length-1] : name; }
+function todayISO() { return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }); }
 
 function parseCSV(text) {
-  const rows = []; let row = []; let cell = ''; let inQ = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQ) {
-      if (c === '"' && text[i+1] === '"') { cell += '"'; i++; }
-      else if (c === '"') inQ = false;
-      else cell += c;
-    } else {
-      if (c === '"') inQ = true;
-      else if (c === ',') { row.push(cell); cell = ''; }
-      else if (c === '\n' || c === '\r') {
-        if (c === '\r' && text[i+1] === '\n') i++;
-        row.push(cell); cell = '';
-        if (row.some(c => c.trim())) rows.push(row);
-        row = [];
-      } else cell += c;
-    }
+  const rows=[]; let cur='',inQ=false,row=[];
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(c==='"'){if(inQ&&text[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
+    else if(c===','&&!inQ){row.push(cur);cur='';}
+    else if((c==='\n'||c==='\r')&&!inQ){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cur);cur='';rows.push(row);row=[];}
+    else cur+=c;
   }
-  if (cell || row.length) { row.push(cell); if (row.some(c => c.trim())) rows.push(row); }
+  if(cur||row.length){row.push(cur);rows.push(row);}
   return rows;
 }
 
-function parseAllPlayers(csv) {
-  const rows = parseCSV(csv);
-  const players = [];
-  // Header-based lookup for EXT_ELIGIBLE column
-  const headers = rows[0] || [];
-  const extColIdx = headers.findIndex(h => (h || '').trim().toUpperCase() === 'EXT_ELIGIBLE');
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    const name = (r[0] || '').trim();
-    const team = (r[2] || '').trim();
-    if (!name || !team || !TEAMS[team]) continue;
+// ===== SHARED STATE =====
+let roster = {};      // player -> {team, salary}
+let teamSalaries = {}; // team -> total salary
+let daysMap = {};     // player -> days since last game
+let jsonEntries = []; // raw injuries.json
+let latestStatus = {}; // player -> {status, injury, date}
+let modifications = {}; // player -> {status, injury, date} (admin edits)
 
-    const sal26 = parseMoney(r[3]);
-    const ch26 = parseMoney(r[4]);
-    const st26 = (r[5] || '').trim();
-    const sal27 = parseMoney(r[6]);
-    const ch27 = parseMoney(r[7]);
-    const st27 = (r[8] || '').trim();
-    const exception = (r[20] || '').trim();
-    const logo = (r[24] || '').trim();
-    const headshot = (r[25] || '').trim();
-    const pos = (r[26] || '').trim();
-    const age = (r[27] || '').trim();
-    const end = parseInt((r[29] || '').trim()) || 0;
-    const totalGuar = parseMoney(r[30]);
-    const tradeKicker = parseFloat((r[31] || '').trim()) || 0;
-    const extEligible = extColIdx >= 0 ? (r[extColIdx] || '').trim() : '';
+// ===== DATA LOADING =====
+async function loadData() {
+  const [csvR, rosterR, jsonR] = await Promise.all([
+    fetch(CSV_URL),
+    fetch(ROSTER_CSV_URL),
+    fetch(JSON_URL + '?t=' + Date.now())
+  ]);
+  if (!csvR.ok) throw new Error('Injuries CSV fetch failed: ' + csvR.status);
+  if (!rosterR.ok) throw new Error('Roster CSV fetch failed: ' + rosterR.status);
+  if (!jsonR.ok) throw new Error('injuries.json fetch failed: ' + jsonR.status);
 
-    if (logo && team) teamLogos[team] = logo;
+  const csvText = await csvR.text();
+  const rosterText = await rosterR.text();
+  const injuries = await jsonR.json();
+  const injRows = parseCSV(csvText);
+  const rosterRows = parseCSV(rosterText);
 
-    // Determine player category for 2026-27 offseason
-    let category, capHold = 0;
-    if (st26 === 'TWO-WAY' || st27 === 'TWO-WAY') {
-      category = 'twoway';
-    } else if (!sal27 && !st27) {
-      // No 2026-27 salary = expiring, becomes free agent
-      category = 'free_agent';
-      capHold = calcCapHold(sal26, exception);
-    } else if (st27 === 'TEAM OPT') {
-      category = 'team_option';
-    } else if (st27 === 'PLAYER OPT') {
-      category = 'player_option';
-    } else if (st27 === 'NOT G') {
-      category = 'non_guaranteed';
-    } else if (st27 === 'PARTIAL G') {
-      category = 'partial_guaranteed';
-    } else {
-      category = 'under_contract'; // GUARANTEED
-    }
-
-    players.push({
-      name, team, sal26, ch26, st26, sal27, ch27, st27,
-      exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
-      category, capHold, extEligible
-    });
-  }
-  return players;
-}
-
-function calcCapHold(priorSalary, exception) {
-  const maxSalary = Math.round(T.cap * 0.35); // absolute max for any player
-  if (!priorSalary) return MIN_SALARY_CAP_HOLD;
-  let hold;
-  const exc = exception.toLowerCase();
-  if (exc.includes('bird') && !exc.includes('early') && !exc.includes('non')) {
-    hold = Math.round(priorSalary * (priorSalary > EST_AVG_SALARY ? 2.50 : 1.90));
-  } else if (exc.includes('early bird')) {
-    hold = Math.max(Math.round(priorSalary * 1.90), Math.round(EST_AVG_SALARY * 1.30));
-  } else if (exc.includes('non-bird') || exc.includes('non bird')) {
-    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
-  } else if (exc.includes('minimum')) {
-    hold = MIN_SALARY_CAP_HOLD;
-  } else if (exc.includes('mid-level') || exc.includes('taxpayer') || exc.includes('room')) {
-    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
-  } else if (exc.includes('rookie')) {
-    hold = Math.round(priorSalary * 1.90);
-  } else {
-    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
-  }
-  return Math.min(hold, maxSalary);
-}
-
-// ======================== CAP ENGINE ========================
-function calcCapSheet(team) {
-  const players = allPlayers.filter(p => p.team === team);
-  let activeSalaries = 0, capHolds = 0, deadMoney = 0;
-  let rosterCount = 0, twowayCount = 0;
-
-  // Build set of traded-out player names
-  const tradedOut = new Set();
-  const tradedIn = []; // {name, salary, pos, fromTeam}
-  for (const trade of (STATE.trades || [])) {
-    for (const p of (trade.out || [])) tradedOut.add(p.name);
-    for (const p of (trade.in || [])) tradedIn.push(p);
-  }
-
-  const roster = { under_contract: [], free_agent: [], non_guaranteed: [], partial_guaranteed: [], twoway: [], waived: [], draft_picks: [], signed: [] };
-
-  for (const p of players) {
-    // Skip traded-out players
-    if (tradedOut.has(p.name)) continue;
-
-    const waived = STATE.waived.has(p.name);
-    const renounced = STATE.renounced.has(p.name);
-    const optDecision = STATE.optionDecisions[p.name]; // 'pickup','exercise','decline'
-
-    // === WAIVED ===
-    if (waived) {
-      let dead = 0;
-      const isStretched = STATE.stretched.has(p.name);
-      const wasPickedUp = STATE.optionDecisions[p.name] === 'pickup' || STATE.optionDecisions[p.name] === 'exercise';
-      if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp) {
-        dead = p.sal27; // full guaranteed salary
-      } else if (p.category === 'partial_guaranteed') {
-        dead = p.ch27; // guaranteed portion
-      }
-      // Stretch provision: divide over (2*remaining_years + 1)
-      if (isStretched && dead > 0) {
-        const remainingYrs = Math.max(1, (p.end || 2027) - 2026);
-        const stretchPeriod = 2 * remainingYrs + 1;
-        dead = Math.round(dead / stretchPeriod);
-      }
-      if (dead) deadMoney += dead;
-      roster.waived.push({ ...p, status: 'waived', deadAmount: dead, isStretched });
-      continue;
-    }
-
-    // === TWO-WAY ===
-    if (p.category === 'twoway') {
-      twowayCount++;
-      roster.twoway.push({ ...p, status: 'active' });
-      continue;
-    }
-
-    // === TEAM OPTION ===
-    if (p.category === 'team_option') {
-      if (optDecision === 'pickup') {
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'picked_up', fromOption: 'TO' });
-      } else if (optDecision === 'decline') {
-        const hold = calcCapHold(p.sal26, p.exception);
-        if (renounced) {
-          roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, fromOption: 'TO' });
-        } else {
-          capHolds += hold;
-          roster.free_agent.push({ ...p, status: 'held', capHold: hold, fromOption: 'TO' });
+  // Parse roster by header names (same source as Depth Charts)
+  roster = {}; teamSalaries = {};
+  if (rosterRows.length > 1) {
+    const header = rosterRows[0];
+    const col = n => header.findIndex(h => h.toUpperCase().trim() === n.toUpperCase());
+    const playerIdx = col('PLAYER'), teamIdx = col('TEAM'), salaryIdx = col('2026');
+    if (playerIdx >= 0 && teamIdx >= 0) {
+      for (let i = 1; i < rosterRows.length; i++) {
+        const row = rosterRows[i];
+        const player = (row[playerIdx] || '').trim();
+        const team = (row[teamIdx] || '').trim();
+        const salRaw = salaryIdx >= 0 ? (row[salaryIdx] || '0').replace(/[$,]/g, '') : '0';
+        const salary = parseInt(salRaw) || 0;
+        if (player && team) {
+          roster[player] = { team, salary };
+          teamSalaries[team] = (teamSalaries[team] || 0) + salary;
         }
-      } else {
-        // Pending — count salary provisionally
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'pending_to' });
       }
-      continue;
-    }
-
-    // === PLAYER OPTION ===
-    if (p.category === 'player_option') {
-      if (optDecision === 'exercise') {
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'exercised', fromOption: 'PO' });
-      } else if (optDecision === 'decline') {
-        const hold = calcCapHold(p.sal26, p.exception);
-        if (renounced) {
-          roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, fromOption: 'PO' });
-        } else {
-          capHolds += hold;
-          roster.free_agent.push({ ...p, status: 'held', capHold: hold, fromOption: 'PO' });
-        }
-      } else {
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'pending_po' });
-      }
-      continue;
-    }
-
-    // === FREE AGENT ===
-    if (p.category === 'free_agent') {
-      if (renounced) {
-        roster.free_agent.push({ ...p, status: 'renounced' });
-      } else {
-        capHolds += p.capHold;
-        roster.free_agent.push({ ...p, status: 'held' });
-      }
-      continue;
-    }
-
-    // === NON-GUARANTEED ===
-    if (p.category === 'non_guaranteed') {
-      activeSalaries += p.sal27;
-      rosterCount++;
-      roster.non_guaranteed.push({ ...p, status: 'active' });
-      continue;
-    }
-
-    // === PARTIAL GUARANTEED ===
-    if (p.category === 'partial_guaranteed') {
-      activeSalaries += p.sal27;
-      rosterCount++;
-      roster.partial_guaranteed.push({ ...p, status: 'active' });
-      continue;
-    }
-
-    // === UNDER CONTRACT (GUARANTEED) ===
-    activeSalaries += p.sal27;
-    rosterCount++;
-    roster.under_contract.push({ ...p, status: 'active' });
-  }
-
-  // Incomplete roster charge: if < 12 standard contracts, add minimum cap hold per empty slot
-  const incompleteCharge = rosterCount < 12 ? (12 - rosterCount) * MIN_SALARY_CAP_HOLD : 0;
-
-  // === DRAFT PICKS ===
-  const teamAbbrev = TEAMS[team];
-  const picks = teamDraftPicks[teamAbbrev] || [];
-  let draftCapHolds = 0;
-  for (const pick of picks) {
-    if (STATE.renounced.has('PICK_' + pick.draftRnk)) continue;
-    draftCapHolds += pick.capHold;
-    const selectedProspect = (STATE.draftSelections && STATE.draftSelections[pick.draftRnk]) || pick.prospect;
-    roster.draft_picks.push({ ...pick, selectedProspect });
-  }
-  capHolds += draftCapHolds;
-
-  // === TRADED-IN PLAYERS ===
-  for (const tp of tradedIn) {
-    activeSalaries += tp.salary;
-    rosterCount++;
-    roster.under_contract.push({
-      name: tp.name, sal27: tp.salary, pos: tp.pos || '', headshot: tp.headshot || '',
-      exception: '', st27: 'GUARANTEED', status: 'traded_in', fromTeam: tp.fromTeam,
-      end: tp.end || 0, tradeKicker: 0
-    });
-  }
-
-  // === SIGNINGS (Free Agency) ===
-  for (const sig of (STATE.signings || [])) {
-    activeSalaries += sig.salary;
-    rosterCount++;
-    roster.signed.push({
-      name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
-      exception: sig.exception, st27: 'GUARANTEED', status: 'signed',
-      end: sig.end || 2027, tradeKicker: 0
-    });
-  }
-
-  const teamSalary = activeSalaries + capHolds + deadMoney + incompleteCharge;
-  const capSpace = T.cap - teamSalary;
-  const taxRoom = T.tax - teamSalary;
-  const apron1Room = T.apron1 - teamSalary;
-  const apron2Room = T.apron2 - teamSalary;
-
-  // Available exceptions
-  const hasCapSpace = capSpace > 0;
-  const belowTax = taxRoom > 0;
-  const belowApron1 = apron1Room > 0;
-  const belowApron2 = apron2Room > 0;
-
-  const exceptions = [];
-  if (hasCapSpace) {
-    exceptions.push({ name: 'Cap Space', amount: capSpace, available: true });
-    exceptions.push({ name: 'Room MLE', amount: T.rmle, available: true });
-  } else {
-    exceptions.push({ name: 'Cap Space', amount: 0, available: false });
-  }
-  if (!hasCapSpace && belowApron1) {
-    exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: true });
-    exceptions.push({ name: 'BAE', amount: T.bae, available: true });
-  } else if (!hasCapSpace && !belowApron1 && belowApron2) {
-    exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: true });
-  } else if (!hasCapSpace) {
-    exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false });
-    exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: !hasCapSpace && !belowApron1 ? false : true });
-    exceptions.push({ name: 'BAE', amount: T.bae, available: false });
-  }
-  exceptions.push({ name: 'Minimum', amount: MIN_SALARY_0YOS, available: true });
-
-  // Track exception usage from signings
-  const excUsage = {};
-  for (const sig of (STATE.signings || [])) {
-    const exc = sig.exception || 'Unknown';
-    excUsage[exc] = (excUsage[exc] || 0) + sig.salary;
-  }
-  for (const exc of exceptions) {
-    const used = excUsage[exc.name] || 0;
-    if (used > 0) {
-      exc.used = used;
-      exc.remaining = Math.max(0, exc.amount - used);
     }
   }
 
-  return {
-    roster, activeSalaries, capHolds, deadMoney, incompleteCharge, draftCapHolds,
-    teamSalary, capSpace, taxRoom, apron1Room, apron2Room,
-    rosterCount, twowayCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2
-  };
+  // Days since last game: cols 71(player), 73(days) from Injuries CSV
+  daysMap = {};
+  for (const r of injRows) {
+    if (r.length > 73) {
+      const p = (r[71] || '').trim(), d = (r[73] || '').trim();
+      if (p && /^\d+$/.test(d)) daysMap[p] = parseInt(d);
+    }
+  }
+
+  // Process JSON entries
+  jsonEntries = injuries;
+  latestStatus = {};
+  const prev = {};
+  for (const e of injuries) {
+    if (latestStatus[e.player]) prev[e.player] = latestStatus[e.player];
+    latestStatus[e.player] = { status: e.status, injury: e.injury, date: e.date };
+  }
+
+  return { prev };
 }
 
-// ======================== RENDERING ========================
-function renderTeamGrid() {
-  const grid = document.getElementById('teamGrid');
-  grid.innerHTML = '';
-  for (const [full, abbr] of Object.entries(TEAMS)) {
-    const btn = document.createElement('div');
-    btn.className = 'team-btn' + (STATE && STATE.team === full ? ' active' : '');
-    const logo = teamLogos[full] || '';
-    btn.innerHTML = `${logo ? `<img src="${logo}" alt="${abbr}">` : `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent)">${abbr}</div>`}<div class="tn">${full}</div>`;
-    btn.onclick = () => selectTeam(full);
-    grid.appendChild(btn);
+// ===== IS ADMIN? =====
+const isAdmin = new URLSearchParams(window.location.search).has('admin');
+
+if (isAdmin) {
+  document.body.innerHTML = `
+    <div class="admin-container">
+      <div class="admin-header">
+        <h1>🏥 Injury Report — Admin</h1>
+        <span class="subtitle" id="lastUpdate"></span>
+      </div>
+      <div class="admin-toolbar" id="toolbar">
+        <button class="primary" onclick="copyPrestoHTML(this)">📋 Copy Presto HTML</button>
+        <button onclick="copyJSON(this)">📋 Copy Updated JSON</button>
+        <button onclick="window.open('https://github.com/aderoa/Injuries/edit/main/injuries.json','_blank')">✏️ Open on GitHub</button>
+        <button class="btn-purge" onclick="purgeAvailable(this)">🧹 Purge Available</button>
+        <button id="undoBtn" style="display:none;" onclick="undoPurge(this)">↩ Undo Purge</button>
+        <button onclick="resetAll()">🗑 Reset All</button>
+        <span class="spacer"></span>
+        <span class="badge" id="changesBadge">0 changes</span>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="searchInput" placeholder="Search player or team..." oninput="filterPlayers()">
+        <button class="filter-btn" onclick="toggleFilter('modified',this)" title="Show only modified">✎ Modified</button>
+        <button class="filter-btn" onclick="toggleFilter('injured',this)" title="Show only injured">🔴 Injured</button>
+        <button class="filter-btn" onclick="toggleFilter('available',this)" title="Show only available">🟢 Available</button>
+      </div>
+      <div class="col-headers">
+        <span>Player</span><span>Salary</span><span>Status</span><span>Injury</span><span>Date</span>
+      </div>
+      <div id="rosterArea"><div class="loading-state"><div class="loading-spinner"></div><p>Loading roster...</p></div></div>
+    </div>
+  `;
+  initAdmin();
+} else {
+  document.body.innerHTML = `
+    <div class="report-container">
+      <div class="admin-header">
+        <h1>🏥 NBA Injury Report</h1>
+      </div>
+      <div class="report-toolbar" id="reportToolbar">
+        <button onclick="copyAll(this)">📋 Copy Full Report</button>
+        <button onclick="copySection(0,this)">📋 Today's Updates</button>
+        <button onclick="copySection(1,this)">📋 Full Report</button>
+        <button onclick="copySection(2,this)">📋 Salary Per Team</button>
+        <button onclick="copySection(3,this)">📋 Highest-Paid</button>
+        <button onclick="refreshReport(this)">🔄 Refresh</button>
+        <button class="btn-purge" onclick="togglePurge(this)">🧹 Purge Available</button>
+      </div>
+      <div class="tab-bar" id="tabBar">
+        <button onclick="showTab(0,this)">Today's Updates</button>
+        <button onclick="showTab(1,this)">Full Report</button>
+        <button onclick="showTab(2,this)">Salary Per Team</button>
+        <button onclick="showTab(3,this)">Highest-Paid</button>
+        <button class="active" onclick="showTab(-1,this)">All</button>
+      </div>
+      <div id="loading" class="loading-state"><div class="loading-spinner"></div><p>Loading injury data...</p></div>
+      <div id="preview" class="preview" style="display:none;"></div>
+      <div id="error" class="error-msg" style="display:none;"></div>
+    </div>
+  `;
+  initReport();
+}
+
+// ==========================================
+// ADMIN MODE
+// ==========================================
+let activeFilter = null;
+
+async function initAdmin() {
+  try {
+    // Load saved modifications from localStorage
+    try {
+      const saved = localStorage.getItem('injuries_modifications');
+      if (saved) { modifications = JSON.parse(saved); }
+    } catch(e) {}
+    await loadData();
+    document.getElementById('lastUpdate').textContent = `${Object.keys(roster).length} players loaded`;
+    renderRoster();
+    updateBadge();
+  } catch(e) {
+    document.getElementById('rosterArea').innerHTML = `<div class="error-msg">Error: ${e.message}</div>`;
   }
 }
 
-function selectTeam(team) {
-  STATE = loadState(team);
-  // Recalculate extension eligibility for all team players (considers saved option decisions)
-  allPlayers.filter(p => p.team === team).forEach(p => { p.ext = calcExtEligRM(p); });
-  renderTeamGrid();
-  document.getElementById('appContent').style.display = 'block';
-  render();
-}
+function renderRoster() {
+  const area = document.getElementById('rosterArea');
+  let html = '';
 
-function render() {
-  if (!STATE) return;
-  renderPhaseBar();
-  const cap = calcCapSheet(STATE.team);
-  renderRoster(cap);
-  renderCapPanel(cap);
-}
-
-function renderPhaseBar() {
-  const bar = document.getElementById('phaseBar');
-  const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
-  let h = '';
-  PHASES.forEach((phase, i) => {
-    if (i > 0) h += `<span class="phase-arrow">▶</span>`;
-    const cls = i === currentIdx ? 'active' : i < currentIdx ? 'completed' : 'locked';
-    h += `<div class="phase-step ${cls}" onclick="${i <= currentIdx ? `setPhase('${phase.id}')` : ''}">${phase.icon} ${phase.label}</div>`;
-  });
-  if (currentIdx < PHASES.length - 1) {
-    const next = PHASES[currentIdx + 1];
-    h += `<button class="phase-advance" onclick="advancePhase()">Proceed to ${next.label} →</button>`;
-  }
-  bar.innerHTML = h;
-}
-
-function renderRoster(cap) {
-  const panel = document.getElementById('rosterPanel');
-  let h = '';
-  const phase = STATE.phase;
-
-  // Phase-specific action bar
-  h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">`;
-  if (phase !== 'training_camp') {
-    h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Open Trade Machine</button>`;
-  }
-  if (phase === 'free_agency') {
-    h += `<button class="action-btn pickup" style="font-size:.7rem;padding:.35rem .75rem" onclick="openSignModal()">✍️ Sign Free Agent</button>`;
-  }
-  h += `</div>`;
-
-  // Training camp warnings
-  if (phase === 'training_camp') {
-    const total = cap.rosterCount;
-    const twoWay = cap.twowayCount;
-    if (total > 15) {
-      h += `<div class="camp-warning"><h4>⚠️ Roster Over Limit</h4><p>You have ${total} standard contracts — must cut ${total - 15} player(s) to reach the 15-player limit.</p></div>`;
-    } else if (total < 14) {
-      h += `<div class="camp-warning"><h4>⚠️ Roster Under Minimum</h4><p>You have ${total} standard contracts — need at least 14 for opening night.</p></div>`;
-    } else {
-      h += `<div class="camp-ok"><h4>✅ Roster Compliant</h4><p>${total} standard contracts (limit: 15) · ${twoWay} two-way (limit: 3)</p></div>`;
-    }
-    if (twoWay > 3) {
-      h += `<div class="camp-warning"><h4>⚠️ Too Many Two-Way</h4><p>You have ${twoWay} two-way contracts — must cut ${twoWay - 3} to reach the 3-player limit.</p></div>`;
-    }
-  }
-
-  const sections = [
-    { key: 'under_contract', label: 'Under Contract', color: '#4caf50', icon: '✅' },
-    { key: 'non_guaranteed', label: 'Non-Guaranteed', color: '#ef5350', icon: '⚠️' },
-    { key: 'partial_guaranteed', label: 'Partially Guaranteed', color: '#ffd600', icon: '🔶' },
-    { key: 'signed', label: 'Signed (Free Agency)', color: '#26c6da', icon: '✍️' },
-    { key: 'draft_picks', label: 'Draft Picks (Cap Holds)', color: '#ff9800', icon: '🏀' },
-    { key: 'free_agent', label: 'Free Agents (Cap Holds)', color: '#667eea', icon: '🔓' },
-    { key: 'twoway', label: 'Two-Way', color: '#64748b', icon: '🔄' },
-    { key: 'waived', label: 'Waived', color: '#ef5350', icon: '🗑️' },
-  ];
-
-  for (const sec of sections) {
-    const players = cap.roster[sec.key];
+  for (const team of NBA_TEAMS) {
+    const players = Object.entries(roster)
+      .filter(([_,v]) => v.team === team)
+      .sort((a,b) => lastName(a[0]).localeCompare(lastName(b[0])));
     if (!players.length) continue;
 
-    const totalSal = players.reduce((s, p) => {
-      if (p.status === 'renounced') return s;
-      if (sec.key === 'free_agent') return s + (p.capHold || 0);
-      if (sec.key === 'waived') return s + (p.deadAmount || 0);
-      if (sec.key === 'draft_picks') return s + (p.capHold || 0);
-      if (sec.key === 'signed') return s + (p.sal27 || 0);
-      return s + (p.sal27 || 0);
-    }, 0);
+    const injuredCount = players.filter(([name]) => {
+      const mod = modifications[name];
+      const cur = mod || latestStatus[name];
+      return cur && cur.status !== 'Available';
+    }).length;
 
-    h += `<div class="section">`;
-    h += `<div class="section-hdr" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">`;
-    h += `<div class="dot" style="background:${sec.color}"></div>`;
-    h += `<h3>${sec.icon} ${sec.label}</h3>`;
-    h += `<span class="badge" style="background:${sec.color}22;color:${sec.color}">${sec.key === 'draft_picks' ? players.length : players.filter(p=>p.status!=='renounced').length} ${sec.key === 'draft_picks' ? 'picks' : 'players'}</span>`;
-    h += `<span style="font-size:.75rem;font-weight:600;color:${sec.color}">${fmtMoney(totalSal)}</span>`;
-    h += `</div>`;
-    h += `<div class="section-body">`;
+    html += `<div class="team-section" data-team="${team}" id="team-${team.replace(/\s/g,'')}">`;
+    html += `<div class="team-header" onclick="toggleTeam(this)">`;
+    html += `<img src="${teamLogo(team)}" alt="${team}">`;
+    html += `<span class="team-name">${team}</span>`;
+    html += `<span class="team-count">${players.length} players</span>`;
+    html += `<span class="team-injured ${injuredCount?'':'none'}">${injuredCount} injured</span>`;
+    html += `<span class="chevron">▼</span>`;
+    html += `</div>`;
+    html += `<div class="team-players">`;
 
-    for (const p of players.sort((a, b) => {
-      const va = sec.key === 'free_agent' ? (a.capHold || 0) : sec.key === 'waived' ? (a.deadAmount || 0) : sec.key === 'draft_picks' ? (a.capHold || 0) : sec.key === 'signed' ? (a.sal27 || 0) : (a.sal27 || 0);
-      const vb = sec.key === 'free_agent' ? (b.capHold || 0) : sec.key === 'waived' ? (b.deadAmount || 0) : sec.key === 'draft_picks' ? (b.capHold || 0) : sec.key === 'signed' ? (b.sal27 || 0) : (b.sal27 || 0);
-      return vb - va;
-    })) {
-      // === DRAFT PICK ROW ===
-      if (sec.key === 'draft_picks') {
-        const isSwapped = p.selectedProspect !== p.prospect;
-        h += `<div class="player-row">`;
-        h += `<div class="hs-ini" style="background:var(--orange);color:#000;font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
-        h += `<div class="info">`;
-        h += `<div class="pname">${p.selectedProspect || 'TBD'}${isSwapped ? ' <span style="font-size:.55rem;color:var(--muted)">(was: ' + p.prospect + ')</span>' : ''}</div>`;
-        h += `<div class="pdet">1st Rd Pick #${p.draftRnk} · Rookie Scale</div>`;
-        h += `</div>`;
-        h += `<div><div class="sal" style="color:var(--orange)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
-        h += `<div style="display:flex;gap:.3rem">`;
-        if (STATE.phase === 'draft') {
-          h += `<button class="action-btn draft-swap" onclick="openDraftPicker(${p.draftRnk})">🔄 Swap</button>`;
-          if (isSwapped) h += `<button class="action-btn decline" onclick="resetDraftPick(${p.draftRnk})">↩</button>`;
-        } else if (STATE.phase === 'pre_draft') {
-          h += `<span style="font-size:.6rem;color:var(--muted)">available in Draft Night</span>`;
-        }
-        h += `</div>`;
-        h += `</div>`;
-        continue;
-      }
+    for (const [name, info] of players) {
+      const cur = modifications[name] || latestStatus[name] || { status:'Available', injury:'', date:'' };
+      const isModified = !!modifications[name];
+      const isAvail = cur.status === 'Available';
 
-      const acted = p.status === 'renounced' || sec.key === 'waived';
-      h += `<div class="player-row${acted ? ' acted' : ''}">`;
+      html += `<div class="player-row ${isModified?'modified':''}" data-player="${name}" data-team="${team}">`;
+      html += `<span class="player-name" title="${name}">${name}</span>`;
+      html += `<span class="player-salary">${fmtSal(info.salary)}</span>`;
 
-      // Headshot
-      if (p.headshot) {
-        h += `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">`;
-      } else {
-        h += `<div class="hs-ini">${p.name.split(' ').map(w => w[0]).join('')}</div>`;
+      // Status select
+      html += `<select class="${statusClass(cur.status)}" onchange="onStatusChange('${name.replace(/'/g,"\\'")}',this)">`;
+      for (const s of STATUSES) {
+        html += `<option value="${s}" ${s===cur.status?'selected':''}>${s}</option>`;
       }
+      html += `</select>`;
 
-      // Info
-      h += `<div class="info"><div class="pname">${p.name}</div>`;
-      h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}${p.end ? ' · thru ' + p.end : ''}${p.tradeKicker ? ' · TK ' + p.tradeKicker + '%' : ''}${p.fromOption ? ' · declined ' + p.fromOption : ''}</div>`;
-      h += `</div>`;
+      // Injury input
+      html += `<input type="text" value="${cur.injury||''}" class="${isAvail?'inactive':''}" placeholder="${isAvail?'—':'Injury reason'}" onchange="onInjuryChange('${name.replace(/'/g,"\\'")}',this)" onfocus="this.classList.remove('inactive')">`;
 
-      // Salary display
-      if (sec.key === 'waived') {
-        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27 || p.sal26)}</div>`;
-        h += `<div class="ch">${p.deadAmount ? fmtMoney(p.deadAmount) + ' dead cap' + (p.isStretched ? ' (stretched)' : '') : 'no dead cap'}</div></div>`;
-      } else if (sec.key === 'free_agent') {
-        if (p.status === 'renounced') {
-          h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
-        } else {
-          h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
-        }
-      } else if (sec.key === 'signed') {
-        h += `<div><div class="sal g">${fmtMoney(p.sal27)}</div>`;
-        h += `<div class="ch" style="color:var(--green)">✍️ signed via ${shortExc(p.exception) || 'FA'}</div></div>`;
-      } else {
-        const cls = { 'GUARANTEED': 'g', 'NOT G': 'ng', 'TEAM OPT': 'to', 'PLAYER OPT': 'po', 'PARTIAL G': 'pg' }[p.st27] || 'g';
-        h += `<div><div class="sal ${cls}">${fmtMoney(p.sal27)}</div>`;
-        if (p.ch27 && p.ch27 !== p.sal27 && (p.st27 === 'PARTIAL G' || p.st27 === 'NOT G')) {
-          h += `<div class="ch">G: ${fmtMoney(p.ch27)}</div>`;
-        }
-        if (p.status === 'pending_to') h += `<div class="ch" style="color:var(--orange)">⚡ Team Option</div>`;
-        if (p.status === 'pending_po') h += `<div class="ch" style="color:var(--cyan)">🎯 Player Option</div>`;
-        if (p.status === 'picked_up') h += `<div class="ch" style="color:var(--green)">✓ TO picked up</div>`;
-        if (p.status === 'exercised') h += `<div class="ch" style="color:var(--green)">✓ PO exercised</div>`;
-        h += `</div>`;
-      }
+      // Date input
+      html += `<input type="date" value="${cur.date||''}" class="${isAvail?'inactive':''}" onchange="onDateChange('${name.replace(/'/g,"\\'")}',this)">`;
 
-      // Action buttons (phase-aware)
-      const phase = STATE.phase;
-      h += `<div style="display:flex;gap:.3rem;flex-wrap:wrap">`;
-      if (p.status === 'pending_to' && (phase === 'pre_draft' || phase === 'pre_fa')) {
-        h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
-        h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
-      } else if (p.status === 'pending_po' && (phase === 'pre_draft' || phase === 'pre_fa')) {
-        h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','exercise')">Exercise</button>`;
-        h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
-      } else if (sec.key === 'free_agent' && p.status === 'held') {
-        h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
-        if (phase === 'free_agency') {
-          h += `<button class="action-btn pickup" onclick="openSignModal('${esc(p.name)}', true)">Re-sign</button>`;
-        }
-      } else if (sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'twoway' && sec.key !== 'signed' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in')) {
-        // Waive available for all contracted players in most phases
-        if (phase !== 'draft') {
-          h += `<button class="action-btn waive" onclick="openWaiveModal('${esc(p.name)}')">Waive</button>`;
-        }
-      }
-      // Trade button: available in pre_draft, draft, pre_fa, free_agency
-      if (!acted && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed' && phase !== 'training_camp') {
-        if (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in') {
-          h += `<button class="action-btn trade" onclick="openTradeModal('${esc(p.name)}')">Trade</button>`;
-        }
-      }
-      // Extend button: available in pre_draft and pre_fa, gated by computed eligibility
-      if (!acted && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed' && (phase === 'pre_draft' || phase === 'pre_fa')) {
-        if ((p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && p.ext) {
-          const alreadyExtended = (STATE.extensions || []).some(e => e.name === p.name);
-          if (!alreadyExtended) {
-            if (p.ext.status === 'eligible') {
-              h += `<button class="action-btn extend" onclick="openExtModal('${esc(p.name)}')">Extend</button>`;
-            } else if (p.ext.status === 'conditional') {
-              h += `<button class="action-btn extend" style="border-style:dashed" onclick="openExtModal('${esc(p.name)}')">Extend?</button>`;
-            }
-          }
-        }
-      }
-      // Extended badge
-      const extRecord = (STATE.extensions || []).find(e => e.name === p.name);
-      if (extRecord) {
-        h += `<span class="extended-badge">EXTENDED thru ${extRecord.endYear}</span>`;
-      }
-      // Extension eligibility mini-badge (only for under-contract players, not already extended)
-      if (!extRecord && p.ext && p.ext.status !== 'no_data' && p.ext.status !== 'na' && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed') {
-        const eb = p.ext;
-        if (eb.status === 'eligible') {
-          h += `<span class="ext-elig-badge eligible" title="${eb.detail || ''}">EXT ✓</span>`;
-        } else if (eb.status === 'conditional') {
-          h += `<span class="ext-elig-badge conditional" title="${eb.detail || ''}">EXT?</span>`;
-        } else if (eb.status === 'future') {
-          h += `<span class="ext-elig-badge future" title="${eb.detail || ''}">EXT soon</span>`;
-        } else if (eb.status === 'ineligible') {
-          h += `<span class="ext-elig-badge ineligible" title="${eb.detail || ''}">No EXT</span>`;
-        } else if (eb.status === 'extended') {
-          h += `<span class="ext-elig-badge extended" title="${eb.detail || ''}">Extended</span>`;
-        }
-      }
-      // Traded-in badge
-      if (p.status === 'traded_in') {
-        h += `<span class="traded-badge">TRADED IN${p.fromTeam ? ' from ' + p.fromTeam : ''}</span>`;
-      }
-      h += `</div>`;
-
-      h += `</div>`; // player-row
+      html += `</div>`;
     }
-    h += `</div></div>`; // section-body, section
+
+    html += `</div></div>`;
   }
 
-  panel.innerHTML = h;
+  area.innerHTML = html;
 }
 
-function renderCapPanel(cap) {
-  const panel = document.getElementById('capPanel');
-  let h = '';
+function toggleTeam(el) {
+  el.closest('.team-section').classList.toggle('collapsed');
+}
 
-  // Team Salary breakdown
-  h += `<div class="cap-card">`;
-  h += `<h3>💰 Team Salary</h3>`;
-  h += capRow('Active Salaries', cap.activeSalaries);
-  h += capRow('Cap Holds (FAs)', cap.capHolds - (cap.draftCapHolds || 0));
-  if (cap.draftCapHolds) h += capRow('Cap Holds (Draft)', cap.draftCapHolds);
-  h += capRow('Dead Money', cap.deadMoney);
-  if (cap.incompleteCharge) h += capRow('Incomplete Roster', cap.incompleteCharge, 'neg');
-  h += `<div class="cap-row" style="border-top:1px solid var(--border);margin-top:.3rem;padding-top:.5rem">`;
-  h += `<span class="label" style="font-weight:700;color:var(--text)">TEAM SALARY</span>`;
-  h += `<span class="value" style="font-size:.85rem">${fmtMoneyFull(cap.teamSalary)}</span>`;
-  h += `</div></div>`;
+function getEffectiveStatus(name) {
+  return modifications[name] || latestStatus[name] || { status:'Available', injury:'', date:'' };
+}
 
-  // Cap Space & Thresholds
-  h += `<div class="cap-card">`;
-  h += `<h3>📊 Cap Space & Thresholds</h3>`;
-  h += capRow('Salary Cap', T.cap);
-  h += capRowDelta('Cap Space', cap.capSpace);
-  h += `<div class="cap-bar"><div class="cap-bar-fill" style="width:${Math.min(100, cap.teamSalary / T.apron2 * 100)}%;background:${cap.teamSalary > T.apron2 ? 'var(--red)' : cap.teamSalary > T.apron1 ? 'var(--orange)' : cap.teamSalary > T.tax ? 'var(--yellow)' : 'var(--green)'}"></div></div>`;
-  h += capRow('Luxury Tax', T.tax);
-  h += capRowDelta('Tax Room', cap.taxRoom);
-  h += capRow('1st Apron', T.apron1);
-  h += capRowDelta('1st Apron Room', cap.apron1Room);
-  h += capRow('2nd Apron', T.apron2);
-  h += capRowDelta('2nd Apron Room', cap.apron2Room);
-  h += `</div>`;
+function onStatusChange(name, sel) {
+  const row = sel.closest('.player-row');
+  const injInput = row.querySelector('input[type="text"]');
+  const dateInput = row.querySelector('input[type="date"]');
+  const newStatus = sel.value;
 
-  // Roster count
-  h += `<div class="cap-card">`;
-  h += `<h3>👥 Roster</h3>`;
-  h += capRow('Standard Contracts', cap.rosterCount + '/15');
-  h += capRow('Two-Way Slots', cap.twowayCount + '/3');
-  if (cap.rosterCount < 14) {
-    h += `<div style="font-size:.65rem;color:var(--red);margin-top:.3rem">⚠️ Need at least 14 standard contracts by opening night</div>`;
-  }
-  h += `</div>`;
+  // Determine the original status from JSON
+  const original = latestStatus[name] || { status:'Available', injury:'', date:'' };
 
-  // Exceptions
-  h += `<div class="cap-card">`;
-  h += `<h3>🎫 Available Exceptions</h3>`;
-  h += `<div class="exc-list">`;
-  for (const exc of cap.exceptions) {
-    const usedLabel = exc.used ? ` (used: ${fmtMoney(exc.used)})` : '';
-    h += `<div class="exc-chip ${exc.available ? 'available' : 'unavailable'}">${exc.name}: ${fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount)}${usedLabel}</div>`;
-  }
-  h += `</div></div>`;
+  // Update select color class
+  sel.className = statusClass(newStatus);
 
-  // Move log
-  h += `<div class="cap-card">`;
-  h += `<h3>📝 Move Log</h3>`;
-  if (STATE.moves.length) {
-    h += `<div class="move-log">`;
-    for (const m of [...STATE.moves].reverse()) {
-      h += `<div class="move-entry"><span class="action">${m.action}</span> ${m.detail}</div>`;
-    }
-    h += `</div>`;
+  if (newStatus === original.status && !injInput.value && !dateInput.value) {
+    // Reverted to original — remove modification
+    delete modifications[name];
+    row.classList.remove('modified');
+    injInput.className = newStatus==='Available' ? 'inactive' : '';
+    dateInput.className = newStatus==='Available' ? 'inactive' : '';
   } else {
-    h += `<div style="font-size:.7rem;color:var(--muted)">No moves yet. Use the roster panel to make decisions.</div>`;
+    // Always set date to today on status change
+    dateInput.value = todayISO();
+    // Carry forward injury from JSON if available and field empty
+    if (!injInput.value && original.injury && newStatus !== 'Available') {
+      injInput.value = original.injury;
+    }
+
+    modifications[name] = {
+      status: newStatus,
+      injury: injInput.value,
+      date: dateInput.value
+    };
+    row.classList.add('modified');
+    injInput.classList.remove('inactive');
+    dateInput.classList.remove('inactive');
   }
-  h += `<div class="controls">`;
-  h += `<button class="ctrl-btn" onclick="undoLast()">↩ Undo</button>`;
-  h += `<button class="ctrl-btn reset" onclick="resetTeam()">🗑 Reset All</button>`;
-  h += `</div></div>`;
 
-  panel.innerHTML = h;
+  updateBadge();
+  updateTeamInjuredCounts();
 }
 
-function capRow(label, value, cls) {
-  const display = typeof value === 'number' ? fmtMoneyFull(value) : value;
-  return `<div class="cap-row"><span class="label">${label}</span><span class="value ${cls || ''}">${display}</span></div>`;
-}
+function onInjuryChange(name, inp) {
+  const row = inp.closest('.player-row');
+  const sel = row.querySelector('select');
+  const dateInput = row.querySelector('input[type="date"]');
+  const original = latestStatus[name] || { status:'Available', injury:'', date:'' };
 
-function capRowDelta(label, value) {
-  const cls = value >= 0 ? 'pos' : 'neg';
-  return `<div class="cap-row"><span class="label">${label}</span><span class="value ${cls}">${fmtMoneyFull(value)}</span></div>`;
-}
-
-function shortExc(e) {
-  return { 'Bird Exception': 'Bird', 'Early Bird Exception': 'Early Bird', 'Non-Bird Exception': 'Non-Bird',
-    'Mid-Level Exception': 'MLE', 'Taxpayer Mid-Level Exception': 'Tax MLE', 'Room Mid-Level Exception': 'Room MLE',
-    'Biannual Exception': 'BAE', 'Minimum Salary Exception': 'Min', 'Rookie Exception': 'Rookie',
-    'Second Round Exception': '2nd Rnd' }[e] || e || '';
-}
-
-function esc(s) { return s.replace(/'/g, "\\'"); }
-
-// ======================== ACTIONS ========================
-function doOption(name, decision) {
-  STATE.optionDecisions[name] = decision;
-  const label = decision === 'pickup' ? 'Picked up' : decision === 'exercise' ? 'Exercised' : 'Declined';
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  STATE.moves.push({ action: label, detail: `${name}'s option (${fmtMoney(p?.sal27 || 0)})`, undo: { type: 'option', name } });
-  // Recalculate extension eligibility (option decision changes effective contract length)
-  recalcExtElig(name);
-  saveState();
-  render();
-}
-
-function doRenounce(name) {
-  STATE.renounced.add(name);
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  STATE.moves.push({ action: 'Renounced', detail: `${name} (freed ${fmtMoney(p?.capHold || 0)} cap hold)`, undo: { type: 'renounce', name } });
-  saveState();
-  render();
-}
-
-function doWaive(name, stretch = false) {
-  STATE.waived.add(name);
-  if (stretch) STATE.stretched.add(name);
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  let dead = 0;
-  if (p?.category === 'under_contract' || p?.st27 === 'GUARANTEED') dead = p.sal27;
-  else if (p?.category === 'partial_guaranteed') dead = p.ch27;
-  if (stretch && dead > 0) {
-    const rem = Math.max(1, (p.end || 2027) - 2026);
-    const period = 2 * rem + 1;
-    dead = Math.round(dead / period);
-  }
-  const detail = `${name} (${fmtMoney(p?.sal27 || 0)}${dead ? ', ' + fmtMoney(dead) + ' dead cap' + (stretch ? ' stretched' : '') : ''})`;
-  STATE.moves.push({ action: stretch ? 'Waived & Stretched' : 'Waived', detail, undo: { type: 'waive', name } });
-  saveState();
-  render();
-}
-
-function openWaiveModal(name) {
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  if (!p) return;
-  const modal = document.getElementById('waiveModal');
-
-  // Calculate dead cap amounts
-  let fullDead = 0;
-  const wasPickedUp = STATE.optionDecisions[p.name] === 'pickup' || STATE.optionDecisions[p.name] === 'exercise';
-  if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp) fullDead = p.sal27;
-  else if (p.category === 'partial_guaranteed') fullDead = p.ch27;
-
-  const remainingYrs = Math.max(1, (p.end || 2027) - 2026);
-  const stretchPeriod = 2 * remainingYrs + 1;
-  const stretchedDead = fullDead > 0 ? Math.round(fullDead / stretchPeriod) : 0;
-  const canStretch = fullDead > 0 && stretchPeriod > 1;
-
-  let h = `<h3>Waive ${p.name}?</h3>`;
-  h += `<div class="player-info"><div class="name">${p.name}</div>`;
-  h += `${p.pos || ''} · ${fmtMoney(p.sal27)} salary · ${p.st27 || 'GUARANTEED'}`;
-  if (p.end) h += ` · contract thru ${p.end}`;
-  h += `</div>`;
-
-  if (p.category === 'non_guaranteed') {
-    h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}')">`;
-    h += `<div class="opt-title">Waive — No dead cap</div>`;
-    h += `<div class="opt-desc">Non-guaranteed contract, team owes nothing</div>`;
-    h += `<div class="opt-amount" style="color:var(--green)">$0 dead cap</div>`;
-    h += `</div>`;
+  if (sel.value === original.status && !inp.value && !dateInput.value) {
+    delete modifications[name];
+    row.classList.remove('modified');
   } else {
-    h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}')">`;
-    h += `<div class="opt-title">Waive</div>`;
-    h += `<div class="opt-desc">Full guaranteed amount hits cap immediately</div>`;
-    h += `<div class="opt-amount">${fmtMoney(fullDead)} dead cap in 2026-27</div>`;
-    h += `</div>`;
-    if (canStretch) {
-      h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}', true)">`;
-      h += `<div class="opt-title">Waive & Stretch</div>`;
-      h += `<div class="opt-desc">Spread dead cap over ${stretchPeriod} years (${remainingYrs} remaining × 2 + 1)</div>`;
-      h += `<div class="opt-amount">${fmtMoney(stretchedDead)}/yr for ${stretchPeriod} years</div>`;
-      h += `</div>`;
-    }
+    if (!dateInput.value) dateInput.value = todayISO();
+    modifications[name] = { status: sel.value, injury: inp.value, date: dateInput.value };
+    row.classList.add('modified');
   }
-  h += `<button class="waive-cancel" onclick="closeWaiveModal()">Cancel</button>`;
-  modal.innerHTML = h;
-  document.getElementById('waiveOverlay').style.display = 'flex';
+  updateBadge();
 }
 
-function closeWaiveModal() {
-  document.getElementById('waiveOverlay').style.display = 'none';
-}
+function onDateChange(name, inp) {
+  const row = inp.closest('.player-row');
+  const sel = row.querySelector('select');
+  const injInput = row.querySelector('input[type="text"]');
+  const original = latestStatus[name] || { status:'Available', injury:'', date:'' };
 
-// ======================== PHASE NAVIGATION ========================
-function setPhase(id) {
-  const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
-  const targetIdx = PHASES.findIndex(p => p.id === id);
-  if (targetIdx <= currentIdx) {
-    STATE.phase = id;
-    saveState();
-    render();
-  }
-}
-
-function advancePhase() {
-  const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
-  if (currentIdx < PHASES.length - 1) {
-    STATE.phase = PHASES[currentIdx + 1].id;
-    STATE.moves.push({ action: 'Phase', detail: `Advanced to ${PHASES[currentIdx + 1].label}`, undo: { type: 'phase', prev: PHASES[currentIdx].id } });
-    saveState();
-    render();
-  }
-}
-
-function undoLast() {
-  if (!STATE.moves.length) return;
-  const last = STATE.moves.pop();
-  if (last.undo) {
-    if (last.undo.type === 'option') {
-      delete STATE.optionDecisions[last.undo.name];
-      recalcExtElig(last.undo.name); // Recalc since option decision changed
-    }
-    if (last.undo.type === 'renounce') STATE.renounced.delete(last.undo.name);
-    if (last.undo.type === 'waive') {
-      STATE.waived.delete(last.undo.name);
-      STATE.stretched.delete(last.undo.name);
-    }
-    if (last.undo.type === 'draft') {
-      if (last.undo.prev) STATE.draftSelections[last.undo.slot] = last.undo.prev;
-      else delete STATE.draftSelections[last.undo.slot];
-    }
-    if (last.undo.type === 'phase') {
-      STATE.phase = last.undo.prev;
-    }
-    if (last.undo.type === 'trade') {
-      STATE.trades.pop();
-    }
-    if (last.undo.type === 'signing') {
-      STATE.signings.pop();
-    }
-    if (last.undo.type === 'extension') {
-      STATE.extensions.pop();
-    }
-  }
-  saveState();
-  render();
-}
-
-function resetTeam() {
-  if (!confirm(`Reset all moves for ${STATE.team}?`)) return;
-  localStorage.removeItem('rm_state_' + STATE.team);
-  STATE = defaultState(STATE.team);
-  render();
-}
-
-// ======================== TRADE MACHINE INTEGRATION ========================
-let _tradeContext = null; // { playerName } or null for team-level
-
-function openTradeModal(playerName) {
-  const abbrev = TEAMS[STATE.team];
-  
-  // Build Trade Machine URL with RM mode flag
-  let tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev}`;
-  
-  if (playerName) {
-    // Find player ID from headshot URL for precise matching
-    const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
-    const playerId = p?.headshot ? (p.headshot.match(/\/(\d+)\.png/)?.[1] || '') : '';
-    const pParam = playerId || playerName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
-    tmUrl += `&p=${encodeURIComponent(pParam)}&pd=0-`;
-  }
-  
-  // Open Trade Machine in popup (desktop) or new tab (mobile)
-  const isMobile = window.innerWidth < 768;
-  if (isMobile) {
-    window.open(tmUrl, '_blank');
+  if (sel.value === original.status && !injInput.value && !inp.value) {
+    delete modifications[name];
+    row.classList.remove('modified');
   } else {
-    const w = Math.min(1400, screen.width - 100);
-    const h = Math.min(900, screen.height - 100);
-    const left = (screen.width - w) / 2;
-    const top = (screen.height - h) / 2;
-    window.open(tmUrl, 'TradeMachine', `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+    modifications[name] = { status: sel.value, injury: injInput.value, date: inp.value };
+    row.classList.add('modified');
   }
+  updateBadge();
 }
 
-function closeTradeModal() {
-  // No-op — popup closes itself
+function updateBadge() {
+  const count = Object.keys(modifications).length;
+  const badge = document.getElementById('changesBadge');
+  badge.textContent = `${count} change${count!==1?'s':''}`;
+  badge.className = count ? 'badge has-changes' : 'badge';
+  // Auto-save to localStorage
+  try { localStorage.setItem('injuries_modifications', JSON.stringify(modifications)); } catch(e) {}
 }
 
-// Listen for trade data from Trade Machine popup
-window.addEventListener('message', function(event) {
-  if (!event.data || event.data.type !== 'ROSTER_MANAGER_TRADE') return;
-  if (!STATE) return;
-  
-  const data = event.data;
-  const teamAbbrev = TEAMS[STATE.team];
-  
-  // Verify this trade is for the current team
-  if (data.team !== teamAbbrev) {
-    console.warn('[RM] Trade team mismatch:', data.team, 'vs', teamAbbrev);
-    return;
-  }
-  
-  // Record the trade
-  const trade = {
-    out: (data.out || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '' })),
-    in: (data.in || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '', fromTeam: p.fromTeam || '' })),
-    timestamp: data.timestamp || Date.now()
-  };
-  
-  STATE.trades.push(trade);
-  
-  const outNames = trade.out.map(p => p.name).join(', ') || 'none';
-  const inNames = trade.in.map(p => `${p.name}${p.fromTeam ? ' (' + p.fromTeam + ')' : ''}`).join(', ') || 'none';
-  STATE.moves.push({
-    action: 'Trade',
-    detail: `Sent: ${outNames} → Received: ${inNames}`,
-    undo: { type: 'trade' }
+function updateTeamInjuredCounts() {
+  document.querySelectorAll('.team-section').forEach(sec => {
+    const team = sec.dataset.team;
+    const rows = sec.querySelectorAll('.player-row');
+    let injured = 0;
+    rows.forEach(r => {
+      const sel = r.querySelector('select');
+      if (sel && sel.value !== 'Available') injured++;
+    });
+    const badge = sec.querySelector('.team-injured');
+    if (badge) {
+      badge.textContent = `${injured} injured`;
+      badge.classList.toggle('none', injured === 0);
+    }
   });
-  
-  saveState();
-  render();
-  
-  console.log('[RM] Trade received from Trade Machine:', trade);
-});
-
-// ======================== EXTENSION ENGINE ========================
-const EXT_CAP = 166000000; // 2026-27 projected salary cap
-const EXT_RAISE_PCT = 0.08; // 8% annual raises for extensions
-
-// --- Eligibility Helpers (ported from Contracts app, adapted for RM) ---
-
-function extMaxPct(p) {
-  // Designated Veteran: 35% regardless of YOS
-  if (p.dvEligible) return 35;
-  // 10+ YOS: 35%
-  if (p.yos >= 10) return 35;
-  // 7-9 YOS: 30%
-  if (p.yos >= 7) return 30;
-  // 0-6 YOS: 25%
-  return 25;
 }
 
-function rookieDesignated(p) {
-  // Designated Rookie Scale Extension: All-Star, All-NBA, or MVP during rookie scale contract
-  if (!p.allAwards || !p.allAwards.length) return false;
-  const DRE_AWARDS = ['Most Valuable Player', 'Defensive Player of the Year',
-    'All-NBA First Team', 'All-NBA Second Team', 'All-NBA Third Team', 'All-Star'];
-  return p.allAwards.some(a => DRE_AWARDS.includes(a.award));
-}
+function filterPlayers() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('.team-section').forEach(sec => {
+    let anyVisible = false;
+    sec.querySelectorAll('.player-row').forEach(row => {
+      const name = row.dataset.player.toLowerCase();
+      const team = row.dataset.team.toLowerCase();
+      let show = !q || name.includes(q) || team.includes(q);
 
-function dvLabel(p) {
-  if (!p.dvEligible || !p.dvAwards || !p.dvAwards.length) return '';
-  const short = { 'Most Valuable Player': 'MVP', 'Defensive Player of the Year': 'DPOY',
-    'All-NBA First Team': 'All-NBA 1st', 'All-NBA Second Team': 'All-NBA 2nd', 'All-NBA Third Team': 'All-NBA 3rd' };
-  const items = p.dvAwards.map(a => `${short[a.award]||a.award} '${String(a.year).slice(-2)}`).join(', ');
-  return `DV Eligible (${items})`;
-}
-
-function guaranteedEndRM(p) {
-  // Walk backwards through contract years to find last non-option year
-  if (!p.contractYrs) return null;
-  let lastGuarIdx = -1;
-  for (let i = p.contractYrs.length - 1; i >= 0; i--) {
-    const y = p.contractYrs[i];
-    if (y.sal && y.st && y.st !== 'PLAYER OPT' && y.st !== 'TEAM OPT') {
-      lastGuarIdx = i;
-      break;
-    }
-  }
-  if (lastGuarIdx < 0) return null;
-  return C_END_YEARS[lastGuarIdx];
-}
-
-// --- Main Eligibility Calculator ---
-// Adapted for RM: considers STATE.optionDecisions to resolve option scenarios
-
-function calcExtEligRM(p) {
-  // No contracts data → not eligible (hide button)
-  if (!p.sigDate && !p.contractNotes && !p.draftYear) {
-    return { status: 'no_data' };
-  }
-
-  const notes_lc = (p.contractNotes || '').toLowerCase();
-  const pct = extMaxPct(p);
-  const dvInfo = dvLabel(p);
-
-  // Two-Way / 10-Day → not eligible
-  if (notes_lc.includes('two-way') || (p.contractYrs && p.contractYrs.every(y => y.st === 'TWO-WAY' || !y.st)))
-    return { status: 'na', detail: 'Two-Way contract', maxPct: pct };
-  if (notes_lc.includes('10-day'))
-    return { status: 'na', detail: '10-Day contract', maxPct: pct };
-
-  // Already extended (in real life, per spreadsheet notes)
-  if (notes_lc.includes('extension')) {
-    return calcAlreadyExtended(p, pct, dvInfo);
-  }
-
-  // Rookie Scale Contract
-  if (notes_lc.includes('rookie scale')) {
-    return calcRookieScaleElig(p, pct, dvInfo);
-  }
-
-  // Standard veteran contract
-  return calcVeteranElig(p, pct, dvInfo);
-}
-
-function calcAlreadyExtended(p, pct, dvInfo) {
-  if (!p.sigDate || !p.contractEnd) {
-    return { status: 'extended', detail: `Already extended (${p.contractNotes})`, maxPct: pct, dvInfo };
-  }
-  const parts = p.sigDate.split('/');
-  if (parts.length !== 3) return { status: 'extended', detail: `Already extended (${p.contractNotes})`, maxPct: pct, dvInfo };
-  let eMonth = parseInt(parts[0]), eDay = parseInt(parts[1]), eYear = parseInt(parts[2]);
-  if (isNaN(eMonth) || isNaN(eDay) || isNaN(eYear)) return { status: 'extended', detail: `Already extended`, maxPct: pct, dvInfo };
-  // Oct 1 rule
-  if (eMonth === 10 && eDay >= 2) eDay = 1;
-  const eFirstEnd = eMonth >= 7 ? eYear + 1 : eYear;
-  const eEndYear = parseInt(p.contractEnd);
-  if (isNaN(eEndYear)) return { status: 'extended', detail: 'Already extended', maxPct: pct, dvInfo };
-  const eTotalLen = eEndYear - eFirstEnd + 1;
-  if (eTotalLen <= 2) return { status: 'extended', detail: `${eTotalLen}-yr extension, re-extension ineligible`, maxPct: pct, dvInfo };
-  const eWait = eTotalLen <= 4 ? 2 : 3;
-  const eAnniv = new Date(eYear + eWait, eMonth - 1, eDay);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const eFmt = eAnniv.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  if (eAnniv <= today) {
-    return { status: 'eligible', type: 'VET', detail: `Re-eligible since ${eFmt} (previously extended)`, maxPct: pct, maxYears: 4, dvInfo };
-  } else {
-    return { status: 'future', detail: `Re-eligible ${eFmt} (${eWait === 2 ? '2nd' : '3rd'} anniversary of extension)`, maxPct: pct, dvInfo };
-  }
-}
-
-function calcRookieScaleElig(p, pct, dvInfo) {
-  const endYear = parseInt(p.contractEnd || p.end);
-  const currentSeasonEnd = 2026; // RM simulates 2026-27 offseason
-
-  // Expiring rookie scale → will be RFA, no extension
-  if (endYear <= currentSeasonEnd) {
-    return { status: 'ineligible', detail: `Expiring rookie scale (RFA ${endYear})`, maxPct: pct };
-  }
-
-  const isDRE = rookieDesignated(p);
-  const rsePct = isDRE ? 30 : 25;
-  const label = isDRE ? 'Designated Rookie Scale' : 'Rookie Scale';
-
-  if (p.draftYear > 0) {
-    const eligDate = new Date(p.draftYear + 3, 6, 1); // July 1 of draftYear+3
-    const deadline = new Date(p.draftYear + 4, 9, 21); // Oct 21 of draftYear+4
-    const today = new Date(); today.setHours(0,0,0,0);
-    const eligFmt = eligDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const deadFmt = deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-    if (today >= deadline) {
-      return { status: 'ineligible', detail: `Rookie scale window closed (${deadFmt})`, maxPct: rsePct };
-    } else if (today >= eligDate) {
-      return { status: 'eligible', type: 'RSE', detail: `${label} · Eligible since ${eligFmt} · Deadline: ${deadFmt}`, maxPct: rsePct, maxYears: 5, isDRE, dvInfo };
-    } else {
-      return { status: 'future', detail: `${label} · Window: ${eligFmt} – ${deadFmt}`, maxPct: rsePct, dvInfo };
-    }
-  }
-  return { status: 'eligible', type: 'RSE', detail: `${label} Extension`, maxPct: rsePct, maxYears: 5, isDRE, dvInfo };
-}
-
-function calcVeteranElig(p, pct, dvInfo) {
-  if (!p.sigDate || !p.contractEnd) return { status: 'no_data' };
-
-  const parts = p.sigDate.split('/');
-  if (parts.length !== 3) return { status: 'no_data' };
-  let sigMonth = parseInt(parts[0]), sigDay = parseInt(parts[1]);
-  const sigYear = parseInt(parts[2]);
-  if (isNaN(sigMonth) || isNaN(sigDay) || isNaN(sigYear)) return { status: 'no_data' };
-  // Oct 1 rule: signings Oct 2+ count as Oct 1
-  if (sigMonth === 10 && sigDay >= 2) sigDay = 1;
-  const firstSeasonEnd = sigMonth >= 7 ? sigYear + 1 : sigYear;
-
-  const endYear = parseInt(p.contractEnd);
-  if (isNaN(endYear)) return { status: 'no_data' };
-  const length = endYear - firstSeasonEnd + 1;
-
-  // Check for shorter "guaranteed end" (options) — but respect RM option decisions
-  const guarEnd = guaranteedEndRM(p);
-  const hasOptions = guarEnd && guarEnd < endYear;
-  const guarLength = hasOptions ? guarEnd - firstSeasonEnd + 1 : length;
-
-  // Check if user has made an option decision in RM
-  const optDecision = STATE ? STATE.optionDecisions[p.name] : null;
-  const hasTO = p.contractYrs && p.contractYrs.some(y => y.st === 'TEAM OPT');
-  const hasPO = p.contractYrs && p.contractYrs.some(y => y.st === 'PLAYER OPT');
-  const optType = hasPO ? 'PO' : hasTO ? 'TO' : null;
-
-  // If user declined the option → use guarLength (shorter contract)
-  // If user picked up / exercised → use full length
-  // If no decision yet → show both scenarios
-  let effectiveLength = length;
-  let optResolved = false;
-  if (optDecision === 'decline' && hasOptions) {
-    effectiveLength = guarLength;
-    optResolved = true;
-  } else if ((optDecision === 'pickup' || optDecision === 'exercise') && hasOptions) {
-    effectiveLength = length;
-    optResolved = true;
-  }
-
-  function calcForLength(len) {
-    if (len <= 2) return { elig: false };
-    const wait = len <= 4 ? 2 : 3;
-    const anniv = new Date(sigYear + wait, sigMonth - 1, sigDay);
-    const today = new Date(); today.setHours(0,0,0,0);
-    const fmt = anniv.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    if (anniv <= today) return { elig: true, fmt, date: anniv, wait, len };
-    else return { elig: null, fmt, date: anniv, wait, len };
-  }
-
-  // If option decision was made → compute for effective length only
-  if (optResolved || !hasOptions) {
-    const res = calcForLength(effectiveLength);
-    if (res.elig === false) {
-      return { status: 'ineligible', detail: `${effectiveLength}-year deal${optDecision === 'decline' ? ` (${optType} declined)` : ''}`, maxPct: pct, dvInfo };
-    } else if (res.elig === true) {
-      return { status: 'eligible', type: 'VET', detail: `Eligible since ${res.fmt}${optDecision === 'decline' ? ` (${optType} declined → ${effectiveLength}-yr)` : ''}`, maxPct: pct, maxYears: 4, dvInfo };
-    } else {
-      return { status: 'future', detail: `${effectiveLength}-year deal, ${res.wait === 2 ? '2nd' : '3rd'} anniv. ${res.fmt}`, maxPct: pct, dvInfo };
-    }
-  }
-
-  // Has options, no decision yet → show both scenarios
-  const full = calcForLength(length);
-  const decl = calcForLength(guarLength);
-
-  if (full.elig === false) {
-    if (decl.elig === false) {
-      return { status: 'ineligible', detail: `${length}-year deal · Also ineligible if ${optType} declined`, maxPct: pct, dvInfo };
-    } else if (decl.elig === true) {
-      return { status: 'conditional', detail: `Ineligible if ${optType} exercised (${length}-yr) · Eligible if declined (since ${decl.fmt})`, maxPct: pct, maxYears: 4, conditionalOn: 'decline', optType, dvInfo };
-    } else {
-      return { status: 'conditional', detail: `Ineligible if ${optType} exercised · If declined: eligible ${decl.fmt}`, maxPct: pct, conditionalOn: 'decline', optType, dvInfo };
-    }
-  } else if (full.elig === true) {
-    let optNote = '';
-    if (decl.elig === true && decl.date < full.date) optNote = ` · Earlier if ${optType} declined`;
-    else if (decl.elig === false) optNote = ` · Ineligible if ${optType} declined`;
-    return { status: 'eligible', type: 'VET', detail: `Eligible since ${full.fmt}${optNote}`, maxPct: pct, maxYears: 4, dvInfo };
-  } else {
-    let optNote = '';
-    if (decl.elig === true) optNote = ` · Already eligible if ${optType} declined`;
-    else if (decl.elig !== false && decl.date && decl.date < full.date) optNote = ` · Earlier (${decl.fmt}) if ${optType} declined`;
-    return { status: 'future', detail: `${length}-yr, ${full.wait === 2 ? '2nd' : '3rd'} anniv. ${full.fmt}${optNote}`, maxPct: pct, dvInfo };
-  }
-}
-
-// --- Trade Restriction Check ---
-function checkTradeRestriction(p) {
-  // 6-month rule: player signed with team A, now on team B → recently traded
-  if (p.sigTeam && p.team && p.sigTeam !== p.team) {
-    return { restricted: true, reason: `Signed by ${p.sigTeam}, now on ${p.team} — extension may have trade aggregation restrictions` };
-  }
-  // Check if player was traded IN during this RM session
-  if (STATE) {
-    for (const trade of (STATE.trades || [])) {
-      const tradedIn = (trade.in || []).find(tp => tp.name === p.name);
-      if (tradedIn) {
-        return { restricted: true, reason: `Traded in from ${tradedIn.fromTeam || 'another team'} — 6-month aggregation restriction applies after extension` };
+      // Apply active filter
+      if (show && activeFilter === 'modified') show = row.classList.contains('modified');
+      if (show && activeFilter === 'injured') {
+        const sel = row.querySelector('select');
+        show = sel && sel.value !== 'Available';
       }
-    }
-  }
-  return { restricted: false };
-}
-
-// --- Recalculate eligibility for one player (called on option decisions) ---
-function recalcExtElig(playerName) {
-  const p = allPlayers.find(pl => pl.name === playerName);
-  if (p) p.ext = calcExtEligRM(p);
-}
-
-// --- Salary Breakdown Calculator ---
-function calcExtension(maxPct, years, customStartSalary) {
-  const maxStarting = Math.round(EXT_CAP * (maxPct / 100));
-  const startSalary = customStartSalary || maxStarting;
-  const breakdown = [];
-  let total = 0;
-  for (let y = 0; y < years; y++) {
-    const raise = Math.round(startSalary * EXT_RAISE_PCT);
-    const sal = startSalary + (raise * y);
-    breakdown.push({ year: y + 1, salary: sal });
-    total += sal;
-  }
-  return { startSalary, maxStarting, breakdown, total };
-}
-
-// --- Extension Modal ---
-function openExtModal(playerName) {
-  const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
-  if (!p) return;
-
-  const ext = p.ext;
-  if (!ext || (ext.status !== 'eligible' && ext.status !== 'conditional')) return;
-
-  const type = ext.type || 'VET';
-  const maxPct = ext.maxPct || 25;
-  const maxYears = ext.maxYears || 4;
-  const tradeCheck = checkTradeRestriction(p);
-
-  document.getElementById('extModalTitle').textContent = `Extend ${playerName}`;
-  const modal = document.getElementById('extModalBody');
-
-  const maxStarting = Math.round(EXT_CAP * (maxPct / 100));
-  const extStartYear = p.end > 0 ? p.end + 1 : (parseInt(p.contractEnd) > 0 ? parseInt(p.contractEnd) + 1 : 2027);
-
-  let h = '';
-
-  // Player info
-  h += `<div class="ext-player-info">`;
-  if (p.headshot) h += `<img src="${p.headshot}" alt="">`;
-  h += `<div>`;
-  h += `<div class="name">${p.name}`;
-  h += `<span class="ext-type-badge ${type.toLowerCase()}">${type === 'RSE' ? 'Rookie Scale' : 'Veteran'}</span>`;
-  if (ext.isDRE) h += `<span class="ext-type-badge rse" style="background:rgba(255,214,0,.15);color:#ffd600">Designated</span>`;
-  if (ext.dvInfo) h += `<span class="ext-dv-badge">${ext.dvInfo}</span>`;
-  h += `</div>`;
-  h += `<div class="meta">${p.pos || ''} · Age ${p.age || '?'} · ${p.yos || '?'} YOS · Current: ${fmtMoney(p.sal27 || p.sal26)}/yr · Thru ${p.end || p.contractEnd || '—'}</div>`;
-  h += `</div></div>`;
-
-  // Eligibility info box
-  h += `<div class="ext-modal-elig">`;
-  h += `<div class="elig-status ${ext.status}">✅ ${ext.detail}</div>`;
-  if (maxPct) h += `<div>Max starting salary: <strong>${maxPct}% of cap</strong> = <strong>${fmtMoneyFull(maxStarting)}</strong></div>`;
-  h += `</div>`;
-
-  // Trade restriction warning
-  if (tradeCheck.restricted) {
-    h += `<div class="ext-trade-warn">⚠️ ${tradeCheck.reason}</div>`;
-  }
-
-  // Option-conditional note
-  if (ext.status === 'conditional') {
-    h += `<div class="ext-option-note">🔀 ${ext.detail}</div>`;
-  }
-
-  // Extension config
-  h += `<div class="ext-config">`;
-
-  h += `<div class="ext-note">📊 Max: <strong>${maxPct}%</strong> = <strong>${fmtMoneyFull(maxStarting)}</strong> · 8% annual raises · Up to ${maxYears} years</div>`;
-
-  // Starting salary
-  h += `<label>Starting Salary (Year 1)</label>`;
-  h += `<div class="row">`;
-  h += `<input type="range" id="extSalRange" min="${Math.round(maxStarting * 0.3)}" max="${maxStarting}" step="100000" value="${maxStarting}" oninput="updateExtPreview()">`;
-  h += `<span class="sal-display" id="extSalDisplay">${fmtMoneyFull(maxStarting)}</span>`;
-  h += `</div>`;
-  h += `<div class="row">`;
-  h += `<input type="number" id="extSalInput" value="${maxStarting}" min="1000000" max="${maxStarting}" step="100000" style="flex:1" oninput="syncExtSlider()">`;
-  h += `</div>`;
-
-  // Years
-  h += `<label style="margin-top:.5rem">Extension Length</label>`;
-  h += `<div class="row">`;
-  h += `<select id="extYears" onchange="updateExtPreview()">`;
-  for (let y = 1; y <= maxYears; y++) {
-    h += `<option value="${y}" ${y === maxYears ? 'selected' : ''}>${y} year${y > 1 ? 's' : ''} (thru ${extStartYear + y - 1})</option>`;
-  }
-  h += `</select>`;
-  h += `</div>`;
-  h += `</div>`;
-
-  // Breakdown placeholder
-  h += `<div class="ext-breakdown" id="extBreakdown"></div>`;
-
-  // Cap impact note
-  if (extStartYear > 2027) {
-    h += `<div class="ext-note">ℹ️ Extension starts in ${extStartYear}-${String(extStartYear + 1).slice(2)}, after current contract. No impact on 2026-27 cap.</div>`;
-  } else {
-    h += `<div class="ext-note">⚡ Extension starts in 2026-27. First-year salary will apply to the cap sheet.</div>`;
-  }
-
-  // Confirm
-  h += `<button class="ext-confirm-btn" id="extConfirmBtn" onclick="confirmExtension()">✅ Confirm Extension</button>`;
-  h += `<button class="waive-cancel" onclick="closeExtModal()">Cancel</button>`;
-
-  modal.innerHTML = h;
-
-  // Store context
-  window._extContext = { playerName, type, maxPct, maxYears, extStartYear, maxStarting };
-
-  document.getElementById('extOverlay').style.display = 'flex';
-  updateExtPreview();
-}
-
-function closeExtModal() {
-  document.getElementById('extOverlay').style.display = 'none';
-  window._extContext = null;
-}
-
-function syncExtSlider() {
-  const val = parseInt(document.getElementById('extSalInput').value) || 0;
-  const ctx = window._extContext;
-  if (!ctx) return;
-  const clamped = Math.max(Math.round(ctx.maxStarting * 0.3), Math.min(val, ctx.maxStarting));
-  document.getElementById('extSalRange').value = clamped;
-  updateExtPreview();
-}
-
-function updateExtPreview() {
-  const ctx = window._extContext;
-  if (!ctx) return;
-
-  const startSalary = parseInt(document.getElementById('extSalRange').value) || ctx.maxStarting;
-  const years = parseInt(document.getElementById('extYears').value) || ctx.maxYears;
-
-  document.getElementById('extSalInput').value = startSalary;
-  document.getElementById('extSalDisplay').textContent = fmtMoneyFull(startSalary);
-
-  const calc = calcExtension(ctx.maxPct, years, startSalary);
-
-  let h = `<h4>📋 Year-by-Year Breakdown</h4>`;
-  for (const yr of calc.breakdown) {
-    const season = (ctx.extStartYear + yr.year - 1);
-    const seasonLabel = `${season}-${String(season + 1).slice(2)}`;
-    h += `<div class="ext-year-row">`;
-    h += `<span class="yr">${seasonLabel}</span>`;
-    h += `<span class="sal">${fmtMoneyFull(yr.salary)}</span>`;
-    h += `</div>`;
-  }
-  h += `<div class="ext-total-row">`;
-  h += `<span>Total Value</span>`;
-  h += `<span>${fmtMoneyFull(calc.total)} / ${years}yr</span>`;
-  h += `</div>`;
-
-  document.getElementById('extBreakdown').innerHTML = h;
-}
-
-function confirmExtension() {
-  const ctx = window._extContext;
-  if (!ctx) return;
-
-  const startSalary = parseInt(document.getElementById('extSalRange').value) || ctx.maxStarting;
-  const years = parseInt(document.getElementById('extYears').value) || ctx.maxYears;
-  const calc = calcExtension(ctx.maxPct, years, startSalary);
-  const endYear = ctx.extStartYear + years - 1;
-
-  const extension = {
-    name: ctx.playerName,
-    type: ctx.type,
-    maxPct: ctx.maxPct,
-    startSalary,
-    years,
-    endYear,
-    extStartYear: ctx.extStartYear,
-    breakdown: calc.breakdown,
-    total: calc.total,
-    timestamp: Date.now()
-  };
-
-  STATE.extensions.push(extension);
-
-  STATE.moves.push({
-    action: 'Extended',
-    detail: `${ctx.playerName} — ${years}yr / ${fmtMoney(calc.total)} (${fmtMoney(startSalary)}/yr starting, thru ${endYear})`,
-    undo: { type: 'extension' }
-  });
-
-  saveState();
-  closeExtModal();
-  render();
-}
-
-// ======================== FREE AGENCY SIGNING ========================
-function openSignModal(faName, isResign) {
-  const modal = document.getElementById('signModalBody');
-  document.getElementById('signModalTitle').textContent = isResign ? `Re-sign ${faName}` : 'Sign Free Agent';
-
-  const cap = calcCapSheet(STATE.team);
-  let h = '';
-
-  if (!faName) {
-    // Show search for FA
-    h += `<div style="margin-bottom:.75rem">`;
-    h += `<input id="signSearchInput" class="trade-input" style="width:100%" placeholder="Type player name..." oninput="filterSignOptions(this.value)">`;
-    h += `</div>`;
-    h += `<div id="signSearchResults" style="max-height:150px;overflow-y:auto;margin-bottom:.75rem"></div>`;
-    h += `<div id="signExcSection" style="display:none">`;
-  } else {
-    h += `<div style="padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.75rem">`;
-    h += `<span style="font-weight:600">${faName}</span>`;
-    const p = allPlayers.find(p => p.name === faName);
-    if (p) h += ` · ${p.pos || ''} · was ${fmtMoney(p.sal26)} in 25-26`;
-    h += `</div>`;
-    h += `<input type="hidden" id="signPlayerName" value="${faName}">`;
-    h += `<div id="signExcSection">`;
-  }
-
-  // Exception options
-  h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
-  for (const exc of cap.exceptions) {
-    const cls = exc.available ? '' : 'unavailable';
-    h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.amount})"` : ''}>`;
-    h += `<div class="exc-name">${exc.name}</div>`;
-    h += `<div class="exc-detail">${exc.available ? 'Up to ' + fmtMoney(exc.amount) : 'Not available'}</div>`;
-    h += `</div>`;
-  }
-
-  if (!faName) h += `</div>`; // close signExcSection
-  h += `<div id="signSalarySection" style="display:none">`;
-  h += `<div class="sign-salary-input">`;
-  h += `<label>Salary:</label>`;
-  h += `<input id="signSalaryInput" class="trade-input" type="number" placeholder="Annual salary" style="flex:1">`;
-  h += `</div>`;
-  h += `<div class="sign-salary-input">`;
-  h += `<label>Years:</label>`;
-  h += `<input id="signYearsInput" class="trade-input" type="number" placeholder="Contract length" value="1" min="1" max="5" style="flex:1">`;
-  h += `</div>`;
-  h += `<button class="trade-confirm-btn" onclick="confirmSigning()">✅ Sign Player</button>`;
-  h += `</div>`;
-  h += `<button class="waive-cancel" onclick="closeSignModal()">Cancel</button>`;
-
-  modal.innerHTML = h;
-  document.getElementById('signOverlay').style.display = 'flex';
-  window._signContext = { exception: null, maxAmount: 0 };
-}
-
-function closeSignModal() {
-  document.getElementById('signOverlay').style.display = 'none';
-}
-
-function filterSignOptions(query) {
-  const results = document.getElementById('signSearchResults');
-  if (!query || query.length < 2) { results.innerHTML = ''; return; }
-  const q = query.toLowerCase();
-  // Search all FAs across the league (players whose contract ends in 25-26 / no sal27)
-  const fas = allPlayers.filter(p =>
-    p.name.toLowerCase().includes(q) &&
-    (p.category === 'free_agent' || !p.sal27) &&
-    p.team !== STATE.team
-  ).slice(0, 15);
-
-  let h = '';
-  for (const p of fas) {
-    h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(p.name)}')">`;
-    h += `<span class="name">${p.name}</span>`;
-    h += `<span class="assigned">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoney(p.sal26)}</span>`;
-    h += `</div>`;
-  }
-  if (!fas.length) h = `<div style="font-size:.7rem;color:var(--muted);padding:.5rem;text-align:center">No matching free agents</div>`;
-  results.innerHTML = h;
-}
-
-function selectSignPlayer(name) {
-  document.getElementById('signSearchResults').innerHTML = `<div style="padding:.4rem;background:var(--surface);border-radius:4px;font-size:.75rem"><strong>${name}</strong> selected</div>`;
-  // Create hidden input
-  let inp = document.getElementById('signPlayerName');
-  if (!inp) {
-    inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.id = 'signPlayerName';
-    document.getElementById('signModalBody').appendChild(inp);
-  }
-  inp.value = name;
-  document.getElementById('signExcSection').style.display = '';
-}
-
-function selectSignException(excName, maxAmount) {
-  window._signContext = { exception: excName, maxAmount };
-  document.getElementById('signSalarySection').style.display = '';
-  document.getElementById('signSalaryInput').max = maxAmount;
-  document.getElementById('signSalaryInput').placeholder = `Up to ${fmtMoney(maxAmount)}`;
-  // For minimum exception, pre-fill
-  if (excName === 'Minimum') {
-    document.getElementById('signSalaryInput').value = MIN_SALARY_0YOS;
-  }
-}
-
-function confirmSigning() {
-  const nameEl = document.getElementById('signPlayerName');
-  if (!nameEl || !nameEl.value) { alert('Select a player first'); return; }
-  const name = nameEl.value;
-  const salary = parseInt(document.getElementById('signSalaryInput').value) || 0;
-  const years = parseInt(document.getElementById('signYearsInput').value) || 1;
-  if (!salary) { alert('Enter a salary amount'); return; }
-  if (window._signContext.maxAmount && salary > window._signContext.maxAmount) {
-    alert(`Salary exceeds ${window._signContext.exception} limit of ${fmtMoney(window._signContext.maxAmount)}`);
-    return;
-  }
-
-  const p = allPlayers.find(p => p.name === name);
-  const signing = {
-    name,
-    salary,
-    years,
-    exception: window._signContext.exception || 'FA',
-    pos: p?.pos || '',
-    headshot: p?.headshot || '',
-    end: 2027 + years - 1
-  };
-  STATE.signings.push(signing);
-
-  // Remove cap hold if this was an own FA
-  if (STATE.renounced.has(name)) {
-    // Already renounced, no hold to remove
-  }
-
-  STATE.moves.push({
-    action: 'Signed',
-    detail: `${name} for ${fmtMoney(salary)}/yr × ${years}yr via ${window._signContext.exception || 'FA'}`,
-    undo: { type: 'signing' }
-  });
-  saveState();
-  closeSignModal();
-  render();
-}
-
-// ======================== DRAFT PICKER ========================
-let _draftPickerSlot = null;
-
-function openDraftPicker(slot) {
-  _draftPickerSlot = slot;
-  const overlay = document.getElementById('draftPickerOverlay');
-  overlay.style.display = 'flex';
-  document.getElementById('draftPickerTitle').textContent = `Select Prospect — Pick #${slot}`;
-  const input = overlay.querySelector('.draft-picker-search input');
-  input.value = '';
-  input.focus();
-  renderDraftPickerList('');
-}
-
-function closeDraftPicker() {
-  document.getElementById('draftPickerOverlay').style.display = 'none';
-  _draftPickerSlot = null;
-}
-
-function renderDraftPickerList(filter) {
-  const list = document.getElementById('draftPickerList');
-  const slot = _draftPickerSlot;
-  const teamAbbrev = TEAMS[STATE.team];
-  const currentPick = (STATE.draftSelections && STATE.draftSelections[slot]) ||
-    (allPickSlots[slot] ? allPickSlots[slot].defaultProspect : '');
-  const filterLower = filter.toLowerCase();
-
-  // Build set of prospects already selected by THIS team (other picks)
-  const teamPicks = teamDraftPicks[teamAbbrev] || [];
-  const takenByTeam = new Set();
-  for (const tp of teamPicks) {
-    if (tp.draftRnk === slot) continue;
-    const sel = (STATE.draftSelections && STATE.draftSelections[tp.draftRnk]) || tp.prospect;
-    takenByTeam.add(sel);
-  }
-
-  let h = '';
-  const filtered = allProspects.filter(name =>
-    name.toLowerCase().includes(filterLower)
-  );
-
-  for (let i = 0; i < filtered.length; i++) {
-    const name = filtered[i];
-    const isCurrent = name === currentPick;
-    const isTaken = takenByTeam.has(name);
-    // Find which team has this prospect as default
-    let assignedTo = '';
-    for (const [s, info] of Object.entries(allPickSlots)) {
-      if (info.defaultProspect === name && info.team !== teamAbbrev) {
-        assignedTo = `#${s} ${info.team}`;
-        break;
+      if (show && activeFilter === 'available') {
+        const sel = row.querySelector('select');
+        show = sel && sel.value === 'Available';
       }
-    }
 
-    h += `<div class="draft-pick-option${isCurrent ? ' current' : ''}${isTaken ? ' taken' : ''}" `;
-    if (!isTaken) h += `onclick="selectDraftProspect('${esc(name)}')"`;
-    h += `>`;
-    h += `<span class="rank">${i + 1}</span>`;
-    h += `<span class="name">${name}</span>`;
-    if (isCurrent) h += `<span class="assigned" style="color:var(--orange)">current</span>`;
-    else if (assignedTo) h += `<span class="assigned">proj ${assignedTo}</span>`;
-    h += `</div>`;
+      row.style.display = show ? '' : 'none';
+      if (show) anyVisible = true;
+    });
+    sec.style.display = anyVisible ? '' : 'none';
+    if (anyVisible) sec.classList.remove('collapsed');
+  });
+}
+
+function toggleFilter(type, btn) {
+  if (activeFilter === type) {
+    activeFilter = null;
+    btn.classList.remove('active');
+  } else {
+    activeFilter = type;
+    document.querySelectorAll('.filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  filterPlayers();
+}
+
+function resetAll() {
+  if (Object.keys(modifications).length && !confirm('Reset all changes?')) return;
+  modifications = {};
+  prePurgeSnapshot = null;
+  document.getElementById('undoBtn').style.display = 'none';
+  try { localStorage.removeItem('injuries_modifications'); } catch(e) {}
+  renderRoster();
+  updateBadge();
+}
+
+let prePurgeSnapshot = null;
+
+function purgeAvailable(btn) {
+  // Save snapshot for undo
+  prePurgeSnapshot = JSON.parse(JSON.stringify(modifications));
+
+  // For every player in JSON whose latest effective status is "Available",
+  // add a modification clearing their injury and date
+  for (const [player, entry] of Object.entries(latestStatus)) {
+    const effective = modifications[player] || entry;
+    if (effective.status === 'Available' && (entry.injury || entry.date)) {
+      modifications[player] = { status: 'Available', injury: '', date: '' };
+    }
   }
 
-  if (!filtered.length) h = '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:.75rem">No prospects found</div>';
-  list.innerHTML = h;
+  renderRoster();
+  updateBadge();
+  updateTeamInjuredCounts();
+
+  document.getElementById('undoBtn').style.display = '';
+  const orig = btn.textContent;
+  btn.textContent = '✓ Purged!'; btn.classList.add('active');
+  setTimeout(() => { btn.textContent = orig; btn.classList.remove('active'); }, 2000);
 }
 
-function selectDraftProspect(name) {
-  const slot = _draftPickerSlot;
-  if (!slot) return;
-  const prev = STATE.draftSelections[slot] || null;
-  STATE.draftSelections[slot] = name;
-  const defaultName = allPickSlots[slot] ? allPickSlots[slot].defaultProspect : 'TBD';
-  STATE.moves.push({
-    action: 'Draft',
-    detail: `Pick #${slot}: ${name}${name !== defaultName ? ' (was ' + defaultName + ')' : ''}`,
-    undo: { type: 'draft', slot, prev }
-  });
-  saveState();
-  closeDraftPicker();
-  render();
+function undoPurge(btn) {
+  if (prePurgeSnapshot !== null) {
+    modifications = prePurgeSnapshot;
+    prePurgeSnapshot = null;
+    renderRoster();
+    updateBadge();
+    updateTeamInjuredCounts();
+  }
+  btn.style.display = 'none';
 }
 
-function resetDraftPick(slot) {
-  const prev = STATE.draftSelections[slot] || null;
-  delete STATE.draftSelections[slot];
-  const defaultName = allPickSlots[slot] ? allPickSlots[slot].defaultProspect : 'TBD';
-  STATE.moves.push({
-    action: 'Draft Reset',
-    detail: `Pick #${slot}: back to ${defaultName}`,
-    undo: { type: 'draft', slot, prev }
-  });
-  saveState();
-  render();
-}
+// ===== JSON GENERATION =====
+function buildMergedJSON() {
+  // Start with original entries
+  const merged = [...jsonEntries];
 
-// ======================== INIT ========================
-async function init() {
-  document.getElementById('loadingState').style.display = 'block';
-  renderTeamGrid();
-
-  const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContractsData()]);
-  if (!csv) {
-    document.getElementById('loadingState').innerHTML = '<p style="color:var(--red)">Failed to load data. Try refreshing.</p>';
-    return;
+  // Append modifications as new entries
+  for (const [player, mod] of Object.entries(modifications)) {
+    merged.push({
+      player,
+      status: mod.status,
+      injury: mod.injury || '',
+      date: mod.date || todayISO()
+    });
   }
 
-  allPlayers = parseAllPlayers(csv);
-
-  // Enrich players with contracts data for extension eligibility
-  enrichPlayersWithContracts();
-
-  document.getElementById('loadingState').style.display = 'none';
-  renderTeamGrid(); // re-render with logos
-
-  // Check if team was previously selected
-  const lastTeam = localStorage.getItem('rm_last_team');
-  if (lastTeam && TEAMS[lastTeam]) selectTeam(lastTeam);
+  return merged;
 }
 
-function enrichPlayersWithContracts() {
-  let matched = 0;
-  allPlayers.forEach(p => {
-    const cd = contractsMap[normName(p.name)];
-    if (cd) {
-      p.sigDate = cd.sigDate;
-      p.sigTeam = cd.sigTeam;
-      p.contractNotes = cd.notes;
-      p.yos = cd.yos;
-      p.draftYear = cd.draftYear;
-      p.contractYrs = cd.yrs; // [{sal, ch, st}] for each year 25-26 through 30-31
-      p.contractEnd = cd.end; // string end year from contracts sheet
-      p.dvEligible = cd.dvEligible;
-      p.dvAwards = cd.dvAwards;
-      p.allAwards = cd.allAwards;
-      p.exc_contract = cd.exc; // exception from contracts sheet
-      matched++;
-    }
-    // Compute extension eligibility (will be recomputed on option decisions)
-    p.ext = calcExtEligRM(p);
+function copyJSON(btn) {
+  const merged = buildMergedJSON();
+  const json = JSON.stringify(merged, null, 2);
+  navigator.clipboard.writeText(json).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!'; btn.classList.add('success');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('success'); }, 2000);
   });
-  console.log(`[EXT] Enriched ${matched}/${allPlayers.length} players with contracts data`);
 }
 
-// Override selectTeam to also save last team
-const _selectTeam = selectTeam;
-selectTeam = function(team) {
-  localStorage.setItem('rm_last_team', team);
-  _selectTeam(team);
-};
+// ===== PRESTO HTML GENERATION (same 4 tables) =====
+function buildPrestoHTML() {
+  const merged = buildMergedJSON();
+  const lat = {}, prv = {};
+  for (const e of merged) {
+    if (lat[e.player]) prv[e.player] = lat[e.player];
+    lat[e.player] = e;
+  }
+  return buildPrestoTables(merged, lat, prv, false);
+}
 
-init();
+function buildPrestoTables(entries, lat, prv, usePurge) {
+  const today = todayISO();
+
+  // Shared styles: text-align on tbody inherits to all cells, avoiding per-cell repetition
+  const TBL = 'style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;width:100%"';
+  const TB = 'style="text-align:center"'; // on tbody — inherited by all td/th
+  const B = 'style="border:1px solid #eee;padding:4px"'; // per cell (minimum needed)
+  const BH = 'style="border:1px solid #ccc;padding:4px"'; // header cells
+  const H2 = 'style="font-size:22px;font-weight:700;margin-bottom:10px"';
+  function logo(team) { const id=TEAM_IDS[team]; return id ? `<img src="https://cdn.nba.com/logos/nba/${id}/primary/L/logo.svg" width="28" height="28" style="vertical-align:middle">` : ''; }
+  function r(i) { return i%2 ? ' style="background:#f9f9f9"' : ''; }
+
+  // Table 1: Today's Updates
+  const todayEntries = Object.entries(lat)
+    .filter(([name,e]) => e.date === today && roster[name])
+    .filter(([_,e]) => !usePurge || e.status !== 'Available')
+    .map(([name,e]) => {
+      const p = prv[name], rv = roster[name] || {};
+      return { player:name, status:e.status, injury:e.injury, prevStatus:p?p.status:'Available', team:rv.team||'', salary:rv.salary||0 };
+    }).sort((a,z) => a.team !== z.team ? a.team.localeCompare(z.team) : lastName(a.player).localeCompare(lastName(z.player)));
+
+  let h1 = `<h2 ${H2}>Today's injury updates</h2><table ${TBL}><thead ${TB}><tr style="background:#f2f2f2"><th ${BH}></th><th ${BH}>PLAYER</th><th ${BH}>STATUS</th><th ${BH}>INJURY</th><th ${BH}>PREVIOUS STATUS</th><th ${BH}>SALARY</th></tr></thead><tbody ${TB}>`;
+  let lt = '';
+  if (!todayEntries.length) h1 += `<tr><td ${B} colspan="6">No updates today</td></tr>`;
+  todayEntries.forEach((e, i) => {
+    const lg = e.team !== lt ? logo(e.team) : ''; lt = e.team;
+    h1 += `<tr${r(i)}><td ${B}>${lg}</td><td ${B}><b>${e.player}</b></td><td ${B}>${sSpan(e.status)}</td><td ${B}>${e.injury}</td><td ${B}>${e.prevStatus?sSpan(e.prevStatus):''}</td><td ${B}>${fmtSal(e.salary)}</td></tr>`;
+  });
+  h1 += '</tbody></table>';
+
+  // Table 2: Full Report
+  const allInjured = Object.entries(lat)
+    .filter(([name,e]) => e.status !== 'Available' && roster[name])
+    .map(([name,e]) => ({ player:name, ...e, team:(roster[name]||{}).team||'', salary:(roster[name]||{}).salary||0, days:daysMap[name]||0 }))
+    .sort((a,z) => a.team !== z.team ? a.team.localeCompare(z.team) : lastName(a.player).localeCompare(lastName(z.player)));
+
+  let h2 = `<h2 ${H2}>Full injury report</h2><table ${TBL}><thead ${TB}><tr style="background:#f2f2f2"><th ${BH}></th><th ${BH}>PLAYER</th><th ${BH}>SALARY</th><th ${BH}>STATUS</th><th ${BH}>INJURY</th><th ${BH}>DATE</th></tr></thead><tbody ${TB}>`;
+  lt = '';
+  allInjured.forEach((e, i) => {
+    const lg = e.team !== lt ? logo(e.team) : ''; lt = e.team;
+    h2 += `<tr${r(i)}><td ${B}>${lg}</td><td ${B}><b>${e.player}</b></td><td ${B}>${fmtSal(e.salary)}</td><td ${B}>${sSpan(e.status)}</td><td ${B}>${e.injury||''}</td><td ${B}>${e.date?fmtDate(e.date):''}</td></tr>`;
+  });
+  h2 += '</tbody></table>';
+
+  // Table 3: Salary Per Team
+  const teamInjSal = {};
+  for (const e of allInjured) {
+    if (e.status === 'Out' || e.status === 'Left Game' || e.status === 'Doubtful') {
+      teamInjSal[e.team] = (teamInjSal[e.team]||0) + e.salary;
+    }
+  }
+  let totalNBASal = 0, totalNBAInj = 0;
+  for (const t of NBA_TEAMS) { totalNBASal += teamSalaries[t]||0; totalNBAInj += teamInjSal[t]||0; }
+
+  const teamRows = NBA_TEAMS.map(t => ({
+    team:t, injured:teamInjSal[t]||0, total:teamSalaries[t]||0,
+    pct: teamSalaries[t] ? ((teamInjSal[t]||0)/teamSalaries[t]*100) : 0
+  })).sort((a,z) => z.injured - a.injured);
+
+  let h3 = `<h2 ${H2}>Injured salary per team</h2><table ${TBL}><thead ${TB}><tr style="background:#f2f2f2"><th ${BH}></th><th ${BH}>TEAM</th><th ${BH}>INJURED SALARY</th><th ${BH}>% SALARY</th></tr></thead><tbody ${TB}>`;
+  teamRows.forEach((rv, i) => {
+    h3 += `<tr${r(i)}><td ${B}>${logo(rv.team)}</td><td ${B}><b>${rv.team}</b></td><td ${B}>${fmtSalFull(rv.injured)}</td><td ${B}>${rv.pct.toFixed(2)}%</td></tr>`;
+  });
+  h3 += `<tr style="background:#222;color:#fff;font-weight:700"><td ${B}><img src="https://cdn.nba.com/logos/leagues/logo-nba.svg" width="28" height="28" style="vertical-align:middle"></td><td ${B}>NBA</td><td ${B}>${fmtSalFull(totalNBAInj)}</td><td ${B}>${totalNBASal?(totalNBAInj/totalNBASal*100).toFixed(2):'0.00'}%</td></tr>`;
+  h3 += '</tbody></table>';
+
+  // Table 4: Highest-Paid Injured
+  const topPaid = [...allInjured].sort((a,z) => z.salary - a.salary).slice(0,25);
+  let h4 = `<h2 ${H2}>Highest-paid injured players</h2><table ${TBL}><thead ${TB}><tr style="background:#f2f2f2"><th ${BH}></th><th ${BH}>PLAYER</th><th ${BH}>SALARY</th><th ${BH}>DAYS SINCE LAST GAME</th></tr></thead><tbody ${TB}>`;
+  topPaid.forEach((e, i) => {
+    h4 += `<tr${r(i)}><td ${B}>${logo(e.team)}</td><td ${B}><b>${e.player}</b></td><td ${B}>${fmtSalFull(e.salary)}</td><td ${B}>${e.days||''}</td></tr>`;
+  });
+  h4 += '</tbody></table>';
+
+  return [h1, h2, h3, h4];
+}
+
+function copyPrestoHTML(btn) {
+  const sections = buildPrestoHTML();
+  const html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">\n${sections.join('\n<br>\n')}\n</div>`;
+  navigator.clipboard.writeText(html).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!'; btn.classList.add('success');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('success'); }, 2000);
+  });
+}
+
+// ==========================================
+// REPORT MODE (non-admin)
+// ==========================================
+let sectionsHTML = [];
+let purgeActive = false;
+
+async function initReport() {
+  try {
+    const { prev } = await loadData();
+    buildReportSections(prev);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('preview').style.display = 'block';
+    showTab(-1, document.querySelector('.tab-bar button.active'));
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('error').textContent = 'Error: ' + e.message;
+  }
+}
+
+function buildReportSections(prev) {
+  const lat = {};
+  for (const e of jsonEntries) { lat[e.player] = e; }
+  sectionsHTML = buildPrestoTables(jsonEntries, lat, prev, purgeActive);
+}
+
+function showTab(idx, btn) {
+  document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('preview').innerHTML = idx === -1 ? sectionsHTML.join('<br>') : (sectionsHTML[idx] || '');
+}
+
+function copyToClipboard(html, btn) {
+  const orig = btn.textContent;
+  const w = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">\n${html}\n</div>`;
+  navigator.clipboard.writeText(w).then(() => {
+    btn.textContent = '✓ Copied!'; btn.classList.add('success');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('success'); }, 2000);
+  });
+}
+function copyAll(btn) { copyToClipboard(sectionsHTML.join('\n<br>\n'), btn); }
+function copySection(idx, btn) { if (sectionsHTML[idx]) copyToClipboard(sectionsHTML[idx], btn); }
+
+async function refreshReport(btn) {
+  const o = btn.textContent; btn.textContent = '⏳ Refreshing...'; btn.disabled = true;
+  try {
+    const { prev } = await loadData();
+    buildReportSections(prev);
+    showTab(-1, document.querySelector('.tab-bar button.active'));
+  } catch(e) {}
+  btn.textContent = '✓ Updated!'; btn.classList.add('success');
+  setTimeout(() => { btn.textContent = o; btn.classList.remove('success'); btn.disabled = false; }, 2000);
+}
+
+function togglePurge(btn) {
+  purgeActive = !purgeActive;
+  btn.classList.toggle('active', purgeActive);
+  btn.style.background = purgeActive ? 'rgba(239,68,68,0.2)' : '';
+  const prv = {};
+  const lat = {};
+  for (const e of jsonEntries) {
+    if (lat[e.player]) prv[e.player] = lat[e.player];
+    lat[e.player] = e;
+  }
+  buildReportSections(prv);
+  showTab(-1, document.querySelector('.tab-bar button.active'));
+}
 </script>
 </body>
 </html>
