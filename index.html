@@ -356,6 +356,26 @@ const SSID = '11llk0icQqoi0JwJXat5KO8y2RQeBMN5rS9FhAY56Idc';
 const PUB_ID = '2PACX-1vSg6im6IYB6HXMGzQbmmBnLw9SfQLzxCSo8OfChxlJLhsB6BBCO0wPF_TMch0YgAbtFqYkwDWrsxRe7';
 const CONTRACT_GID = '1649473047';
 const DRAFT_GID_CONTRACTS = '1889032294';
+const TV_GID = '1310971167';
+
+// Trade Value algorithm constants (ported from Trade_Value.html)
+const TV_EXPONENT = 1.8;
+const TV_WM = 0.85;
+const TV_RAT = 0.15;
+const TV_AGE_BONUS = 1.0;
+const TV_OLD_THRESHOLD = 35;
+const TV_OLD_PENALTY = 0.03;
+const TV_OLD_FLOOR = 0.50;
+const TV_GAMES_BETA = 0.8;
+const TV_GAMES_MAX = 1.4;
+const TV_GAMES_MIN_PCT = 0.40;
+const TV_POT_MAX = 7000000;
+const TV_MIN_ROOKIE_AGE = 18 + 300/365;
+const TV_MAX_POT_AGE = 25;
+const TV_DRAFT_DECAY = 0.05;
+const TV_AGE_DECAY = 0.5;
+const TV_SEASON_WEIGHT = {'2025-26':1.0,'2024-25':0.6,'2023-24':0.36,'2022-23':0.216,'2021-22':0.1296};
+const TV_EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':48};
 // Column mapping for Contracts sheet salary/cap hit/status per year
 const C_YEARS = [
   { sc: 7, cc: 8, tc: 9 },   // 25-26
@@ -395,10 +415,11 @@ const TEAMS = {
 let allPlayers = []; // raw parsed data
 let contractsMap = {}; // normName → {sigDate, sigTeam, notes, yos, draftYear, yrs[], dvEligible, dvAwards, allAwards, end}
 let teamLogos = {}; // team -> logo URL
-let teamDraftPicks = {}; // abbrev -> [{prospect, draftRnk, capHold}]
+let teamDraftPicks = {}; // abbrev -> [{prospect, draftRnk, capHold, round}]
 let allProspects = []; // all prospect names from Draft Predictor
 let allPickSlots = {}; // pickSlot# -> {team (abbrev), defaultProspect}
-let STATE = null; // current GM state: { team, roster, moves, options, draftSelections }
+let tradeValueMap = {}; // normName → {tv, rank, salary, team, pos, age}
+let STATE = null; // current GM state
 
 // Reverse team map: abbreviation -> full name
 const TEAMS_REV = {};
@@ -543,6 +564,120 @@ async function fetchDraftPicks() {
     } catch(e) { console.warn('[DP] Failed:', e); continue; }
   }
   console.warn('[DP] Could not load draft predictor data');
+}
+
+// ======================== TRADE VALUE DATA ========================
+async function fetchTradeValues() {
+  const urls = [
+    `https://docs.google.com/spreadsheets/d/e/${PUB_ID}/pub?gid=${TV_GID}&single=true&output=csv`,
+    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${TV_GID}`
+  ];
+  for (const url of urls) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const txt = await r.text();
+      if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
+      const rows = parseCSV(txt);
+      if (rows.length < 2) continue;
+      tradeValueMap = computeTradeValues(rows);
+      console.log(`[TV] Loaded trade values for ${Object.keys(tradeValueMap).length} players`);
+      return;
+    } catch(e) { continue; }
+  }
+  console.warn('[TV] Could not load trade value data');
+}
+
+function computeTradeValues(rows) {
+  const dataRows = rows.slice(1);
+  const roster = [], historical = [];
+  let todayStr = null;
+  const shootingMap = {}, expMap = {};
+
+  for (const row of dataRows) {
+    while (row.length < 21) row.push('');
+    if (row[18] && !todayStr) todayStr = row[18];
+    if (row[0] && row[1]) {
+      roster.push({ team: row[0].trim(), player: row[1].trim(), rat365: parseFloat(row[2]) || 0,
+        salary: parseInt((row[3]||'').replace(/[$,]/g,'')) || 0, birthday: row[4] || '',
+        draftPick: parseInt(row[20]) || null, pos: '' });
+      if (row[19]) { const ev = parseInt(row[19]); if (!isNaN(ev)) expMap[row[1].trim()] = ev; }
+    }
+    if (row[6] && row[7]) {
+      const g = parseInt(row[9]) || 0;
+      if (g > 0) historical.push({ year: row[6], player: row[7], totalRat: parseFloat((row[8]||'').replace(/,/g,'')) || 0, games: g });
+    }
+    if (row[12] && row[17]) { const sv = parseFloat(row[17]); if (!isNaN(sv) && sv > 0) shootingMap[row[12].trim()] = sv; }
+  }
+
+  const playerHist = {};
+  for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
+  const totalSalaryPool = roster.reduce((s,p) => s + p.salary, 0);
+
+  // Watermark + RAT365
+  for (const p of roster) {
+    const hist = playerHist[p.player.toLowerCase()] || [];
+    let num = 0, den = 0;
+    for (const h of hist) {
+      const w = TV_SEASON_WEIGHT[h.year] || 0;
+      if (w <= 0 || h.games <= 0) continue;
+      let pg = h.totalRat / h.games;
+      const exp = TV_EXPECTED[h.year] || 82;
+      const pct = h.games / exp;
+      if (pct >= TV_GAMES_MIN_PCT) pg *= Math.min(TV_GAMES_MAX, Math.pow(exp / h.games, TV_GAMES_BETA));
+      num += pg * w * h.games; den += w * h.games;
+    }
+    p.watermark = den > 0 ? num / den : 0;
+    const cur = hist.filter(h => h.year === '2025-26');
+    p.curGames = cur.reduce((s,h) => s+h.games, 0);
+    if (p.curGames > 0 && (p.curGames/TV_EXPECTED['2025-26']) >= TV_GAMES_MIN_PCT) {
+      p.rat365adj = p.rat365 * Math.min(TV_GAMES_MAX, Math.pow(TV_EXPECTED['2025-26']/p.curGames, TV_GAMES_BETA));
+    } else { p.rat365adj = p.rat365; }
+  }
+
+  // Age
+  function pd(s) { if (!s) return null; const pts = s.split('/'); return pts.length===3 ? new Date(+pts[2],+pts[0]-1,+pts[1]) : null; }
+  const today = pd(todayStr) || new Date();
+  const ages = [];
+  for (const p of roster) { const bd = pd(p.birthday); if (bd) { p.age = (today-bd)/(365.25*864e5); ages.push(p.age); } else { p.age = null; } }
+  const avgAge = ages.length ? ages.reduce((a,b)=>a+b,0)/ages.length : 26;
+  const maxDev = avgAge - Math.min(...ages);
+
+  for (const p of roster) {
+    if (p.age !== null && p.age < avgAge) p.ageMult = 1 + TV_AGE_BONUS * (avgAge - p.age) / maxDev;
+    else if (p.age !== null && p.age >= TV_OLD_THRESHOLD) p.ageMult = Math.max(TV_OLD_FLOOR, 1 - TV_OLD_PENALTY * (p.age - TV_OLD_THRESHOLD));
+    else p.ageMult = 1;
+  }
+
+  const totalWM = roster.reduce((s,p) => s + Math.pow(Math.max(p.watermark,0), TV_EXPONENT), 0);
+  const totalRAT = roster.reduce((s,p) => s + Math.pow(Math.max(p.rat365adj,0), TV_EXPONENT), 0);
+  for (const p of roster) {
+    const tvWM = totalWM > 0 ? (Math.pow(Math.max(p.watermark,0), TV_EXPONENT) / totalWM) * totalSalaryPool : 0;
+    const tvRAT = totalRAT > 0 ? (Math.pow(Math.max(p.rat365adj,0), TV_EXPONENT) / totalRAT) * totalSalaryPool : 0;
+    p.tvPreAge = TV_WM * tvWM + TV_RAT * tvRAT;
+    p.shootingMult = 1 - (shootingMap[p.player] || 0) * 2;
+    p.tvWithAge = p.tvPreAge * p.ageMult * p.shootingMult;
+  }
+  const totalWithAge = roster.reduce((s,p) => s + p.tvWithAge, 0);
+
+  for (const p of roster) {
+    const base = totalWithAge > 0 ? Math.round((p.tvWithAge / totalWithAge) * totalSalaryPool) : 0;
+    let potBonus = 0;
+    if (p.age !== null && p.age < TV_MAX_POT_AGE && p.draftPick && p.draftPick >= 1 && p.draftPick <= 60) {
+      potBonus = Math.round(TV_POT_MAX * Math.exp(-TV_DRAFT_DECAY*(p.draftPick-1)) * Math.exp(-TV_AGE_DECAY*Math.max(0,p.age-TV_MIN_ROOKIE_AGE)));
+    }
+    p.tradeValue = base + potBonus;
+    p.surplus = p.tradeValue - p.salary;
+    p.exp = expMap[p.player] !== undefined ? expMap[p.player] : null;
+  }
+  roster.sort((a,b) => b.tradeValue - a.tradeValue);
+  roster.forEach((p,i) => p.rank = i+1);
+
+  const map = {};
+  for (const p of roster) {
+    map[normName(p.player)] = { tv: p.tradeValue, rank: p.rank, salary: p.salary, team: p.team, age: p.age, surplus: p.surplus, exp: p.exp };
+  }
+  return map;
 }
 
 // ======================== CONTRACTS DATA (for Extension Eligibility) ========================
@@ -982,13 +1117,22 @@ function calcCapSheet(team) {
 
   // === SIGNINGS (Free Agency) ===
   for (const sig of (STATE.signings || [])) {
-    activeSalaries += sig.salary;
-    rosterCount++;
-    roster.signed.push({
-      name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
-      exception: sig.exception, st27: 'GUARANTEED', status: 'signed',
-      end: sig.end || 2027, tradeKicker: 0
-    });
+    if (sig.isTwoWay) {
+      twowayCount++;
+      roster.under_contract.push({
+        name: sig.name, sal27: 0, pos: sig.pos || '', headshot: sig.headshot || '',
+        exception: 'Two-Way', st27: 'TWO-WAY', status: 'signed', twoWay: true,
+        end: sig.end || 2027, tradeKicker: 0
+      });
+    } else {
+      activeSalaries += sig.salary;
+      rosterCount++;
+      roster.signed.push({
+        name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
+        exception: sig.exception, st27: 'GUARANTEED', status: 'signed',
+        end: sig.end || 2027, tradeKicker: 0
+      });
+    }
   }
 
   // === EXTENSION SALARY ADJUSTMENTS ===
@@ -1617,12 +1761,38 @@ function setPhase(id) {
 
 function advancePhase() {
   const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
-  if (currentIdx < PHASES.length - 1) {
-    STATE.phase = PHASES[currentIdx + 1].id;
-    STATE.moves.push({ action: 'Phase', detail: `Advanced to ${PHASES[currentIdx + 1].label}`, undo: { type: 'phase', prev: PHASES[currentIdx].id } });
-    saveState();
-    render();
+  if (currentIdx >= PHASES.length - 1) return;
+  const nextPhase = PHASES[currentIdx + 1];
+
+  // When advancing to Free Agency, check for unresolved options
+  if (nextPhase.id === 'free_agency') {
+    const cap = calcCapSheet(STATE.team);
+    const pending = [];
+    for (const bucket of Object.values(cap.roster)) {
+      for (const p of bucket) {
+        if (p.status === 'pending_to') pending.push({ name: p.name, type: 'Team Option', sal: p.sal27 });
+        if (p.status === 'pending_po') pending.push({ name: p.name, type: 'Player Option', sal: p.sal27 });
+      }
+    }
+    if (pending.length > 0) {
+      const names = pending.map(p => `${p.name} (${p.type}, ${fmtMoney(p.sal)})`).join('\n• ');
+      const proceed = confirm(`⚠️ Unresolved Options\n\nThe following players still have pending option decisions:\n• ${names}\n\nIf you proceed, all options will be automatically picked up / exercised.\n\nContinue?`);
+      if (!proceed) return;
+      // Auto-pickup all pending options
+      for (const p of pending) {
+        const decision = p.type === 'Team Option' ? 'pickup' : 'exercise';
+        STATE.optionDecisions[p.name] = decision;
+        const label = decision === 'pickup' ? 'Picked up (auto)' : 'Exercised (auto)';
+        STATE.moves.push({ action: label, detail: `${p.name}'s option (${fmtMoney(p.sal)})`, undo: { type: 'option', name: p.name } });
+        recalcExtElig(p.name);
+      }
+    }
   }
+
+  STATE.phase = nextPhase.id;
+  STATE.moves.push({ action: 'Phase', detail: `Advanced to ${nextPhase.label}`, undo: { type: 'phase', prev: PHASES[currentIdx].id } });
+  saveState();
+  render();
 }
 
 function undoLast() {
@@ -2202,97 +2372,253 @@ function confirmExtension() {
 }
 
 // ======================== FREE AGENCY SIGNING ========================
+function getBirdRightsMax(p) {
+  // Returns max salary available via Bird Rights for a given free agent
+  const exc = (p.exception || '').toLowerCase();
+  const sal = p.sal26 || MIN_SALARY_0YOS;
+  const yos = p.yos || 0;
+
+  if (exc.includes('bird') && !exc.includes('early') && !exc.includes('non')) {
+    // Full Bird: up to individual max (25/30/35% of cap based on YOS)
+    const pct = yos >= 10 ? 0.35 : yos >= 7 ? 0.30 : 0.25;
+    return Math.round(T.cap * pct);
+  } else if (exc.includes('early bird') || exc.includes('early')) {
+    // Early Bird: greater of 175% of prior salary or avg salary
+    return Math.max(Math.round(sal * 1.75), EST_AVG_SALARY);
+  } else if (exc.includes('non-bird') || exc.includes('non bird')) {
+    // Non-Bird: 120% of prior salary or 120% of minimum
+    return Math.max(Math.round(sal * 1.20), Math.round(MIN_SALARY_0YOS * 1.20));
+  } else if (exc.includes('rookie')) {
+    // Rookie scale RFA: up to max
+    return Math.round(T.cap * 0.25);
+  }
+  return 0; // No Bird Rights
+}
+
+function buildFAList(isOwn) {
+  // Build a list of available FAs (own team or all teams)
+  const cap = calcCapSheet(STATE.team);
+  const teamAbbrev = TEAMS[STATE.team];
+  const signedNames = new Set((STATE.signings || []).map(s => s.name));
+  const list = [];
+
+  if (isOwn) {
+    // Own FAs from cap sheet
+    for (const p of cap.roster.free_agent) {
+      if (p.status === 'renounced' || signedNames.has(p.name)) continue;
+      const tv = tradeValueMap[normName(p.name)];
+      list.push({ name: p.name, pos: p.pos || '', sal26: p.sal26 || 0, capHold: p.capHold,
+        exception: p.exception || '', isRFA: p.isRFA, qualifyingOffer: p.qualifyingOffer || 0,
+        twoWay: p.twoWay, fromOption: p.fromOption,
+        tv: tv ? tv.tv : 0, rank: tv ? tv.rank : 999, headshot: p.headshot,
+        birdMax: getBirdRightsMax(p), own: true });
+    }
+  } else {
+    // All league FAs (other teams)
+    for (const p of allPlayers) {
+      if (p.team === STATE.team) continue;
+      if (signedNames.has(p.name)) continue;
+      if (p.category !== 'free_agent') continue;
+      const tv = tradeValueMap[normName(p.name)];
+      list.push({ name: p.name, pos: p.pos || '', sal26: p.sal26 || 0,
+        team: TEAMS[p.team] || p.team, exception: p.exception || '',
+        tv: tv ? tv.tv : 0, rank: tv ? tv.rank : 999, headshot: p.headshot, own: false });
+    }
+  }
+
+  // Also include drafted second-round picks (after draft phase)
+  if (!isOwn && (STATE.phase === 'free_agency' || STATE.phase === 'training_camp')) {
+    const picks = teamDraftPicks[teamAbbrev] || [];
+    for (const pick of picks) {
+      if (pick.round !== 2) continue;
+      const prospect = (STATE.draftSelections && STATE.draftSelections[pick.draftRnk]) || pick.prospect;
+      if (signedNames.has(prospect)) continue;
+      list.push({ name: prospect, pos: '', sal26: 0, team: 'Draft',
+        exception: '', tv: 0, rank: 999, headshot: '', own: false,
+        isDraftPick: true, draftRnk: pick.draftRnk, round: 2 });
+    }
+  }
+
+  list.sort((a, b) => (b.tv || 0) - (a.tv || 0));
+  return list;
+}
+
 function openSignModal(faName, isResign) {
   const modal = document.getElementById('signModalBody');
-  document.getElementById('signModalTitle').textContent = isResign ? `Re-sign ${faName}` : 'Sign Free Agent';
-
   const cap = calcCapSheet(STATE.team);
-  let h = '';
 
-  if (!faName) {
-    // Show search for FA
-    h += `<div style="margin-bottom:.75rem">`;
-    h += `<input id="signSearchInput" class="trade-input" style="width:100%" placeholder="Type player name..." oninput="filterSignOptions(this.value)">`;
-    h += `</div>`;
-    h += `<div id="signSearchResults" style="max-height:150px;overflow-y:auto;margin-bottom:.75rem"></div>`;
-    h += `<div id="signExcSection" style="display:none">`;
-  } else {
-    h += `<div style="padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.75rem">`;
-    h += `<span style="font-weight:600">${faName}</span>`;
+  if (faName && isResign) {
+    // === RE-SIGN OWN FREE AGENT ===
+    document.getElementById('signModalTitle').textContent = `Re-sign ${faName}`;
     const p = allPlayers.find(p => p.name === faName);
+    const fa = cap.roster.free_agent.find(f => f.name === faName);
+    const birdMax = fa ? getBirdRightsMax(fa) : 0;
+    const excType = (p?.exception || '').trim();
+
+    let h = `<div style="padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.75rem">`;
+    h += `<span style="font-weight:600">${faName}</span>`;
     if (p) h += ` · ${p.pos || ''} · was ${fmtMoney(p.sal26)} in 25-26`;
+    if (excType) h += ` · <span style="color:var(--accent)">${excType}</span>`;
+    if (fa?.isRFA) h += ` · <span style="color:var(--accent);font-weight:600">RFA</span> (QO: ${fmtMoney(fa.qualifyingOffer || 0)})`;
     h += `</div>`;
     h += `<input type="hidden" id="signPlayerName" value="${faName}">`;
+
+    // Exception options: Bird Rights first if available, then standard exceptions
     h += `<div id="signExcSection">`;
-  }
+    h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
 
-  // Exception options
-  h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
-  for (const exc of cap.exceptions) {
-    const cls = exc.available ? '' : 'unavailable';
-    h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.amount})"` : ''}>`;
-    h += `<div class="exc-name">${exc.name}</div>`;
-    h += `<div class="exc-detail">${exc.available ? 'Up to ' + fmtMoney(exc.amount) : 'Not available'}</div>`;
+    if (birdMax > 0) {
+      const birdLabel = excType.includes('Early') ? 'Early Bird Rights' : excType.includes('Non') ? 'Non-Bird Rights' : excType.includes('Rookie') ? 'Rookie Scale (RFA)' : 'Full Bird Rights';
+      h += `<div class="sign-exc-option" onclick="selectSignException('${esc(birdLabel)}', ${birdMax})">`;
+      h += `<div class="exc-name" style="color:var(--accent);font-weight:700">🦅 ${birdLabel}</div>`;
+      h += `<div class="exc-detail">Up to ${fmtMoney(birdMax)} · Signs over the cap</div>`;
+      h += `</div>`;
+    }
+    if (fa?.isRFA) {
+      h += `<div class="sign-exc-option" onclick="selectSignException('Qualifying Offer', ${fa.qualifyingOffer})">`;
+      h += `<div class="exc-name">📋 Qualifying Offer</div>`;
+      h += `<div class="exc-detail">1-year at ${fmtMoney(fa.qualifyingOffer)}</div>`;
+      h += `</div>`;
+    }
+    for (const exc of cap.exceptions) {
+      const cls = exc.available ? '' : 'unavailable';
+      h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
+      h += `<div class="exc-name">${exc.name}</div>`;
+      h += `<div class="exc-detail">${exc.available ? 'Up to ' + fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount) : 'Not available'}</div>`;
+      h += `</div>`;
+    }
     h += `</div>`;
+    h += `<div id="signSalarySection" style="display:none">`;
+    h += `<div class="sign-salary-input"><label>Salary:</label><input id="signSalaryInput" class="trade-input" type="number" placeholder="Annual salary" style="flex:1"></div>`;
+    h += `<div class="sign-salary-input"><label>Years:</label><input id="signYearsInput" class="trade-input" type="number" placeholder="Contract length" value="1" min="1" max="5" style="flex:1"></div>`;
+    h += `<button class="trade-confirm-btn" onclick="confirmSigning()">✅ Sign Player</button>`;
+    h += `</div>`;
+    h += `<button class="waive-cancel" onclick="closeSignModal()">Cancel</button>`;
+    modal.innerHTML = h;
+
+  } else {
+    // === SIGN EXTERNAL FA / DRAFT PICK ===
+    document.getElementById('signModalTitle').textContent = 'Sign Free Agent';
+    const ownFAs = buildFAList(true);
+    const leagueFAs = buildFAList(false);
+
+    let h = `<div style="margin-bottom:.5rem">`;
+    h += `<div style="display:flex;gap:.3rem;margin-bottom:.5rem">`;
+    h += `<button class="action-btn pickup" style="font-size:.65rem;padding:.25rem .5rem" id="signTabOwn" onclick="switchSignTab('own')">Own FAs (${ownFAs.length})</button>`;
+    h += `<button class="action-btn trade" style="font-size:.65rem;padding:.25rem .5rem" id="signTabLeague" onclick="switchSignTab('league')">All FAs (${leagueFAs.length})</button>`;
+    h += `</div>`;
+    h += `<input id="signSearchInput" class="trade-input" style="width:100%;margin-bottom:.3rem" placeholder="Filter players..." oninput="filterSignList(this.value)">`;
+    h += `</div>`;
+
+    // Own FAs list
+    h += `<div id="signListOwn" style="max-height:250px;overflow-y:auto;margin-bottom:.5rem">`;
+    h += renderFAList(ownFAs, true);
+    h += `</div>`;
+
+    // League FAs list (hidden initially)
+    h += `<div id="signListLeague" style="max-height:250px;overflow-y:auto;margin-bottom:.5rem;display:none">`;
+    h += renderFAList(leagueFAs, false);
+    h += `</div>`;
+
+    h += `<div id="signExcSection" style="display:none">`;
+    h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
+    for (const exc of cap.exceptions) {
+      const cls = exc.available ? '' : 'unavailable';
+      h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
+      h += `<div class="exc-name">${exc.name}</div>`;
+      h += `<div class="exc-detail">${exc.available ? 'Up to ' + fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount) : 'Not available'}</div>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+    h += `<div id="signSalarySection" style="display:none">`;
+    h += `<div class="sign-salary-input"><label>Salary:</label><input id="signSalaryInput" class="trade-input" type="number" placeholder="Annual salary" style="flex:1"></div>`;
+    h += `<div class="sign-salary-input"><label>Years:</label><input id="signYearsInput" class="trade-input" type="number" placeholder="Contract length" value="1" min="1" max="5" style="flex:1"></div>`;
+    h += `<div class="sign-salary-input"><label style="white-space:nowrap">Two-Way?</label><input id="signTwoWayCheck" type="checkbox" style="width:auto"> <span style="font-size:.6rem;color:var(--muted)">Two-way contract (no cap hit)</span></div>`;
+    h += `<button class="trade-confirm-btn" onclick="confirmSigning()">✅ Sign Player</button>`;
+    h += `</div>`;
+    h += `<button class="waive-cancel" onclick="closeSignModal()">Cancel</button>`;
+    modal.innerHTML = h;
+    window._signFAData = { own: ownFAs, league: leagueFAs };
   }
 
-  if (!faName) h += `</div>`; // close signExcSection
-  h += `<div id="signSalarySection" style="display:none">`;
-  h += `<div class="sign-salary-input">`;
-  h += `<label>Salary:</label>`;
-  h += `<input id="signSalaryInput" class="trade-input" type="number" placeholder="Annual salary" style="flex:1">`;
-  h += `</div>`;
-  h += `<div class="sign-salary-input">`;
-  h += `<label>Years:</label>`;
-  h += `<input id="signYearsInput" class="trade-input" type="number" placeholder="Contract length" value="1" min="1" max="5" style="flex:1">`;
-  h += `</div>`;
-  h += `<button class="trade-confirm-btn" onclick="confirmSigning()">✅ Sign Player</button>`;
-  h += `</div>`;
-  h += `<button class="waive-cancel" onclick="closeSignModal()">Cancel</button>`;
-
-  modal.innerHTML = h;
   document.getElementById('signOverlay').style.display = 'flex';
   window._signContext = { exception: null, maxAmount: 0 };
 }
 
-function closeSignModal() {
-  document.getElementById('signOverlay').style.display = 'none';
-}
-
-function filterSignOptions(query) {
-  const results = document.getElementById('signSearchResults');
-  if (!query || query.length < 2) { results.innerHTML = ''; return; }
-  const q = query.toLowerCase();
-  // Search all FAs across the league (players whose contract ends in 25-26 / no sal27)
-  const fas = allPlayers.filter(p =>
-    p.name.toLowerCase().includes(q) &&
-    (p.category === 'free_agent' || !p.sal27) &&
-    p.team !== STATE.team
-  ).slice(0, 15);
-
+function renderFAList(players, isOwn) {
+  if (!players.length) return `<div style="font-size:.7rem;color:var(--muted);padding:.5rem;text-align:center">No free agents available</div>`;
   let h = '';
-  for (const p of fas) {
-    h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(p.name)}')">`;
-    h += `<span class="name">${p.name}</span>`;
-    h += `<span class="assigned">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoney(p.sal26)}</span>`;
+  for (const p of players) {
+    const tvStr = p.tv > 0 ? fmtMoney(p.tv) : '—';
+    const rankStr = p.rank < 999 ? `#${p.rank}` : '';
+    h += `<div class="draft-pick-option fa-list-item" data-name="${esc(p.name.toLowerCase())}" onclick="${isOwn ? `closeSignModal();openSignModal('${esc(p.name)}', true)` : `selectSignPlayer('${esc(p.name)}')`}">`;
+    h += `<div style="display:flex;align-items:center;gap:.4rem;flex:1;min-width:0">`;
+    if (p.headshot) {
+      h += `<img src="${p.headshot}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">`;
+    }
+    h += `<div style="min-width:0">`;
+    h += `<div style="font-weight:600;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}`;
+    if (p.isRFA) h += ` <span style="color:var(--accent);font-size:.55rem">RFA</span>`;
+    if (p.twoWay) h += ` <span style="color:var(--muted);font-size:.55rem">2W</span>`;
+    if (p.isDraftPick) h += ` <span style="color:var(--orange);font-size:.55rem">#${p.draftRnk} Pick</span>`;
+    h += `</div>`;
+    h += `<div style="font-size:.55rem;color:var(--muted)">${p.pos || ''}${isOwn ? '' : ' · ' + (p.team || '')}${p.sal26 ? ' · ' + fmtMoney(p.sal26) : ''}</div>`;
+    h += `</div></div>`;
+    h += `<div style="text-align:right;flex-shrink:0">`;
+    h += `<div style="font-size:.65rem;font-weight:600;color:var(--green)">${tvStr}</div>`;
+    if (rankStr) h += `<div style="font-size:.5rem;color:var(--muted)">${rankStr}</div>`;
+    h += `</div>`;
     h += `</div>`;
   }
-  if (!fas.length) h = `<div style="font-size:.7rem;color:var(--muted);padding:.5rem;text-align:center">No matching free agents</div>`;
-  results.innerHTML = h;
+  return h;
+}
+
+function switchSignTab(tab) {
+  const ownList = document.getElementById('signListOwn');
+  const leagueList = document.getElementById('signListLeague');
+  const ownBtn = document.getElementById('signTabOwn');
+  const leagueBtn = document.getElementById('signTabLeague');
+  if (tab === 'own') {
+    ownList.style.display = ''; leagueList.style.display = 'none';
+    ownBtn.style.opacity = '1'; leagueBtn.style.opacity = '.5';
+  } else {
+    ownList.style.display = 'none'; leagueList.style.display = '';
+    ownBtn.style.opacity = '.5'; leagueBtn.style.opacity = '1';
+  }
+  document.getElementById('signSearchInput').value = '';
+  filterSignList('');
+}
+
+function filterSignList(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.fa-list-item').forEach(el => {
+    el.style.display = !q || el.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+
+function closeSignModal() {
+  document.getElementById('signOverlay').style.display = 'none';
+  window._signFAData = null;
 }
 
 function selectSignPlayer(name) {
-  document.getElementById('signSearchResults').innerHTML = `<div style="padding:.4rem;background:var(--surface);border-radius:4px;font-size:.75rem"><strong>${name}</strong> selected</div>`;
-  // Create hidden input
+  // For external FAs: select and show exception picker
   let inp = document.getElementById('signPlayerName');
   if (!inp) {
-    inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.id = 'signPlayerName';
+    inp = document.createElement('input'); inp.type = 'hidden'; inp.id = 'signPlayerName';
     document.getElementById('signModalBody').appendChild(inp);
   }
   inp.value = name;
+  // Highlight selection
+  document.querySelectorAll('.fa-list-item').forEach(el => el.style.background = '');
+  event.currentTarget.style.background = 'rgba(102,126,234,.15)';
   document.getElementById('signExcSection').style.display = '';
+
+  // For drafted picks, pre-fill minimum
+  const isDraft = window._signFAData?.league?.find(p => p.name === name && p.isDraftPick);
+  if (isDraft) {
+    selectSignException('Minimum', MIN_SALARY_0YOS);
+  }
 }
 
 function selectSignException(excName, maxAmount) {
@@ -2300,9 +2626,12 @@ function selectSignException(excName, maxAmount) {
   document.getElementById('signSalarySection').style.display = '';
   document.getElementById('signSalaryInput').max = maxAmount;
   document.getElementById('signSalaryInput').placeholder = `Up to ${fmtMoney(maxAmount)}`;
-  // For minimum exception, pre-fill
+  // Pre-fill for certain exceptions
   if (excName === 'Minimum') {
     document.getElementById('signSalaryInput').value = MIN_SALARY_0YOS;
+  } else if (excName === 'Qualifying Offer') {
+    document.getElementById('signSalaryInput').value = maxAmount;
+    document.getElementById('signYearsInput').value = 1;
   }
 }
 
@@ -2312,8 +2641,9 @@ function confirmSigning() {
   const name = nameEl.value;
   const salary = parseInt(document.getElementById('signSalaryInput').value) || 0;
   const years = parseInt(document.getElementById('signYearsInput').value) || 1;
-  if (!salary) { alert('Enter a salary amount'); return; }
-  if (window._signContext.maxAmount && salary > window._signContext.maxAmount) {
+  const isTwoWay = document.getElementById('signTwoWayCheck')?.checked || false;
+  if (!salary && !isTwoWay) { alert('Enter a salary amount'); return; }
+  if (window._signContext.maxAmount && salary > window._signContext.maxAmount && !isTwoWay) {
     alert(`Salary exceeds ${window._signContext.exception} limit of ${fmtMoney(window._signContext.maxAmount)}`);
     return;
   }
@@ -2321,23 +2651,20 @@ function confirmSigning() {
   const p = allPlayers.find(p => p.name === name);
   const signing = {
     name,
-    salary,
+    salary: isTwoWay ? 0 : salary,
     years,
-    exception: window._signContext.exception || 'FA',
+    exception: isTwoWay ? 'Two-Way' : (window._signContext.exception || 'FA'),
     pos: p?.pos || '',
     headshot: p?.headshot || '',
-    end: 2027 + years - 1
+    end: 2027 + years - 1,
+    isTwoWay
   };
   STATE.signings.push(signing);
 
-  // Remove cap hold if this was an own FA
-  if (STATE.renounced.has(name)) {
-    // Already renounced, no hold to remove
-  }
-
+  const excLabel = isTwoWay ? 'Two-Way' : (window._signContext.exception || 'FA');
   STATE.moves.push({
     action: 'Signed',
-    detail: `${name} for ${fmtMoney(salary)}/yr × ${years}yr via ${window._signContext.exception || 'FA'}`,
+    detail: `${name} for ${isTwoWay ? 'two-way' : fmtMoney(salary) + '/yr × ' + years + 'yr'} via ${excLabel}`,
     undo: { type: 'signing', name }
   });
   saveState();
@@ -2447,7 +2774,7 @@ async function init() {
   document.getElementById('loadingState').style.display = 'block';
   renderTeamGrid();
 
-  const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContractsData()]);
+  const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContractsData(), fetchTradeValues()]);
   if (!csv) {
     document.getElementById('loadingState').innerHTML = '<p style="color:var(--red)">Failed to load data. Try refreshing.</p>';
     return;
