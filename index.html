@@ -600,7 +600,7 @@ function computeTradeValues(rows) {
     if (row[0] && row[1]) {
       roster.push({ team: row[0].trim(), player: row[1].trim(), rat365: parseFloat(row[2]) || 0,
         salary: parseInt((row[3]||'').replace(/[$,]/g,'')) || 0, birthday: row[4] || '',
-        draftPick: parseInt(row[20]) || null, pos: '' });
+        draftPick: parseInt(row[20]) || null });
       if (row[19]) { const ev = parseInt(row[19]); if (!isNaN(ev)) expMap[row[1].trim()] = ev; }
     }
     if (row[6] && row[7]) {
@@ -614,64 +614,93 @@ function computeTradeValues(rows) {
   for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
   const totalSalaryPool = roster.reduce((s,p) => s + p.salary, 0);
 
-  // Watermark + RAT365
+  const CUR_YEAR = '2025-26';
+
+  // Watermark (weighted historical per-game)
   for (const p of roster) {
     const hist = playerHist[p.player.toLowerCase()] || [];
     let num = 0, den = 0;
     for (const h of hist) {
       const w = TV_SEASON_WEIGHT[h.year] || 0;
       if (w <= 0 || h.games <= 0) continue;
-      let pg = h.totalRat / h.games;
+      let perGame = h.totalRat / h.games;
       const exp = TV_EXPECTED[h.year] || 82;
       const pct = h.games / exp;
-      if (pct >= TV_GAMES_MIN_PCT) pg *= Math.min(TV_GAMES_MAX, Math.pow(exp / h.games, TV_GAMES_BETA));
-      num += pg * w * h.games; den += w * h.games;
+      if (pct >= TV_GAMES_MIN_PCT) perGame *= Math.min(TV_GAMES_MAX, Math.pow(exp / h.games, TV_GAMES_BETA));
+      num += perGame * w * h.games;
+      den += w * h.games;
     }
     p.watermark = den > 0 ? num / den : 0;
-    const cur = hist.filter(h => h.year === '2025-26');
-    p.curGames = cur.reduce((s,h) => s+h.games, 0);
-    if (p.curGames > 0 && (p.curGames/TV_EXPECTED['2025-26']) >= TV_GAMES_MIN_PCT) {
-      p.rat365adj = p.rat365 * Math.min(TV_GAMES_MAX, Math.pow(TV_EXPECTED['2025-26']/p.curGames, TV_GAMES_BETA));
-    } else { p.rat365adj = p.rat365; }
+
+    // Current season games
+    const cur = hist.filter(h => h.year === CUR_YEAR);
+    p.curGames = cur.reduce((s,h) => s + h.games, 0);
+
+    // Games-corrected RAT365 (with fallback to previous season if no current games)
+    if (p.curGames > 0) {
+      const pct = p.curGames / TV_EXPECTED[CUR_YEAR];
+      p.rat365adj = pct >= TV_GAMES_MIN_PCT
+        ? p.rat365 * Math.min(TV_GAMES_MAX, Math.pow(TV_EXPECTED[CUR_YEAR] / p.curGames, TV_GAMES_BETA))
+        : p.rat365;
+    } else {
+      // Fallback: use previous season games for correction
+      const prev = hist.filter(h => h.year === '2024-25');
+      const pg = prev.reduce((s,h) => s + h.games, 0) || 82;
+      const pct = pg / 82;
+      p.rat365adj = pct >= TV_GAMES_MIN_PCT
+        ? p.rat365 * Math.min(TV_GAMES_MAX, Math.pow(82 / pg, TV_GAMES_BETA))
+        : p.rat365;
+    }
   }
 
-  // Age
-  function pd(s) { if (!s) return null; const pts = s.split('/'); return pts.length===3 ? new Date(+pts[2],+pts[0]-1,+pts[1]) : null; }
+  // Age calculation
+  function pd(s) { if (!s) return null; const pts = s.split('/'); return pts.length === 3 ? new Date(+pts[2], +pts[0]-1, +pts[1]) : null; }
   const today = pd(todayStr) || new Date();
   const ages = [];
-  for (const p of roster) { const bd = pd(p.birthday); if (bd) { p.age = (today-bd)/(365.25*864e5); ages.push(p.age); } else { p.age = null; } }
-  const avgAge = ages.length ? ages.reduce((a,b)=>a+b,0)/ages.length : 26;
-  const maxDev = avgAge - Math.min(...ages);
+  for (const p of roster) { const bd = pd(p.birthday); if (bd) { p.age = (today - bd) / (365.25 * 864e5); ages.push(p.age); } else { p.age = null; } }
+  const avgAge = ages.length ? ages.reduce((a,b) => a + b, 0) / ages.length : 26;
+  const maxDevYoung = avgAge - Math.min(...ages);
 
+  // Age multiplier
   for (const p of roster) {
-    if (p.age !== null && p.age < avgAge) p.ageMult = 1 + TV_AGE_BONUS * (avgAge - p.age) / maxDev;
-    else if (p.age !== null && p.age >= TV_OLD_THRESHOLD) p.ageMult = Math.max(TV_OLD_FLOOR, 1 - TV_OLD_PENALTY * (p.age - TV_OLD_THRESHOLD));
-    else p.ageMult = 1;
+    if (p.age !== null && p.age < avgAge) p.ageMult = 1.0 + TV_AGE_BONUS * (avgAge - p.age) / maxDevYoung;
+    else if (p.age !== null && p.age >= TV_OLD_THRESHOLD) p.ageMult = Math.max(TV_OLD_FLOOR, 1.0 - TV_OLD_PENALTY * (p.age - TV_OLD_THRESHOLD));
+    else p.ageMult = 1.0;
   }
 
-  const totalWM = roster.reduce((s,p) => s + Math.pow(Math.max(p.watermark,0), TV_EXPONENT), 0);
-  const totalRAT = roster.reduce((s,p) => s + Math.pow(Math.max(p.rat365adj,0), TV_EXPONENT), 0);
+  // Trade value: 85/15 blend × age × shooting, renormalized to pool
+  const totalAdjWM = roster.reduce((s,p) => s + Math.pow(Math.max(p.watermark, 0), TV_EXPONENT), 0);
+  const totalAdjRAT = roster.reduce((s,p) => s + Math.pow(Math.max(p.rat365adj, 0), TV_EXPONENT), 0);
   for (const p of roster) {
-    const tvWM = totalWM > 0 ? (Math.pow(Math.max(p.watermark,0), TV_EXPONENT) / totalWM) * totalSalaryPool : 0;
-    const tvRAT = totalRAT > 0 ? (Math.pow(Math.max(p.rat365adj,0), TV_EXPONENT) / totalRAT) * totalSalaryPool : 0;
+    const tvWM = totalAdjWM > 0 ? (Math.pow(Math.max(p.watermark, 0), TV_EXPONENT) / totalAdjWM) * totalSalaryPool : 0;
+    const tvRAT = totalAdjRAT > 0 ? (Math.pow(Math.max(p.rat365adj, 0), TV_EXPONENT) / totalAdjRAT) * totalSalaryPool : 0;
     p.tvPreAge = TV_WM * tvWM + TV_RAT * tvRAT;
-    p.shootingMult = 1 - (shootingMap[p.player] || 0) * 2;
+    p.shootingPenalty = (shootingMap[p.player] || 0) * 2;
+    p.shootingMult = 1 - p.shootingPenalty;
     p.tvWithAge = p.tvPreAge * p.ageMult * p.shootingMult;
   }
   const totalWithAge = roster.reduce((s,p) => s + p.tvWithAge, 0);
 
+  // Potential bonus for young drafted players
   for (const p of roster) {
-    const base = totalWithAge > 0 ? Math.round((p.tvWithAge / totalWithAge) * totalSalaryPool) : 0;
+    const baseTV = totalWithAge > 0 ? Math.round((p.tvWithAge / totalWithAge) * totalSalaryPool) : 0;
     let potBonus = 0;
     if (p.age !== null && p.age < TV_MAX_POT_AGE && p.draftPick && p.draftPick >= 1 && p.draftPick <= 60) {
-      potBonus = Math.round(TV_POT_MAX * Math.exp(-TV_DRAFT_DECAY*(p.draftPick-1)) * Math.exp(-TV_AGE_DECAY*Math.max(0,p.age-TV_MIN_ROOKIE_AGE)));
+      const draftFactor = Math.exp(-TV_DRAFT_DECAY * (p.draftPick - 1));
+      const ageFromMin = Math.max(0, p.age - TV_MIN_ROOKIE_AGE);
+      const ageFactor = Math.exp(-TV_AGE_DECAY * ageFromMin);
+      potBonus = Math.round(TV_POT_MAX * draftFactor * ageFactor);
     }
-    p.tradeValue = base + potBonus;
-    p.surplus = p.tradeValue - p.salary;
+    p.uncappedTV = baseTV + potBonus;
+    // Final value is always uncapped (used for ranking); capping is for categorization only
+    p.tradeValue = p.uncappedTV;
     p.exp = expMap[p.player] !== undefined ? expMap[p.player] : null;
+    p.surplus = p.tradeValue - p.salary;
   }
-  roster.sort((a,b) => b.tradeValue - a.tradeValue);
-  roster.forEach((p,i) => p.rank = i+1);
+
+  // Rank by uncapped value
+  roster.sort((a,b) => b.uncappedTV - a.uncappedTV);
+  roster.forEach((p,i) => p.rank = i + 1);
 
   const map = {};
   for (const p of roster) {
