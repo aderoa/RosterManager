@@ -392,6 +392,7 @@ let teamDraftPicks = {}; // abbrev -> [{prospect, draftRnk, capHold}]
 let allProspects = []; // all prospect names from Draft Predictor
 let allPickSlots = {}; // pickSlot# -> {team (abbrev), defaultProspect}
 let contractsMap = {}; // playerName -> { yrs: [{sal, ch, st},...], totG }
+let tradeValueMap = {}; // playerName (lowercase) -> trade value ($)
 let STATE = null; // current GM state
 
 // Reverse team map: abbreviation -> full name
@@ -590,6 +591,68 @@ async function fetchContracts() {
   }
 }
 
+const TV_GID = '1310971167';
+async function fetchTradeValues() {
+  tradeValueMap = {};
+  const urls = [
+    `https://docs.google.com/spreadsheets/d/${SSID}/gviz/tq?tqx=out:csv&gid=${TV_GID}`,
+    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${TV_GID}`
+  ];
+  for (const url of urls) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const txt = await r.text();
+      if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
+      const rows = parseCSV(txt);
+      const roster = [], historical = []; let todayStr = null;
+      for (const row of rows.slice(1)) {
+        while (row.length < 22) row.push('');
+        if (row[18] && !todayStr) todayStr = row[18];
+        if (row[0] && row[1]) roster.push({ player: row[1].trim(), rat365: parseFloat(row[2])||0, salary: parseInt(row[3].replace(/[$,]/g,''))||0, birthday: row[4]||'', draftPick: parseInt(row[20])||null });
+        if (row[6] && row[7]) { const g = parseInt(row[9])||0; if (g > 0) historical.push({ year: row[6], player: row[7].trim(), totalRat: parseFloat(row[8].replace(/,/g,''))||0, games: g }); }
+      }
+      const playerHist = {}; for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
+      const WEIGHTS = {'2025-26':1.0,'2024-25':0.6,'2023-24':0.36,'2022-23':0.216,'2021-22':0.1296};
+      const EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':48};
+      const EXP=1.8, BETA=0.8, MAX_MULT=1.4, MIN_PCT=0.40, WM_W=0.85, RAT_W=0.15, AGE_BONUS=1.0, OLD_TH=35, OLD_PEN=0.03;
+      for (const p of roster) {
+        const hist = playerHist[p.player.toLowerCase()]||[]; let num=0, den=0;
+        for (const h of hist) { const w = WEIGHTS[h.year]||0; if (w<=0||h.games<=0) continue; let pg = h.totalRat/h.games; const exp = EXPECTED[h.year]||82; if (h.games/exp >= MIN_PCT) pg *= Math.min(MAX_MULT, Math.pow(exp/h.games, BETA)); num += pg*w*h.games; den += w*h.games; }
+        p.watermark = den > 0 ? num/den : 0;
+        const cur = hist.filter(h => h.year==='2025-26'); const cg = cur.reduce((s,h) => s+h.games, 0);
+        p.rat365adj = (cg > 0 && cg/48 >= MIN_PCT) ? p.rat365 * Math.min(MAX_MULT, Math.pow(48/cg, BETA)) : p.rat365;
+      }
+      const pd = s => { if (!s) return null; const p = s.split('/'); return p.length===3 ? new Date(+p[2],+p[0]-1,+p[1]) : null; };
+      const today = pd(todayStr)||new Date(); const ages = [];
+      for (const p of roster) { const bd = pd(p.birthday); p.age = bd ? (today-bd)/(365.25*864e5) : null; if (p.age) ages.push(p.age); }
+      const avgAge = ages.length > 0 ? ages.reduce((a,b)=>a+b,0)/ages.length : 26;
+      const maxDev = Math.max(1, avgAge - Math.min(...ages));
+      for (const p of roster) {
+        if (p.age!==null && p.age < avgAge) p.ageMult = 1.0 + AGE_BONUS*(avgAge-p.age)/maxDev;
+        else if (p.age!==null && p.age >= OLD_TH) p.ageMult = Math.max(0.5, 1.0-OLD_PEN*(p.age-OLD_TH));
+        else p.ageMult = 1.0;
+      }
+      const tSP = roster.reduce((s,p)=>s+p.salary,0);
+      const tWM = roster.reduce((s,p)=>s+Math.pow(Math.max(p.watermark,0),EXP),0);
+      const tRAT = roster.reduce((s,p)=>s+Math.pow(Math.max(p.rat365adj,0),EXP),0);
+      for (const p of roster) {
+        const tvWM = tWM>0 ? (Math.pow(Math.max(p.watermark,0),EXP)/tWM)*tSP : 0;
+        const tvRAT = tRAT>0 ? (Math.pow(Math.max(p.rat365adj,0),EXP)/tRAT)*tSP : 0;
+        p.tvWithAge = (WM_W*tvWM + RAT_W*tvRAT) * p.ageMult;
+      }
+      const tWA = roster.reduce((s,p)=>s+p.tvWithAge,0);
+      for (const p of roster) {
+        const baseTV = tWA>0 ? Math.round((p.tvWithAge/tWA)*tSP) : 0; let bonus = 0;
+        if (p.age!==null && p.age<25 && p.draftPick && p.draftPick>=1 && p.draftPick<=60) { bonus = Math.round(7e6 * Math.exp(-0.05*(p.draftPick-1)) * Math.exp(-0.5*Math.max(0,p.age-18.82))); }
+        tradeValueMap[p.player.toLowerCase()] = baseTV+bonus;
+      }
+      console.log(`[TV] Loaded ${Object.keys(tradeValueMap).length} trade values`);
+      return;
+    } catch(e) { console.warn('[TV] Failed:', e); continue; }
+  }
+}
+
 function parseCSV(text) {
   const rows = []; let row = []; let cell = ''; let inQ = false;
   for (let i = 0; i < text.length; i++) {
@@ -667,7 +730,8 @@ function parseAllPlayers(csv) {
     players.push({
       name, team, sal26, ch26, st26, sal27, ch27, st27,
       exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
-      category, capHold, extEligible, rat365
+      category, capHold, extEligible, rat365,
+      tv: tradeValueMap[name.toLowerCase()] || 0
     });
   }
   return players;
@@ -848,7 +912,7 @@ function calcCapSheet(team) {
     roster.under_contract.push({
       name: tp.name, sal27: tp.salary, pos: tp.pos || '', headshot: tp.headshot || '',
       exception: '', st27: 'GUARANTEED', status: 'traded_in', fromTeam: tp.fromTeam,
-      end: tp.end || 0, tradeKicker: 0
+      end: tp.end || 0, tradeKicker: 0, tv: tradeValueMap[tp.name.toLowerCase()] || 0
     });
   }
 
@@ -859,7 +923,7 @@ function calcCapSheet(team) {
     roster.signed.push({
       name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
       exception: sig.exception, st27: 'GUARANTEED', status: 'signed',
-      end: sig.end || 2027, tradeKicker: 0
+      end: sig.end || 2027, tradeKicker: 0, tv: tradeValueMap[sig.name.toLowerCase()] || 0
     });
   }
 
@@ -999,10 +1063,10 @@ function buildDepthPositions(players) {
   // Adjacent positions map (max 1 away)
   const ADJ = { PG:['SG'], SG:['PG','SF'], SF:['SG','PF'], PF:['SF','C'], C:['PF'] };
 
-  // Place everyone in natural position sorted by rat365
+  // Place everyone in natural position sorted by trade value
   const byPos = {}; POS.forEach(p => byPos[p] = []);
   players.forEach(p => byPos[posOf(p)].push(p));
-  POS.forEach(pos => byPos[pos].sort((a,b) => (b.rat365||0) - (a.rat365||0)));
+  POS.forEach(pos => byPos[pos].sort((a,b) => (b.tv||0) - (a.tv||0)));
 
   // Target: roughly equal distribution
   const total = players.length;
@@ -1021,7 +1085,7 @@ function buildDepthPositions(players) {
         // Pick the most underfull adjacent
         candidates.sort((a,b) => byPos[a].length - byPos[b].length);
         byPos[candidates[0]].push(player);
-        byPos[candidates[0]].sort((a,b) => (b.rat365||0) - (a.rat365||0));
+        byPos[candidates[0]].sort((a,b) => (b.tv||0) - (a.tv||0));
         moved = true;
       }
     }
@@ -2106,7 +2170,7 @@ async function init() {
   document.getElementById('loadingState').style.display = 'block';
   renderTeamGrid();
 
-  const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContracts()]);
+  const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContracts(), fetchTradeValues()]);
   if (!csv) {
     document.getElementById('loadingState').innerHTML = '<p style="color:var(--red)">Failed to load data. Try refreshing.</p>';
     return;
