@@ -134,14 +134,16 @@ a{color:var(--accent);text-decoration:none}
 
 /* Contract Table */
 .contract-table{width:100%;font-size:.7rem;border-collapse:collapse}
-.contract-table th{text-align:left;padding:.4rem .5rem;font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0}
+.contract-table th{padding:.4rem .5rem;font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface)}
+.contract-table th:first-child{text-align:left}.contract-table th:not(:first-child){text-align:right}
 .contract-table td{padding:.35rem .5rem;border-bottom:1px solid rgba(255,255,255,.03)}
+.contract-table td:not(:first-child){text-align:right}
 .contract-table tr:hover td{background:rgba(255,255,255,.02)}
 .contract-table .sal-g{color:var(--green)}.contract-table .sal-to{color:var(--orange)}.contract-table .sal-po{color:var(--cyan)}.contract-table .sal-ng{color:var(--red)}.contract-table .sal-pg{color:var(--yellow)}
 .contract-table .player-cell{display:flex;align-items:center;gap:.4rem}
 .contract-table .ct-hs{width:28px;height:21px;border-radius:3px;object-fit:cover;background:var(--surface)}
 .contract-table .ct-ini{width:28px;height:21px;border-radius:3px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.45rem;color:var(--muted)}
-.contract-wrap{max-height:400px;overflow-y:auto;border-radius:8px;border:1px solid var(--border);background:var(--card)}
+.contract-wrap{border-radius:8px;border:1px solid var(--border);background:var(--card);overflow-x:auto}
 
 /* Loading */
 .loading{text-align:center;padding:3rem;color:var(--muted)}
@@ -535,6 +537,7 @@ async function fetchDraftPicks() {
 
 const CONTRACTS_GID = '1649473047';
 const CONTRACT_YEARS = [
+  { label: "'25-26", sc: 7, cc: 8, tc: 9, preFaOnly: true },
   { label: "'26-27", sc: 10, cc: 11, tc: 12 },
   { label: "'27-28", sc: 13, cc: 14, tc: 15 },
   { label: "'28-29", sc: 16, cc: 17, tc: 18 },
@@ -636,6 +639,7 @@ function parseAllPlayers(csv) {
     const end = parseInt((r[29] || '').trim()) || 0;
     const totalGuar = parseMoney(r[30]);
     const tradeKicker = parseFloat((r[31] || '').trim()) || 0;
+    const rat365 = parseFloat((r[11] || '').trim()) || 0;
     const extEligible = extColIdx >= 0 ? (r[extColIdx] || '').trim() : '';
 
     if (logo && team) teamLogos[team] = logo;
@@ -663,7 +667,7 @@ function parseAllPlayers(csv) {
     players.push({
       name, team, sal26, ch26, st26, sal27, ch27, st27,
       exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
-      category, capHold, extEligible
+      category, capHold, extEligible, rat365
     });
   }
   return players;
@@ -974,9 +978,11 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const byPos = {}; POS.forEach(p => byPos[p] = []);
   const saved = STATE.depthOrder || {};
+
+  // If user has custom order, respect it
   if (Object.keys(saved).length) {
+    const byPos = {}; POS.forEach(p => byPos[p] = []);
     const pm = {}; players.forEach(p => pm[p.name] = p);
     const placed = new Set();
     POS.forEach(pos => {
@@ -984,11 +990,44 @@ function buildDepthPositions(players) {
         if (pm[n] && !placed.has(n)) { byPos[pos].push(pm[n]); placed.add(n); }
       });
     });
+    // Any new players not in saved order go to natural position
     players.forEach(p => { if (!placed.has(p.name)) byPos[posOf(p)].push(p); });
-  } else {
-    players.forEach(p => byPos[posOf(p)].push(p));
-    POS.forEach(pos => byPos[pos].sort((a,b) => (b.sal27||0) - (a.sal27||0)));
+    return byPos;
   }
+
+  // === AUTO BALANCE ===
+  // Adjacent positions map (max 1 away)
+  const ADJ = { PG:['SG'], SG:['PG','SF'], SF:['SG','PF'], PF:['SF','C'], C:['PF'] };
+
+  // Place everyone in natural position sorted by rat365
+  const byPos = {}; POS.forEach(p => byPos[p] = []);
+  players.forEach(p => byPos[posOf(p)].push(p));
+  POS.forEach(pos => byPos[pos].sort((a,b) => (b.rat365||0) - (a.rat365||0)));
+
+  // Target: roughly equal distribution
+  const total = players.length;
+  const target = Math.ceil(total / 5);
+
+  // Iteratively move lowest-value players from overfull to underfull adjacent positions
+  for (let pass = 0; pass < 5; pass++) {
+    let moved = false;
+    for (const pos of POS) {
+      while (byPos[pos].length > target) {
+        // Find best adjacent underfull position
+        const candidates = ADJ[pos].filter(a => byPos[a].length < target);
+        if (!candidates.length) break;
+        // Move lowest-value player
+        const player = byPos[pos].pop();
+        // Pick the most underfull adjacent
+        candidates.sort((a,b) => byPos[a].length - byPos[b].length);
+        byPos[candidates[0]].push(player);
+        byPos[candidates[0]].sort((a,b) => (b.rat365||0) - (a.rat365||0));
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+
   return byPos;
 }
 
@@ -1118,12 +1157,14 @@ function renderRoster(cap) {
 
   // ======== CONTRACT TABLE ========
   const contractPlayers = [...cap.roster.under_contract, ...cap.roster.non_guaranteed, ...cap.roster.partial_guaranteed, ...cap.roster.signed].sort((a,b) => (b.sal27||0) - (a.sal27||0));
+  const showPreFa = phase === 'pre_draft' || phase === 'draft' || phase === 'pre_fa';
+  const visibleYears = CONTRACT_YEARS.filter(yr => !yr.preFaOnly || showPreFa);
   if (contractPlayers.length) {
     h += `<div class="dc-section-label">📋 Contracts <span class="dc-badge" style="background:rgba(76,175,80,.12);color:var(--green)">${contractPlayers.length} players</span></div>`;
     h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
-    h += `<th style="min-width:140px">Player</th>`;
-    CONTRACT_YEARS.forEach(yr => { h += `<th style="text-align:right">${yr.label}</th>`; });
-    h += `<th style="text-align:right">Tot Guar</th></tr></thead><tbody>`;
+    h += `<th style="min-width:150px">Player</th>`;
+    visibleYears.forEach(yr => { h += `<th>${yr.label}</th>`; });
+    h += `<th>Tot Guar</th></tr></thead><tbody>`;
     for (const p of contractPlayers) {
       const ini = p.name.split(' ').map(w => w[0]).join('');
       const hs = p.headshot
@@ -1132,14 +1173,22 @@ function renderRoster(cap) {
       h += `<tr><td><div class="player-cell">${hs}<div><div style="font-weight:600;font-size:.7rem">${p.name}</div><div style="font-size:.55rem;color:var(--muted)">${p.pos || ''} ${p.age ? '· ' + p.age : ''}</div></div></div></td>`;
       const cd = contractsMap[p.name];
       if (cd) {
-        cd.yrs.forEach((yr, i) => { h += contractSalCell(yr); });
-        h += `<td style="text-align:right;font-weight:600;font-size:.65rem">${cd.totG ? fmtMoney(cd.totG) : '—'}</td>`;
+        CONTRACT_YEARS.forEach((yr, i) => {
+          if (yr.preFaOnly && !showPreFa) return;
+          h += contractSalCell(cd.yrs[i]);
+        });
+        h += `<td style="font-weight:600;font-size:.65rem">${cd.totG ? fmtMoney(cd.totG) : '—'}</td>`;
       } else {
-        // Fallback: show 26-27 from roster data, rest blank
+        // Fallback: show from roster data
+        if (showPreFa) {
+          const st26 = p.st26 || 'GUARANTEED';
+          h += contractSalCell({sal: p.sal26, ch: p.ch26, st: st26});
+        }
         const st27 = p._signed ? 'GUARANTEED' : (p.st27 || 'GUARANTEED');
         h += contractSalCell({sal: p.sal27, ch: p.ch27, st: st27});
-        for (let i = 1; i < CONTRACT_YEARS.length; i++) h += `<td><span style="color:var(--muted)">—</span></td>`;
-        h += `<td style="text-align:right;font-weight:600;font-size:.65rem">${p.totalGuar ? fmtMoney(p.totalGuar) : '—'}</td>`;
+        const remaining = visibleYears.length - (showPreFa ? 2 : 1);
+        for (let i = 0; i < remaining; i++) h += `<td><span style="color:var(--muted)">—</span></td>`;
+        h += `<td style="font-weight:600;font-size:.65rem">${p.totalGuar ? fmtMoney(p.totalGuar) : '—'}</td>`;
       }
       h += `</tr>`;
     }
