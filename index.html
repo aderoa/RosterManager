@@ -20,14 +20,16 @@ a{color:var(--accent);text-decoration:none}
 .header .subtitle{font-size:.75rem;opacity:.8}
 .header .season-badge{margin-left:auto;background:rgba(0,0,0,.25);padding:.3rem .8rem;border-radius:20px;font-size:.8rem;font-weight:600}
 
-/* Team Selector */
-.team-select-wrap{padding:1rem;background:var(--surface);border-bottom:1px solid var(--border)}
-.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;max-width:1600px;margin:0 auto}
-.team-btn{background:var(--card);border:2px solid transparent;border-radius:8px;padding:.5rem;cursor:pointer;text-align:center;transition:all .15s}
-.team-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
-.team-btn.active{border-color:var(--accent);background:rgba(102,126,234,.15)}
-.team-btn img{width:40px;height:40px;object-fit:contain}
-.team-btn .tn{font-size:.6rem;color:var(--muted);margin-top:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Team Dropdown */
+.team-dropdown{font-family:inherit;font-size:.8rem;padding:.4rem .8rem;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);border-radius:6px;color:var(--text);cursor:pointer;outline:none;min-width:160px;appearance:auto}
+.team-dropdown:focus{border-color:var(--accent)}
+.team-dropdown option{background:var(--card);color:var(--text)}
+
+/* Team Banner */
+.team-banner{display:flex;align-items:center;gap:1rem;padding:1rem 2rem;max-width:1600px;margin:0 auto}
+.team-banner img{width:56px;height:56px;object-fit:contain}
+.team-banner .tb-name{font-size:1.3rem;font-weight:700;letter-spacing:.5px}
+.team-banner .tb-sub{font-size:.7rem;color:var(--muted)}
 
 /* Main Layout */
 .main{display:grid;grid-template-columns:1fr 320px;gap:1rem;padding:1rem;max-width:1600px;margin:0 auto}
@@ -288,17 +290,19 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.3</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.4</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
-  <div class="season-badge">2026-27 OFFSEASON</div>
-</div>
-
-<div class="team-select-wrap" id="teamSelectWrap">
-  <div class="team-grid" id="teamGrid"></div>
+  <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
+    <select id="teamSelect" class="team-dropdown" onchange="if(this.value)selectTeam(this.value)">
+      <option value="">Select team...</option>
+    </select>
+    <div class="season-badge">2026-27 OFFSEASON</div>
+  </div>
 </div>
 
 <div id="appContent" style="display:none">
+  <div id="teamBanner" class="team-banner"></div>
   <div class="phase-bar" id="phaseBar"></div>
   <div class="main">
     <div class="roster-panel" id="rosterPanel"></div>
@@ -980,23 +984,28 @@ function calcCapSheet(team) {
 }
 
 // ======================== RENDERING ========================
-function renderTeamGrid() {
-  const grid = document.getElementById('teamGrid');
-  grid.innerHTML = '';
-  for (const [full, abbr] of Object.entries(TEAMS)) {
-    const btn = document.createElement('div');
-    btn.className = 'team-btn' + (STATE && STATE.team === full ? ' active' : '');
-    const logo = teamLogos[full] || '';
-    btn.innerHTML = `${logo ? `<img src="${logo}" alt="${abbr}">` : `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent)">${abbr}</div>`}<div class="tn">${full}</div>`;
-    btn.onclick = () => selectTeam(full);
-    grid.appendChild(btn);
+function renderTeamDropdown() {
+  const sel = document.getElementById('teamSelect');
+  const sorted = Object.entries(TEAMS).sort((a,b) => a[0].localeCompare(b[0]));
+  sel.innerHTML = '<option value="">Select team...</option>';
+  for (const [full, abbr] of sorted) {
+    const opt = document.createElement('option');
+    opt.value = full;
+    opt.textContent = `${abbr} — ${full}`;
+    if (STATE && STATE.team === full) opt.selected = true;
+    sel.appendChild(opt);
   }
 }
 
 function selectTeam(team) {
   STATE = loadState(team);
-  renderTeamGrid();
+  document.getElementById('teamSelect').value = team;
   document.getElementById('appContent').style.display = 'block';
+  // Team banner
+  const abbr = TEAMS[team] || '';
+  const logo = teamLogos[team] || '';
+  const banner = document.getElementById('teamBanner');
+  banner.innerHTML = `${logo ? `<img src="${logo}" alt="${abbr}">` : ''}<div><div class="tb-name">${team}</div><div class="tb-sub">${abbr} · 2026-27 Offseason</div></div>`;
   render();
 }
 
@@ -1059,43 +1068,24 @@ function buildDepthPositions(players) {
     return byPos;
   }
 
-  // === AUTO BALANCE ===
-  // Pass 1: everyone at natural position, sorted by TV desc
+  // === AUTO BALANCE (draft-style by Trade Value) ===
+  // Place players one-by-one in TV order (best first). Each player goes to the
+  // least-filled valid position (natural + adjacent). Ties favor natural position.
+  // This ensures the top 5 become starters and higher-TV players always get
+  // placed into rotation spots before lower-TV ones.
+  const sorted = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
   const ADJ = { PG:['SG'], SG:['PG','SF'], SF:['SG','PF'], PF:['SF','C'], C:['PF'] };
   const byPos = {}; POS.forEach(p => byPos[p] = []);
-  players.forEach(p => byPos[posOf(p)].push(p));
-  POS.forEach(pos => byPos[pos].sort((a,b) => (b.tv||0) - (a.tv||0)));
 
-  const total = players.length;
-  const target = Math.ceil(total / 5);
-
-  // Pass 2: for overfull positions, move BEST excess to adjacent underfull spots.
-  // "Competition zone" = players from index (target - excess) to end.
-  // The best in that zone (earliest by TV) get moved to play rotation elsewhere.
-  // The worst (latest) stay as deep bench at natural position.
-  for (let pass = 0; pass < 10; pass++) {
-    let moved = false;
-    for (const pos of POS) {
-      if (byPos[pos].length <= target) continue;
-      const excess = byPos[pos].length - target;
-      const zoneStart = Math.max(1, target - excess);
-      for (let i = zoneStart; i < byPos[pos].length && byPos[pos].length > target; ) {
-        const p = byPos[pos][i];
-        const adj = ADJ[pos].slice().sort((a,b) => byPos[a].length - byPos[b].length);
-        let didMove = false;
-        for (const a of adj) {
-          if (byPos[a].length < target) {
-            byPos[pos].splice(i, 1);
-            byPos[a].push(p);
-            byPos[a].sort((x,y) => (y.tv||0) - (x.tv||0));
-            moved = true; didMove = true;
-            break;
-          }
-        }
-        if (!didMove) i++;
-      }
-    }
-    if (!moved) break;
+  for (const p of sorted) {
+    const nat = posOf(p);
+    const options = [nat, ...ADJ[nat]];
+    options.sort((a,b) => {
+      const diff = byPos[a].length - byPos[b].length;
+      if (diff !== 0) return diff;
+      return a === nat ? -1 : b === nat ? 1 : 0;
+    });
+    byPos[options[0]].push(p);
   }
 
   return byPos;
@@ -2174,7 +2164,7 @@ function resetDraftPick(slot) {
 // ======================== INIT ========================
 async function init() {
   document.getElementById('loadingState').style.display = 'block';
-  renderTeamGrid();
+  renderTeamDropdown();
 
   const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContracts(), fetchTradeValues()]);
   if (!csv) {
@@ -2184,7 +2174,7 @@ async function init() {
 
   allPlayers = parseAllPlayers(csv);
   document.getElementById('loadingState').style.display = 'none';
-  renderTeamGrid(); // re-render with logos
+  renderTeamDropdown(); // re-render with logos available
 
   // Check if team was previously selected
   const lastTeam = localStorage.getItem('rm_last_team');
