@@ -288,7 +288,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.3</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div class="season-badge">2026-27 OFFSEASON</div>
@@ -1059,24 +1059,43 @@ function buildDepthPositions(players) {
     return byPos;
   }
 
-  // === AUTO BALANCE (best-fit by Trade Value) ===
-  // High-TV players placed first into the position (natural or adjacent) with the
-  // fewest players, so good players get rotation spots even out of position,
-  // while low-TV players fill remaining bench spots at their natural position.
-  const sorted = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
+  // === AUTO BALANCE ===
+  // Pass 1: everyone at natural position, sorted by TV desc
   const ADJ = { PG:['SG'], SG:['PG','SF'], SF:['SG','PF'], PF:['SF','C'], C:['PF'] };
   const byPos = {}; POS.forEach(p => byPos[p] = []);
+  players.forEach(p => byPos[posOf(p)].push(p));
+  POS.forEach(pos => byPos[pos].sort((a,b) => (b.tv||0) - (a.tv||0)));
 
-  for (const p of sorted) {
-    const nat = posOf(p);
-    const options = [nat, ...ADJ[nat]];
-    // Pick position with fewest players; ties favor natural
-    options.sort((a,b) => {
-      const diff = byPos[a].length - byPos[b].length;
-      if (diff !== 0) return diff;
-      return a === nat ? -1 : b === nat ? 1 : 0;
-    });
-    byPos[options[0]].push(p);
+  const total = players.length;
+  const target = Math.ceil(total / 5);
+
+  // Pass 2: for overfull positions, move BEST excess to adjacent underfull spots.
+  // "Competition zone" = players from index (target - excess) to end.
+  // The best in that zone (earliest by TV) get moved to play rotation elsewhere.
+  // The worst (latest) stay as deep bench at natural position.
+  for (let pass = 0; pass < 10; pass++) {
+    let moved = false;
+    for (const pos of POS) {
+      if (byPos[pos].length <= target) continue;
+      const excess = byPos[pos].length - target;
+      const zoneStart = Math.max(1, target - excess);
+      for (let i = zoneStart; i < byPos[pos].length && byPos[pos].length > target; ) {
+        const p = byPos[pos][i];
+        const adj = ADJ[pos].slice().sort((a,b) => byPos[a].length - byPos[b].length);
+        let didMove = false;
+        for (const a of adj) {
+          if (byPos[a].length < target) {
+            byPos[pos].splice(i, 1);
+            byPos[a].push(p);
+            byPos[a].sort((x,y) => (y.tv||0) - (x.tv||0));
+            moved = true; didMove = true;
+            break;
+          }
+        }
+        if (!didMove) i++;
+      }
+    }
+    if (!moved) break;
   }
 
   return byPos;
