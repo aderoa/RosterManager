@@ -22,7 +22,7 @@ a{color:var(--accent);text-decoration:none}
 
 /* Team Selector */
 .team-select-wrap{padding:1rem;background:var(--surface);border-bottom:1px solid var(--border)}
-.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;max-width:1400px;margin:0 auto}
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;max-width:1600px;margin:0 auto}
 .team-btn{background:var(--card);border:2px solid transparent;border-radius:8px;padding:.5rem;cursor:pointer;text-align:center;transition:all .15s}
 .team-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
 .team-btn.active{border-color:var(--accent);background:rgba(102,126,234,.15)}
@@ -30,7 +30,7 @@ a{color:var(--accent);text-decoration:none}
 .team-btn .tn{font-size:.6rem;color:var(--muted);margin-top:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Main Layout */
-.main{display:grid;grid-template-columns:1fr 340px;gap:1rem;padding:1rem;max-width:1400px;margin:0 auto}
+.main{display:grid;grid-template-columns:1fr 320px;gap:1rem;padding:1rem;max-width:1600px;margin:0 auto}
 @media(max-width:900px){.main{grid-template-columns:1fr}}
 
 /* Roster Panel */
@@ -100,6 +100,49 @@ a{color:var(--accent);text-decoration:none}
 .ctrl-btn.reset{border-color:var(--red);color:var(--red)}
 .ctrl-btn.reset:hover{background:rgba(239,83,80,.15)}
 
+/* Depth Chart */
+.depth-chart{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;background:rgba(255,255,255,.04);border-radius:12px;padding:1rem;margin-bottom:.75rem}
+.pos-col{display:flex;flex-direction:column;gap:.4rem;min-height:120px}
+.pos-hdr{text-align:center;font-weight:700;font-size:.85rem;color:var(--accent);padding:.35rem;border-bottom:2px solid var(--accent);margin-bottom:.2rem;letter-spacing:.5px}
+.dc-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.5rem;cursor:grab;transition:all .15s;position:relative}
+.dc-card:hover{border-color:var(--accent);background:rgba(102,126,234,.06)}
+.dc-card.dragging{opacity:.4;cursor:grabbing}
+.dc-card .dc-top{display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem}
+.dc-card .dc-hs{width:40px;height:30px;border-radius:4px;object-fit:cover;background:var(--surface)}
+.dc-card .dc-ini{width:40px;height:30px;border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.5rem;color:var(--muted)}
+.dc-card .dc-name{font-size:.7rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.dc-card .dc-sal{font-size:.6rem;font-weight:600;color:var(--green);white-space:nowrap}
+.dc-card .dc-actions{display:flex;gap:.2rem;flex-wrap:wrap}
+.dc-card .dc-btn{font-size:.5rem;padding:.15rem .35rem;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .1s}
+.dc-card .dc-btn:hover{border-color:var(--accent);color:var(--accent)}
+.dc-card .dc-btn.trade{border-color:var(--cyan);color:var(--cyan)}
+.dc-card .dc-btn.waive{border-color:var(--red);color:var(--red)}
+.dc-card .dc-btn.opt{border-color:var(--orange);color:var(--orange)}
+.dc-card .dc-opt-badge{position:absolute;top:2px;right:4px;font-size:.45rem;padding:.1rem .25rem;border-radius:2px;font-weight:700}
+.dc-card .dc-opt-badge.to{background:rgba(255,152,0,.15);color:var(--orange)}
+.dc-card .dc-opt-badge.po{background:rgba(38,198,218,.15);color:var(--cyan)}
+.dc-card .dc-opt-badge.ng{background:rgba(239,83,80,.15);color:var(--red)}
+.dc-card .dc-opt-badge.pg{background:rgba(255,214,0,.15);color:var(--yellow)}
+.dc-card .dc-opt-badge.signed{background:rgba(76,175,80,.15);color:var(--green)}
+.dc-card .dc-opt-badge.traded{background:rgba(38,198,218,.15);color:var(--cyan)}
+.pos-col.drag-over{background:rgba(102,126,234,.08);border-radius:8px}
+.dc-drop-indicator{height:3px;background:var(--accent);border-radius:2px;margin:2px 0;pointer-events:none;box-shadow:0 0 6px rgba(102,126,234,.6)}
+.dc-section-label{font-size:.85rem;font-weight:700;color:var(--text);margin:1rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.dc-section-label .dc-badge{font-size:.6rem;padding:.15rem .5rem;border-radius:10px;font-weight:600}
+@media(max-width:768px){.depth-chart{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:500px){.depth-chart{grid-template-columns:repeat(2,1fr)}}
+
+/* Contract Table */
+.contract-table{width:100%;font-size:.7rem;border-collapse:collapse}
+.contract-table th{text-align:left;padding:.4rem .5rem;font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0}
+.contract-table td{padding:.35rem .5rem;border-bottom:1px solid rgba(255,255,255,.03)}
+.contract-table tr:hover td{background:rgba(255,255,255,.02)}
+.contract-table .sal-g{color:var(--green)}.contract-table .sal-to{color:var(--orange)}.contract-table .sal-po{color:var(--cyan)}.contract-table .sal-ng{color:var(--red)}.contract-table .sal-pg{color:var(--yellow)}
+.contract-table .player-cell{display:flex;align-items:center;gap:.4rem}
+.contract-table .ct-hs{width:28px;height:21px;border-radius:3px;object-fit:cover;background:var(--surface)}
+.contract-table .ct-ini{width:28px;height:21px;border-radius:3px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.45rem;color:var(--muted)}
+.contract-wrap{max-height:400px;overflow-y:auto;border-radius:8px;border:1px solid var(--border);background:var(--card)}
+
 /* Loading */
 .loading{text-align:center;padding:3rem;color:var(--muted)}
 .loading .spin{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
@@ -135,12 +178,6 @@ a{color:var(--accent);text-decoration:none}
 .coming-soon{font-size:.55rem;padding:.1rem .3rem;border-radius:3px;background:var(--surface);color:var(--muted);border:1px solid var(--border);margin-left:.3rem}
 .action-btn.trade{background:rgba(38,198,218,.12);color:var(--cyan);border-color:rgba(38,198,218,.3)}
 .action-btn.extend{background:rgba(102,126,234,.12);color:var(--accent);border-color:rgba(102,126,234,.3)}
-.action-btn.guarantee{background:rgba(76,175,80,.12);color:var(--green);border-color:rgba(76,175,80,.3)}
-.action-btn.convert{background:rgba(255,152,0,.12);color:var(--orange);border-color:rgba(255,152,0,.3)}
-.guaranteed-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(76,175,80,.15);color:#4caf50;font-weight:600;white-space:nowrap}
-.converted-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(255,152,0,.15);color:#ff9800;font-weight:600;white-space:nowrap}
-.twoway-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(100,116,139,.15);color:#94a3b8;font-weight:600;white-space:nowrap}
-.rfa-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(102,126,234,.15);color:#667eea;font-weight:600;white-space:nowrap}
 .ext-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:.5rem}
 .ext-modal{background:var(--card);border-radius:12px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)}
 .ext-modal-hdr{display:flex;align-items:center;gap:.5rem;padding:.75rem 1rem;border-bottom:1px solid var(--border)}
@@ -172,22 +209,6 @@ a{color:var(--accent);text-decoration:none}
 .ext-confirm-btn:hover{opacity:.9}
 .ext-confirm-btn:disabled{opacity:.4;cursor:not-allowed}
 .extended-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(102,126,234,.15);color:#667eea;font-weight:600;white-space:nowrap}
-.ext-elig-badge{font-size:.5rem;padding:.1rem .3rem;border-radius:3px;font-weight:600;white-space:nowrap;cursor:help}
-.ext-elig-badge.eligible{background:rgba(76,175,80,.12);color:#4caf50}
-.ext-elig-badge.future{background:rgba(255,152,0,.12);color:#ff9800}
-.ext-elig-badge.ineligible{background:rgba(239,83,80,.08);color:#ef5350}
-.ext-elig-badge.extended{background:rgba(102,126,234,.12);color:#667eea}
-.ext-elig-badge.conditional{background:rgba(255,214,0,.12);color:#ffd600}
-.ext-detail-row{font-size:.6rem;color:var(--muted);padding:.3rem .5rem;background:var(--surface);border-radius:4px;margin:.35rem 0;line-height:1.4}
-.ext-detail-row .elig-reason{color:var(--accent);font-weight:600}
-.ext-detail-row .trade-warn{color:var(--orange);font-weight:600}
-.ext-modal-elig{padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.65rem;line-height:1.5}
-.ext-modal-elig .elig-status{font-weight:700;margin-bottom:.25rem}
-.ext-modal-elig .elig-status.eligible{color:#4caf50}
-.ext-modal-elig .elig-status.conditional{color:#ff9800}
-.ext-dv-badge{display:inline-block;padding:.1rem .35rem;border-radius:3px;background:rgba(255,214,0,.12);color:#ffd600;font-size:.55rem;font-weight:600;margin-left:.3rem}
-.ext-trade-warn{padding:.4rem;background:rgba(255,152,0,.08);border:1px solid rgba(255,152,0,.2);border-radius:4px;font-size:.6rem;color:var(--orange);margin:.5rem 0}
-.ext-option-note{padding:.4rem;background:rgba(38,198,218,.08);border:1px solid rgba(38,198,218,.2);border-radius:4px;font-size:.6rem;color:var(--cyan);margin:.5rem 0}
 
 /* Draft Picker Modal */
 .draft-picker-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
@@ -265,7 +286,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.7</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div class="season-badge">2026-27 OFFSEASON</div>
@@ -353,55 +374,6 @@ const ROOKIE_SCALE = [
 ];
 
 const SSID = '11llk0icQqoi0JwJXat5KO8y2RQeBMN5rS9FhAY56Idc';
-const PUB_ID = '2PACX-1vSg6im6IYB6HXMGzQbmmBnLw9SfQLzxCSo8OfChxlJLhsB6BBCO0wPF_TMch0YgAbtFqYkwDWrsxRe7';
-const CONTRACT_GID = '1649473047';
-const DRAFT_GID_CONTRACTS = '1889032294';
-const TV_GID = '1310971167';
-
-// Trade Value algorithm constants (ported from Trade_Value.html)
-const TV_EXPONENT = 1.8;
-const TV_WM = 0.85;
-const TV_RAT = 0.15;
-const TV_AGE_BONUS = 1.0;
-const TV_OLD_THRESHOLD = 35;
-const TV_OLD_PENALTY = 0.03;
-const TV_OLD_FLOOR = 0.50;
-const TV_GAMES_BETA = 0.8;
-const TV_GAMES_MAX = 1.4;
-const TV_GAMES_MIN_PCT = 0.40;
-const TV_POT_MAX = 7000000;
-const TV_MIN_ROOKIE_AGE = 18 + 300/365;
-const TV_MAX_POT_AGE = 25;
-const TV_DRAFT_DECAY = 0.05;
-const TV_AGE_DECAY = 0.5;
-const TV_SEASON_WEIGHT = {'2025-26':1.0,'2024-25':0.6,'2023-24':0.36,'2022-23':0.216,'2021-22':0.1296};
-const TV_EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':48};
-// Column mapping for Contracts sheet salary/cap hit/status per year
-const C_YEARS = [
-  { sc: 7, cc: 8, tc: 9 },   // 25-26
-  { sc: 10, cc: 11, tc: 12 }, // 26-27
-  { sc: 13, cc: 14, tc: 15 }, // 27-28
-  { sc: 16, cc: 17, tc: 18 }, // 28-29
-  { sc: 19, cc: 20, tc: 21 }, // 29-30
-  { sc: 22, cc: 23, tc: 24 }, // 30-31
-];
-const C_END_YEARS = [2026, 2027, 2028, 2029, 2030, 2031];
-
-// Name normalization for cross-sheet matching
-const normName = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\./g,'').replace(/\s+/g,' ').trim().toLowerCase().replace(/\s+(jr|sr|ii|iii|iv|v)$/,'');
-
-// Status normalization for Contracts sheet
-function normSt(v) {
-  const s = (v||'').trim().toUpperCase();
-  if (s.startsWith('GUAR') || s === 'GIUARANTEED' || s === 'GUARANTEEED') return 'GUARANTEED';
-  if (s === 'PARTIAL G') return 'PARTIAL G';
-  if (s === 'NOT G') return 'NOT G';
-  if (s === 'TEAM OPT') return 'TEAM OPT';
-  if (s === 'PLAYER OPT') return 'PLAYER OPT';
-  if (s === 'TWO-WAY') return 'TWO-WAY';
-  if (s === '10-DAY') return '10-DAY';
-  return s;
-}
 const TEAMS = {
   'Atlanta':'ATL','Boston':'BOS','Brooklyn':'BKN','Charlotte':'CHA','Chicago':'CHI',
   'Cleveland':'CLE','Dallas':'DAL','Denver':'DEN','Detroit':'DET','Golden State':'GSW',
@@ -413,12 +385,11 @@ const TEAMS = {
 
 // ======================== STATE ========================
 let allPlayers = []; // raw parsed data
-let contractsMap = {}; // normName → {sigDate, sigTeam, notes, yos, draftYear, yrs[], dvEligible, dvAwards, allAwards, end}
 let teamLogos = {}; // team -> logo URL
-let teamDraftPicks = {}; // abbrev -> [{prospect, draftRnk, capHold, round}]
+let teamDraftPicks = {}; // abbrev -> [{prospect, draftRnk, capHold}]
 let allProspects = []; // all prospect names from Draft Predictor
 let allPickSlots = {}; // pickSlot# -> {team (abbrev), defaultProspect}
-let tradeValueMap = {}; // normName → {tv, rank, salary, team, pos, age}
+let contractsMap = {}; // playerName -> { yrs: [{sal, ch, st},...], totG }
 let STATE = null; // current GM state
 
 // Reverse team map: abbreviation -> full name
@@ -437,7 +408,7 @@ const PHASES = [
 const TRADE_MACHINE_URL = 'https://hoopsmatic.com';
 
 function defaultState(team) {
-  return { team, phase: 'pre_draft', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), guaranteed: new Set(), conversions: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [] };
+  return { team, phase: 'pre_draft', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], depthOrder: {} };
 }
 
 function saveState() {
@@ -446,9 +417,7 @@ function saveState() {
     ...STATE,
     renounced: [...STATE.renounced],
     waived: [...STATE.waived],
-    stretched: [...STATE.stretched],
-    guaranteed: [...STATE.guaranteed],
-    conversions: [...STATE.conversions]
+    stretched: [...STATE.stretched]
   };
   localStorage.setItem('rm_state_' + STATE.team, JSON.stringify(s));
 }
@@ -461,12 +430,11 @@ function loadState(team) {
       s.renounced = new Set(s.renounced || []);
       s.waived = new Set(s.waived || []);
       s.stretched = new Set(s.stretched || []);
-      s.guaranteed = new Set(s.guaranteed || []);
-      s.conversions = new Set(s.conversions || []);
       s.draftSelections = s.draftSelections || {};
       s.trades = s.trades || [];
       s.signings = s.signings || [];
       s.extensions = s.extensions || [];
+      s.depthOrder = s.depthOrder || {};
       s.phase = s.phase || 'pre_draft';
       return s;
     } catch(e) {}
@@ -542,16 +510,15 @@ async function fetchDraftPicks() {
         if (!prospect) continue;
         prospects.push(prospect);
 
-        // First round (1-30): rookie scale cap holds. Second round (31-60): minimum salary cap hold
-        if (pickPos < 1 || pickPos > 60 || !rawTeam) continue;
+        // Only first-round picks (1-30) get cap holds
+        if (pickPos < 1 || pickPos > 30 || !rawTeam) continue;
         const abbrev = rawTeam.length <= 3 ? rawTeam : (TEAMS[rawTeam] || rawTeam);
-        const isFirstRound = pickPos <= 30;
-        const capHold = isFirstRound ? (ROOKIE_SCALE[pickPos - 1] || 0) : MIN_SALARY_CAP_HOLD;
+        const capHold = ROOKIE_SCALE[pickPos - 1] || 0;
 
         pickSlots[pickPos] = { team: abbrev, defaultProspect: prospect };
 
         if (!picks[abbrev]) picks[abbrev] = [];
-        picks[abbrev].push({ prospect, draftRnk: pickPos, capHold, round: isFirstRound ? 1 : 2 });
+        picks[abbrev].push({ prospect, draftRnk: pickPos, capHold });
       }
 
       for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
@@ -566,11 +533,32 @@ async function fetchDraftPicks() {
   console.warn('[DP] Could not load draft predictor data');
 }
 
-// ======================== TRADE VALUE DATA ========================
-async function fetchTradeValues() {
+const CONTRACTS_GID = '1649473047';
+const CONTRACT_YEARS = [
+  { label: "'26-27", sc: 10, cc: 11, tc: 12 },
+  { label: "'27-28", sc: 13, cc: 14, tc: 15 },
+  { label: "'28-29", sc: 16, cc: 17, tc: 18 },
+  { label: "'29-30", sc: 19, cc: 20, tc: 21 },
+  { label: "'30-31", sc: 22, cc: 23, tc: 24 },
+];
+
+function normContractSt(s) {
+  if (!s) return '';
+  s = s.trim().toUpperCase();
+  if (s.startsWith('GUAR')) return 'GUARANTEED';
+  if (s === 'NOT G') return 'NOT G';
+  if (s === 'PARTIAL G') return 'PARTIAL G';
+  if (s === 'TEAM OPT') return 'TEAM OPT';
+  if (s === 'PLAYER OPT') return 'PLAYER OPT';
+  if (s === 'TWO-WAY') return 'TWO-WAY';
+  return s;
+}
+
+async function fetchContracts() {
+  contractsMap = {};
   const urls = [
-    `https://docs.google.com/spreadsheets/d/e/${PUB_ID}/pub?gid=${TV_GID}&single=true&output=csv`,
-    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${TV_GID}`
+    `https://docs.google.com/spreadsheets/d/${SSID}/gviz/tq?tqx=out:csv&gid=${CONTRACTS_GID}`,
+    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${CONTRACTS_GID}`
   ];
   for (const url of urls) {
     try {
@@ -579,255 +567,24 @@ async function fetchTradeValues() {
       const txt = await r.text();
       if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
       const rows = parseCSV(txt);
-      if (rows.length < 2) continue;
-      tradeValueMap = computeTradeValues(rows);
-      console.log(`[TV] Loaded trade values for ${Object.keys(tradeValueMap).length} players`);
-      return;
-    } catch(e) { continue; }
-  }
-  console.warn('[TV] Could not load trade value data');
-}
-
-function computeTradeValues(rows) {
-  const dataRows = rows.slice(1);
-  const roster = [], historical = [];
-  let todayStr = null;
-  const shootingMap = {}, expMap = {};
-
-  for (const row of dataRows) {
-    while (row.length < 21) row.push('');
-    if (row[18] && !todayStr) todayStr = row[18];
-    if (row[0] && row[1]) {
-      roster.push({ team: row[0].trim(), player: row[1].trim(), rat365: parseFloat(row[2]) || 0,
-        salary: parseInt((row[3]||'').replace(/[$,]/g,'')) || 0, birthday: row[4] || '',
-        draftPick: parseInt(row[20]) || null });
-      if (row[19]) { const ev = parseInt(row[19]); if (!isNaN(ev)) expMap[row[1].trim()] = ev; }
-    }
-    if (row[6] && row[7]) {
-      const g = parseInt(row[9]) || 0;
-      if (g > 0) historical.push({ year: row[6], player: row[7], totalRat: parseFloat((row[8]||'').replace(/,/g,'')) || 0, games: g });
-    }
-    if (row[12] && row[17]) { const sv = parseFloat(row[17]); if (!isNaN(sv) && sv > 0) shootingMap[row[12].trim()] = sv; }
-  }
-
-  const playerHist = {};
-  for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
-  const totalSalaryPool = roster.reduce((s,p) => s + p.salary, 0);
-
-  const CUR_YEAR = '2025-26';
-
-  // Watermark (weighted historical per-game)
-  for (const p of roster) {
-    const hist = playerHist[p.player.toLowerCase()] || [];
-    let num = 0, den = 0;
-    for (const h of hist) {
-      const w = TV_SEASON_WEIGHT[h.year] || 0;
-      if (w <= 0 || h.games <= 0) continue;
-      let perGame = h.totalRat / h.games;
-      const exp = TV_EXPECTED[h.year] || 82;
-      const pct = h.games / exp;
-      if (pct >= TV_GAMES_MIN_PCT) perGame *= Math.min(TV_GAMES_MAX, Math.pow(exp / h.games, TV_GAMES_BETA));
-      num += perGame * w * h.games;
-      den += w * h.games;
-    }
-    p.watermark = den > 0 ? num / den : 0;
-
-    // Current season games
-    const cur = hist.filter(h => h.year === CUR_YEAR);
-    p.curGames = cur.reduce((s,h) => s + h.games, 0);
-
-    // Games-corrected RAT365 (with fallback to previous season if no current games)
-    if (p.curGames > 0) {
-      const pct = p.curGames / TV_EXPECTED[CUR_YEAR];
-      p.rat365adj = pct >= TV_GAMES_MIN_PCT
-        ? p.rat365 * Math.min(TV_GAMES_MAX, Math.pow(TV_EXPECTED[CUR_YEAR] / p.curGames, TV_GAMES_BETA))
-        : p.rat365;
-    } else {
-      // Fallback: use previous season games for correction
-      const prev = hist.filter(h => h.year === '2024-25');
-      const pg = prev.reduce((s,h) => s + h.games, 0) || 82;
-      const pct = pg / 82;
-      p.rat365adj = pct >= TV_GAMES_MIN_PCT
-        ? p.rat365 * Math.min(TV_GAMES_MAX, Math.pow(82 / pg, TV_GAMES_BETA))
-        : p.rat365;
-    }
-  }
-
-  // Age calculation
-  function pd(s) { if (!s) return null; const pts = s.split('/'); return pts.length === 3 ? new Date(+pts[2], +pts[0]-1, +pts[1]) : null; }
-  const today = pd(todayStr) || new Date();
-  const ages = [];
-  for (const p of roster) { const bd = pd(p.birthday); if (bd) { p.age = (today - bd) / (365.25 * 864e5); ages.push(p.age); } else { p.age = null; } }
-  const avgAge = ages.length ? ages.reduce((a,b) => a + b, 0) / ages.length : 26;
-  const maxDevYoung = avgAge - Math.min(...ages);
-
-  // Age multiplier
-  for (const p of roster) {
-    if (p.age !== null && p.age < avgAge) p.ageMult = 1.0 + TV_AGE_BONUS * (avgAge - p.age) / maxDevYoung;
-    else if (p.age !== null && p.age >= TV_OLD_THRESHOLD) p.ageMult = Math.max(TV_OLD_FLOOR, 1.0 - TV_OLD_PENALTY * (p.age - TV_OLD_THRESHOLD));
-    else p.ageMult = 1.0;
-  }
-
-  // Trade value: 85/15 blend × age × shooting, renormalized to pool
-  const totalAdjWM = roster.reduce((s,p) => s + Math.pow(Math.max(p.watermark, 0), TV_EXPONENT), 0);
-  const totalAdjRAT = roster.reduce((s,p) => s + Math.pow(Math.max(p.rat365adj, 0), TV_EXPONENT), 0);
-  for (const p of roster) {
-    const tvWM = totalAdjWM > 0 ? (Math.pow(Math.max(p.watermark, 0), TV_EXPONENT) / totalAdjWM) * totalSalaryPool : 0;
-    const tvRAT = totalAdjRAT > 0 ? (Math.pow(Math.max(p.rat365adj, 0), TV_EXPONENT) / totalAdjRAT) * totalSalaryPool : 0;
-    p.tvPreAge = TV_WM * tvWM + TV_RAT * tvRAT;
-    p.shootingPenalty = (shootingMap[p.player] || 0) * 2;
-    p.shootingMult = 1 - p.shootingPenalty;
-    p.tvWithAge = p.tvPreAge * p.ageMult * p.shootingMult;
-  }
-  const totalWithAge = roster.reduce((s,p) => s + p.tvWithAge, 0);
-
-  // Potential bonus for young drafted players
-  for (const p of roster) {
-    const baseTV = totalWithAge > 0 ? Math.round((p.tvWithAge / totalWithAge) * totalSalaryPool) : 0;
-    let potBonus = 0;
-    if (p.age !== null && p.age < TV_MAX_POT_AGE && p.draftPick && p.draftPick >= 1 && p.draftPick <= 60) {
-      const draftFactor = Math.exp(-TV_DRAFT_DECAY * (p.draftPick - 1));
-      const ageFromMin = Math.max(0, p.age - TV_MIN_ROOKIE_AGE);
-      const ageFactor = Math.exp(-TV_AGE_DECAY * ageFromMin);
-      potBonus = Math.round(TV_POT_MAX * draftFactor * ageFactor);
-    }
-    p.uncappedTV = baseTV + potBonus;
-    // Final value is always uncapped (used for ranking); capping is for categorization only
-    p.tradeValue = p.uncappedTV;
-    p.exp = expMap[p.player] !== undefined ? expMap[p.player] : null;
-    p.surplus = p.tradeValue - p.salary;
-  }
-
-  // Rank by uncapped value
-  roster.sort((a,b) => b.uncappedTV - a.uncappedTV);
-  roster.forEach((p,i) => p.rank = i + 1);
-
-  const map = {};
-  for (const p of roster) {
-    map[normName(p.player)] = { tv: p.tradeValue, rank: p.rank, salary: p.salary, team: p.team, age: p.age, surplus: p.surplus, exp: p.exp };
-  }
-  return map;
-}
-
-// ======================== CONTRACTS DATA (for Extension Eligibility) ========================
-function parseSalC(v) {
-  const s = (v||'').trim().replace(/[$,]/g, '');
-  return s && /^\d+$/.test(s) ? parseInt(s) : 0;
-}
-
-async function fetchContractsData() {
-  const urls = [
-    `https://docs.google.com/spreadsheets/d/e/${PUB_ID}/pub?gid=${CONTRACT_GID}&single=true&output=csv`,
-    `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${CONTRACT_GID}`
-  ];
-  let rows = null;
-  for (const url of urls) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) continue;
-      const txt = await r.text();
-      if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
-      rows = parseCSV(txt);
-      if (rows.length > 1) break;
-      rows = null;
-    } catch(e) { continue; }
-  }
-  if (!rows || rows.length < 2) {
-    console.warn('[CONTRACTS] Could not load contracts data');
-    window._contractsDataFailed = true;
-    return;
-  }
-  window._contractsDataFailed = false;
-
-  const awardsRaw = [];
-  const players = [];
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    const name = (r[0]||'').trim();
-    // Awards table (cols 40-42)
-    const awPlayer = (r[40]||'').trim();
-    const awAward = (r[41]||'').trim();
-    const awYear = parseInt((r[42]||'').trim()) || 0;
-    if (awPlayer && awAward && awYear) awardsRaw.push({ player: awPlayer, award: awAward, year: awYear });
-    if (!name) continue;
-
-    const team = (r[2]||'').trim() || null;
-    const yrs = C_YEARS.map(yr => ({ sal: parseSalC(r[yr.sc]), ch: parseSalC(r[yr.cc]), st: normSt(r[yr.tc]) }));
-
-    players.push({
-      name, team, yrs,
-      end: (r[27]||'').trim(),
-      sigDate: (r[29]||'').trim(),
-      sigTeam: (r[30]||'').trim(),
-      exc: (r[31]||'').trim(),
-      notes: (r[32]||'').trim(),
-      yos: parseInt((r[38]||'').trim()) || 0,
-      draftYear: 0,
-      dvEligible: false, dvAwards: [], allAwards: []
-    });
-  }
-
-  // Build awards map
-  const awardsMap = {};
-  awardsRaw.forEach(a => {
-    const n = normName(a.player);
-    if (!awardsMap[n]) awardsMap[n] = [];
-    awardsMap[n].push({ award: a.award, year: a.year });
-  });
-
-  // Attach DV eligibility
-  const DV_AWARDS = ['Most Valuable Player', 'Defensive Player of the Year', 'All-NBA First Team', 'All-NBA Second Team', 'All-NBA Third Team'];
-  const CURRENT_YEAR = 2025;
-  const DV_WINDOW = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
-
-  players.forEach(p => {
-    const pAwards = awardsMap[normName(p.name)] || [];
-    const dvAwards = pAwards.filter(a => DV_AWARDS.includes(a.award) && DV_WINDOW.includes(a.year));
-    const inMostRecent = dvAwards.some(a => a.year === CURRENT_YEAR);
-    p.dvEligible = inMostRecent || dvAwards.length >= 2;
-    p.dvAwards = dvAwards;
-    p.allAwards = pAwards;
-  });
-
-  // Fetch draft year data (separate sheet used by Contracts app)
-  try {
-    const dUrls = [
-      `https://docs.google.com/spreadsheets/d/e/${PUB_ID}/pub?gid=${DRAFT_GID_CONTRACTS}&single=true&output=csv`,
-      `https://docs.google.com/spreadsheets/d/${SSID}/export?format=csv&gid=${DRAFT_GID_CONTRACTS}`
-    ];
-    for (const url of dUrls) {
-      try {
-        const dr = await fetch(url);
-        if (!dr.ok) continue;
-        const dtxt = await dr.text();
-        if (dtxt.includes('<!DOCTYPE')) continue;
-        const dRows = parseCSV(dtxt);
-        if (dRows.length < 2) continue;
-        const hdr = dRows[0].map(h => (h||'').trim().toUpperCase());
-        let di = hdr.lastIndexOf('DRAFT POS');
-        let ni = -1;
-        for (let k = di - 1; k >= 0; k--) { if (hdr[k] === 'PLAYER') { ni = k; break; } }
-        let dyi = hdr.lastIndexOf('DRAFT YEAR');
-        if (dyi < 0) dyi = 61;
-        if (ni >= 0 && di >= 0) {
-          const draftYearMap = {};
-          for (let j = 1; j < dRows.length; j++) {
-            const n = (dRows[j][ni]||'').trim();
-            const dy = parseInt((dRows[j][dyi]||'').trim());
-            if (n && dy > 0) draftYearMap[normName(n)] = dy;
-          }
-          players.forEach(p => { p.draftYear = draftYearMap[normName(p.name)] || 0; });
-          console.log(`[CONTRACTS] Draft years loaded for ${Object.keys(draftYearMap).length} players`);
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const name = (row[0] || '').trim();
+        if (!name) continue;
+        const yrs = CONTRACT_YEARS.map(yr => ({
+          sal: parseMoney(row[yr.sc]),
+          ch: parseMoney(row[yr.cc]),
+          st: normContractSt(row[yr.tc])
+        }));
+        // Only store if player has at least one future year salary
+        if (yrs.some(y => y.sal)) {
+          contractsMap[name] = { yrs, totG: parseMoney(row[28]) };
         }
-        break;
-      } catch(e) { continue; }
-    }
-  } catch(e) { console.warn('[CONTRACTS] Draft data fetch failed:', e); }
-
-  // Build contractsMap keyed by normalized name
-  contractsMap = {};
-  players.forEach(p => { contractsMap[normName(p.name)] = p; });
-  console.log(`[CONTRACTS] Loaded ${players.length} contracts, ${awardsRaw.length} awards`);
+      }
+      console.log(`[Contracts] Loaded ${Object.keys(contractsMap).length} players`);
+      return;
+    } catch(e) { console.warn('[Contracts] Failed:', e); continue; }
+  }
 }
 
 function parseCSV(text) {
@@ -935,23 +692,6 @@ function calcCapHold(priorSalary, exception) {
   return Math.min(hold, maxSalary);
 }
 
-// ======================== RFA & QUALIFYING OFFER ========================
-function isRestrictedFA(p) {
-  // Restricted FA = rookie scale exception + expiring (no 26-27 salary)
-  const exc = (p.exception || '').toLowerCase();
-  if (exc.includes('rookie')) return true;
-  // Also check contracts data notes
-  const notes = (p.contractNotes || '').toLowerCase();
-  if (notes.includes('rookie scale') && p.category === 'free_agent') return true;
-  return false;
-}
-
-function calcQualifyingOffer(p) {
-  // QO for rookie scale: 130% of prior season salary (sal26)
-  if (!p.sal26) return MIN_SALARY_0YOS;
-  return Math.round(p.sal26 * 1.30);
-}
-
 // ======================== CAP ENGINE ========================
 function calcCapSheet(team) {
   const players = allPlayers.filter(p => p.team === team);
@@ -966,7 +706,7 @@ function calcCapSheet(team) {
     for (const p of (trade.in || [])) tradedIn.push(p);
   }
 
-  const roster = { under_contract: [], free_agent: [], non_guaranteed: [], partial_guaranteed: [], waived: [], draft_picks: [], signed: [] };
+  const roster = { under_contract: [], free_agent: [], non_guaranteed: [], partial_guaranteed: [], twoway: [], waived: [], draft_picks: [], signed: [] };
 
   for (const p of players) {
     // Skip traded-out players
@@ -981,10 +721,8 @@ function calcCapSheet(team) {
       let dead = 0;
       const isStretched = STATE.stretched.has(p.name);
       const wasPickedUp = STATE.optionDecisions[p.name] === 'pickup' || STATE.optionDecisions[p.name] === 'exercise';
-      const wasGuaranteed = STATE.guaranteed.has(p.name);
-      const wasConverted = STATE.conversions.has(p.name);
-      if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp || wasGuaranteed || wasConverted) {
-        dead = p.sal27 || MIN_SALARY_CAP_HOLD; // full guaranteed salary
+      if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp) {
+        dead = p.sal27; // full guaranteed salary
       } else if (p.category === 'partial_guaranteed') {
         dead = p.ch27; // guaranteed portion
       }
@@ -1001,26 +739,8 @@ function calcCapSheet(team) {
 
     // === TWO-WAY ===
     if (p.category === 'twoway') {
-      if (STATE.conversions.has(p.name)) {
-        // Converted to standard contract — counts as minimum salary roster spot
-        const convertSal = p.sal27 || MIN_SALARY_CAP_HOLD;
-        activeSalaries += convertSal;
-        rosterCount++;
-        roster.under_contract.push({ ...p, sal27: convertSal, status: 'converted', st27: 'GUARANTEED', twoWay: false });
-      } else if (p.st27 === 'TWO-WAY') {
-        // Under contract as two-way for 26-27 — counts toward twoway slots, NOT salary cap
-        twowayCount++;
-        roster.under_contract.push({ ...p, status: 'active', twoWay: true });
-      } else {
-        // Expiring two-way → free agent (no longer counts toward two-way slots)
-        const hold = Math.round(MIN_SALARY_0YOS * 1.2); // two-way cap hold
-        if (renounced) {
-          roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, twoWay: true });
-        } else {
-          capHolds += hold;
-          roster.free_agent.push({ ...p, status: 'held', capHold: hold, twoWay: true });
-        }
-      }
+      twowayCount++;
+      roster.twoway.push({ ...p, status: 'active' });
       continue;
     }
 
@@ -1071,44 +791,28 @@ function calcCapSheet(team) {
 
     // === FREE AGENT ===
     if (p.category === 'free_agent') {
-      const isRFA = isRestrictedFA(p);
-      const qo = isRFA ? calcQualifyingOffer(p) : 0;
       if (renounced) {
-        roster.free_agent.push({ ...p, status: 'renounced', isRFA, qualifyingOffer: qo });
+        roster.free_agent.push({ ...p, status: 'renounced' });
       } else {
         capHolds += p.capHold;
-        roster.free_agent.push({ ...p, status: 'held', isRFA, qualifyingOffer: qo });
+        roster.free_agent.push({ ...p, status: 'held' });
       }
       continue;
     }
 
     // === NON-GUARANTEED ===
     if (p.category === 'non_guaranteed') {
-      if (STATE.guaranteed.has(p.name)) {
-        // Guaranteed — now fully under contract
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'guaranteed_ng', st27: 'GUARANTEED' });
-      } else {
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.non_guaranteed.push({ ...p, status: 'active' });
-      }
+      activeSalaries += p.sal27;
+      rosterCount++;
+      roster.non_guaranteed.push({ ...p, status: 'active' });
       continue;
     }
 
     // === PARTIAL GUARANTEED ===
     if (p.category === 'partial_guaranteed') {
-      if (STATE.guaranteed.has(p.name)) {
-        // Fully guaranteed — now under contract at full salary
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.under_contract.push({ ...p, status: 'guaranteed_pg', st27: 'GUARANTEED' });
-      } else {
-        activeSalaries += p.sal27;
-        rosterCount++;
-        roster.partial_guaranteed.push({ ...p, status: 'active' });
-      }
+      activeSalaries += p.sal27;
+      rosterCount++;
+      roster.partial_guaranteed.push({ ...p, status: 'active' });
       continue;
     }
 
@@ -1146,45 +850,14 @@ function calcCapSheet(team) {
 
   // === SIGNINGS (Free Agency) ===
   for (const sig of (STATE.signings || [])) {
-    if (sig.isTwoWay) {
-      twowayCount++;
-      roster.under_contract.push({
-        name: sig.name, sal27: 0, pos: sig.pos || '', headshot: sig.headshot || '',
-        exception: 'Two-Way', st27: 'TWO-WAY', status: 'signed', twoWay: true,
-        end: sig.end || 2027, tradeKicker: 0
-      });
-    } else {
-      activeSalaries += sig.salary;
-      rosterCount++;
-      roster.signed.push({
-        name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
-        exception: sig.exception, st27: 'GUARANTEED', status: 'signed',
-        end: sig.end || 2027, tradeKicker: 0
-      });
-    }
+    activeSalaries += sig.salary;
+    rosterCount++;
+    roster.signed.push({
+      name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
+      exception: sig.exception, st27: 'GUARANTEED', status: 'signed',
+      end: sig.end || 2027, tradeKicker: 0
+    });
   }
-
-  // === EXTENSION SALARY ADJUSTMENTS ===
-  // If an extension kicks in during 2026-27 (extStartYear <= 2027), replace the player's salary
-  let extensionAdjustment = 0;
-  for (const ext of (STATE.extensions || [])) {
-    if (ext.extStartYear && ext.extStartYear <= 2027 && ext.breakdown && ext.breakdown.length > 0) {
-      const extSalary = ext.breakdown[0].salary; // first-year salary of the extension
-      // Find the player in any roster bucket and adjust
-      for (const bucket of Object.values(roster)) {
-        const rp = bucket.find(p => p.name === ext.name);
-        if (rp && !rp._extAdjusted) {
-          const oldSal = rp.sal27;
-          rp.sal27 = extSalary;
-          rp.st27 = 'GUARANTEED';
-          rp._extAdjusted = true;
-          extensionAdjustment += extSalary - oldSal;
-          break;
-        }
-      }
-    }
-  }
-  activeSalaries += extensionAdjustment;
 
   const teamSalary = activeSalaries + capHolds + deadMoney + incompleteCharge;
   const capSpace = T.cap - teamSalary;
@@ -1234,8 +907,7 @@ function calcCapSheet(team) {
   return {
     roster, activeSalaries, capHolds, deadMoney, incompleteCharge, draftCapHolds,
     teamSalary, capSpace, taxRoom, apron1Room, apron2Room,
-    rosterCount, twowayCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2,
-    extensionAdjustment
+    rosterCount, twowayCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2
   };
 }
 
@@ -1255,8 +927,6 @@ function renderTeamGrid() {
 
 function selectTeam(team) {
   STATE = loadState(team);
-  // Recalculate extension eligibility for all team players (considers saved option decisions)
-  allPlayers.filter(p => p.team === team).forEach(p => { p.ext = calcExtEligRM(p); });
   renderTeamGrid();
   document.getElementById('appContent').style.display = 'block';
   render();
@@ -1286,284 +956,360 @@ function renderPhaseBar() {
   bar.innerHTML = h;
 }
 
+// =============== DEPTH CHART HELPERS ===============
+function getDepthPlayers(cap) {
+  const players = [];
+  for (const p of cap.roster.under_contract) players.push(p);
+  for (const p of cap.roster.non_guaranteed) players.push(p);
+  for (const p of cap.roster.partial_guaranteed) players.push(p);
+  for (const p of cap.roster.signed) players.push({...p, _signed: true});
+  for (const p of cap.roster.twoway) players.push({...p, _twoWay: true});
+  return players;
+}
+
+function posOf(p) {
+  const raw = (p.pos || 'SF').split('-')[0].split('/')[0].trim().toUpperCase();
+  return ['PG','SG','SF','PF','C'].includes(raw) ? raw : 'SF';
+}
+
+function buildDepthPositions(players) {
+  const POS = ['PG','SG','SF','PF','C'];
+  const byPos = {}; POS.forEach(p => byPos[p] = []);
+  const saved = STATE.depthOrder || {};
+  if (Object.keys(saved).length) {
+    const pm = {}; players.forEach(p => pm[p.name] = p);
+    const placed = new Set();
+    POS.forEach(pos => {
+      if (saved[pos]) saved[pos].forEach(n => {
+        if (pm[n] && !placed.has(n)) { byPos[pos].push(pm[n]); placed.add(n); }
+      });
+    });
+    players.forEach(p => { if (!placed.has(p.name)) byPos[posOf(p)].push(p); });
+  } else {
+    players.forEach(p => byPos[posOf(p)].push(p));
+    POS.forEach(pos => byPos[pos].sort((a,b) => (b.sal27||0) - (a.sal27||0)));
+  }
+  return byPos;
+}
+
+function saveDepthOrder() {
+  const cols = document.querySelectorAll('.pos-col');
+  const order = {};
+  cols.forEach(col => {
+    const pos = col.dataset.position;
+    order[pos] = [];
+    col.querySelectorAll('.dc-card').forEach(card => {
+      order[pos].push(card.dataset.player);
+    });
+  });
+  STATE.depthOrder = order;
+  saveState();
+}
+
+function dcBadge(p) {
+  if (p.status === 'pending_to') return '<span class="dc-opt-badge to">TO</span>';
+  if (p.status === 'pending_po') return '<span class="dc-opt-badge po">PO</span>';
+  if (p.status === 'picked_up') return '<span class="dc-opt-badge" style="background:rgba(76,175,80,.15);color:var(--green)">✓TO</span>';
+  if (p.status === 'exercised') return '<span class="dc-opt-badge" style="background:rgba(76,175,80,.15);color:var(--green)">✓PO</span>';
+  if (p._signed) return '<span class="dc-opt-badge signed">FA</span>';
+  if (p.status === 'traded_in') return '<span class="dc-opt-badge traded">TRD</span>';
+  if (p._twoWay) return '<span class="dc-opt-badge" style="background:rgba(100,116,139,.15);color:#94a3b8">2W</span>';
+  if (p.category === 'non_guaranteed') return '<span class="dc-opt-badge ng">NG</span>';
+  if (p.category === 'partial_guaranteed') return '<span class="dc-opt-badge pg">PG</span>';
+  return '';
+}
+
+function dcActions(p) {
+  const phase = STATE.phase;
+  let h = '';
+  // Option decisions
+  if (p.status === 'pending_to' && (phase === 'pre_draft' || phase === 'pre_fa')) {
+    h += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
+    h += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
+    return h;
+  }
+  if (p.status === 'pending_po' && (phase === 'pre_draft' || phase === 'pre_fa')) {
+    h += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','exercise')">Exercise</button>`;
+    h += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
+    return h;
+  }
+  // Waive (not for two-way, not during draft)
+  if (!p._twoWay && !p._signed && phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in')) {
+    h += `<button class="dc-btn waive" onclick="event.stopPropagation();openWaiveModal('${esc(p.name)}')">Waive</button>`;
+  }
+  // Trade
+  if (!p._twoWay && !p._signed && phase !== 'training_camp' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in')) {
+    h += `<button class="dc-btn trade" onclick="event.stopPropagation();openTradeModal('${esc(p.name)}')">Trade</button>`;
+  }
+  // Extend
+  if ((phase === 'pre_draft' || phase === 'pre_fa') && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && p.extEligible) {
+    if (!(STATE.extensions || []).some(e => e.name === p.name)) {
+      h += `<button class="dc-btn opt" onclick="event.stopPropagation();openExtModal('${esc(p.name)}')">Ext</button>`;
+    }
+  }
+  // Extension badge
+  const ext = (STATE.extensions || []).find(e => e.name === p.name);
+  if (ext) h += `<span style="font-size:.45rem;color:var(--accent);font-weight:700">EXT thru ${ext.endYear}</span>`;
+  return h;
+}
+
+function dcCard(p) {
+  const ini = p.name.split(' ').map(w => w[0]).join('');
+  const hs = p.headshot
+    ? `<img class="dc-hs" src="${p.headshot}" onerror="this.outerHTML='<div class=dc-ini>${ini}</div>'">`
+    : `<div class="dc-ini">${ini}</div>`;
+  return `<div class="dc-card" draggable="true" data-player="${p.name}">
+    ${dcBadge(p)}
+    <div class="dc-top">${hs}<div class="dc-name">${p.name}</div><div class="dc-sal">${fmtMoney(p.sal27 || 0)}</div></div>
+    <div class="dc-actions">${dcActions(p)}</div></div>`;
+}
+
+// =============== CONTRACT TABLE ===============
+function contractSalCell(yr) {
+  if (!yr || (!yr.sal && !yr.st)) return '<td><span style="color:var(--muted)">—</span></td>';
+  const cls = {'GUARANTEED':'sal-g','PARTIAL G':'sal-pg','NOT G':'sal-ng','TEAM OPT':'sal-to','PLAYER OPT':'sal-po','TWO-WAY':'sal-g'}[yr.st] || 'sal-g';
+  let inner = `<span class="${cls}">${fmtMoney(yr.sal)}</span>`;
+  if (yr.st === 'PARTIAL G' && yr.ch && yr.ch !== yr.sal) inner += `<div style="font-size:.55rem;color:var(--yellow)">G: ${fmtMoney(yr.ch)}</div>`;
+  else if (yr.st === 'NOT G') inner += `<div style="font-size:.55rem;color:var(--red)">G: ${yr.ch ? fmtMoney(yr.ch) : '$0'}</div>`;
+  else if (yr.st === 'PLAYER OPT') inner += `<div style="font-size:.55rem;color:var(--cyan)">PO</div>`;
+  else if (yr.st === 'TEAM OPT') inner += `<div style="font-size:.55rem;color:var(--orange)">TO</div>`;
+  return `<td>${inner}</td>`;
+}
+
+// =============== MAIN RENDER ===============
 function renderRoster(cap) {
   const panel = document.getElementById('rosterPanel');
-  let h = '';
   const phase = STATE.phase;
+  let h = '';
 
-  // Phase-specific action bar
-  h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">`;
-  h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Open Trade Machine</button>`;
-  if (phase === 'free_agency' || phase === 'training_camp') {
+  // Action bar
+  h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">`;
+  if (phase !== 'training_camp') {
+    h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Open Trade Machine</button>`;
+  }
+  if (phase === 'free_agency') {
     h += `<button class="action-btn pickup" style="font-size:.7rem;padding:.35rem .75rem" onclick="openSignModal()">✍️ Sign Free Agent</button>`;
   }
   h += `</div>`;
 
-  // Contracts data warning
-  if (window._contractsDataFailed) {
-    h += `<div style="background:rgba(255,152,0,.1);border:1px solid rgba(255,152,0,.3);border-radius:6px;padding:.5rem .75rem;margin-bottom:.5rem;font-size:.7rem;color:var(--orange)">⚠️ Extension eligibility data unavailable — Contracts sheet could not be loaded.</div>`;
-  }
-
-  // Roster count (all phases — informational; training camp gets hard warnings)
-  const total = cap.rosterCount;
-  const twoWay = cap.twowayCount;
+  // Training camp compliance
   if (phase === 'training_camp') {
-    if (total > 15) {
-      h += `<div class="camp-warning"><h4>⚠️ Roster Over Limit</h4><p>You have ${total} standard contracts — must cut ${total - 15} player(s) to reach the 15-player limit.</p></div>`;
-    } else if (total < 14) {
-      h += `<div class="camp-warning"><h4>⚠️ Roster Under Minimum</h4><p>You have ${total} standard contracts — need at least 14 for opening night.</p></div>`;
-    } else {
-      h += `<div class="camp-ok"><h4>✅ Roster Compliant</h4><p>${total} standard contracts (limit: 15) · ${twoWay} two-way (limit: 3)</p></div>`;
-    }
-    if (twoWay > 3) {
-      h += `<div class="camp-warning"><h4>⚠️ Too Many Two-Way</h4><p>You have ${twoWay} two-way contracts — must cut ${twoWay - 3} to reach the 3-player limit.</p></div>`;
-    }
-  } else {
-    // Soft roster tracker for non-training-camp phases
-    const rosterColor = total > 15 ? 'var(--red)' : total < 14 ? 'var(--orange)' : 'var(--green)';
-    h += `<div style="font-size:.65rem;color:var(--muted);margin-bottom:.5rem">`;
-    h += `<span style="color:${rosterColor};font-weight:600">${total}/15</span> standard`;
-    if (total > 15) h += ` <span style="color:var(--red)">(${total - 15} over)</span>`;
-    h += ` · <span>${twoWay}/3</span> two-way`;
-    h += `</div>`;
+    const total = cap.rosterCount, twoWay = cap.twowayCount;
+    if (total > 15) h += `<div class="camp-warning"><h4>⚠️ Roster Over Limit</h4><p>You have ${total} standard contracts — must cut ${total - 15} player(s) to reach the 15-player limit.</p></div>`;
+    else if (total < 14) h += `<div class="camp-warning"><h4>⚠️ Roster Under Minimum</h4><p>You have ${total} standard contracts — need at least 14 for opening night.</p></div>`;
+    else h += `<div class="camp-ok"><h4>✅ Roster Compliant</h4><p>${total} standard contracts (limit: 15) · ${twoWay} two-way (limit: 3)</p></div>`;
+    if (twoWay > 3) h += `<div class="camp-warning"><h4>⚠️ Too Many Two-Way</h4><p>You have ${twoWay} two-way contracts — must cut ${twoWay - 3} to reach the 3-player limit.</p></div>`;
   }
 
-  const sections = [
-    { key: 'under_contract', label: 'Under Contract', color: '#4caf50', icon: '✅' },
-    { key: 'non_guaranteed', label: 'Non-Guaranteed', color: '#ef5350', icon: '⚠️' },
-    { key: 'partial_guaranteed', label: 'Partially Guaranteed', color: '#ffd600', icon: '🔶' },
-    { key: 'signed', label: 'Signed (Free Agency)', color: '#26c6da', icon: '✍️' },
-    { key: 'draft_picks', label: 'Draft Picks (Cap Holds)', color: '#ff9800', icon: '🏀' },
-    { key: 'free_agent', label: 'Free Agents (Cap Holds)', color: '#667eea', icon: '🔓' },
-    { key: 'waived', label: 'Waived', color: '#ef5350', icon: '🗑️' },
-  ];
-
-  for (const sec of sections) {
-    const players = cap.roster[sec.key];
-    if (!players.length) continue;
-
-    const totalSal = players.reduce((s, p) => {
-      if (p.status === 'renounced') return s;
-      if (sec.key === 'free_agent') return s + (p.capHold || 0);
-      if (sec.key === 'waived') return s + (p.deadAmount || 0);
-      if (sec.key === 'draft_picks') return s + (p.capHold || 0);
-      if (sec.key === 'signed') return s + (p.sal27 || 0);
-      return s + (p.sal27 || 0);
-    }, 0);
-
-    h += `<div class="section">`;
-    h += `<div class="section-hdr" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">`;
-    h += `<div class="dot" style="background:${sec.color}"></div>`;
-    h += `<h3>${sec.icon} ${sec.label}</h3>`;
-    h += `<span class="badge" style="background:${sec.color}22;color:${sec.color}">${sec.key === 'draft_picks' ? players.length : players.filter(p=>p.status!=='renounced').length} ${sec.key === 'draft_picks' ? 'picks' : 'players'}</span>`;
-    h += `<span style="font-size:.75rem;font-weight:600;color:${sec.color}">${fmtMoney(totalSal)}</span>`;
+  // ======== DEPTH CHART ========
+  const depthPlayers = getDepthPlayers(cap);
+  const byPos = buildDepthPositions(depthPlayers);
+  const POS = ['PG','SG','SF','PF','C'];
+  const rosterTotal = depthPlayers.reduce((s,p) => s + (p.sal27||0), 0);
+  h += `<div class="dc-section-label">🏀 Depth Chart <span class="dc-badge" style="background:rgba(102,126,234,.15);color:var(--accent)">${depthPlayers.length} players</span><span class="dc-badge" style="background:rgba(76,175,80,.12);color:var(--green)">${fmtMoney(rosterTotal)}</span></div>`;
+  h += `<div style="font-size:.6rem;color:var(--muted);margin-bottom:.5rem">💡 Drag players to rearrange positions</div>`;
+  h += `<div class="depth-chart" id="depthChartGrid">`;
+  POS.forEach(pos => {
+    h += `<div class="pos-col" data-position="${pos}"><div class="pos-hdr">${pos}</div>`;
+    byPos[pos].forEach(p => { h += dcCard(p); });
     h += `</div>`;
-    h += `<div class="section-body">`;
+  });
+  h += `</div>`;
 
-    for (const p of players.sort((a, b) => {
-      const va = sec.key === 'free_agent' ? (a.capHold || 0) : sec.key === 'waived' ? (a.deadAmount || 0) : sec.key === 'draft_picks' ? (a.capHold || 0) : sec.key === 'signed' ? (a.sal27 || 0) : (a.sal27 || 0);
-      const vb = sec.key === 'free_agent' ? (b.capHold || 0) : sec.key === 'waived' ? (b.deadAmount || 0) : sec.key === 'draft_picks' ? (b.capHold || 0) : sec.key === 'signed' ? (b.sal27 || 0) : (b.sal27 || 0);
-      return vb - va;
-    })) {
-      // === DRAFT PICK ROW ===
-      if (sec.key === 'draft_picks') {
-        const isSwapped = p.selectedProspect !== p.prospect;
-        const rdLabel = p.round === 1 ? '1st' : '2nd';
-        const rdColor = p.round === 1 ? 'var(--orange)' : 'var(--muted)';
-        h += `<div class="player-row">`;
-        h += `<div class="hs-ini" style="background:${rdColor};color:#000;font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
-        h += `<div class="info">`;
-        h += `<div class="pname">${p.selectedProspect || 'TBD'}${isSwapped ? ' <span style="font-size:.55rem;color:var(--muted)">(was: ' + p.prospect + ')</span>' : ''}</div>`;
-        h += `<div class="pdet">${rdLabel} Rd Pick #${p.draftRnk}${p.round === 1 ? ' · Rookie Scale' : ' · Min Salary'}</div>`;
-        h += `</div>`;
-        h += `<div><div class="sal" style="color:${rdColor}">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
-        h += `<div style="display:flex;gap:.3rem">`;
-        if (STATE.phase === 'draft') {
-          h += `<button class="action-btn draft-swap" onclick="openDraftPicker(${p.draftRnk})">🔄 Swap</button>`;
-          if (isSwapped) h += `<button class="action-btn decline" onclick="resetDraftPick(${p.draftRnk})">↩</button>`;
-        } else if (STATE.phase === 'pre_draft') {
-          h += `<span style="font-size:.6rem;color:var(--muted)">available in Draft Night</span>`;
-        }
-        h += `</div>`;
-        h += `</div>`;
-        continue;
-      }
-
-      const acted = p.status === 'renounced' || sec.key === 'waived';
-      h += `<div class="player-row${acted ? ' acted' : ''}">`;
-
-      // Headshot
-      if (p.headshot) {
-        h += `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">`;
+  // ======== CONTRACT TABLE ========
+  const contractPlayers = [...cap.roster.under_contract, ...cap.roster.non_guaranteed, ...cap.roster.partial_guaranteed, ...cap.roster.signed].sort((a,b) => (b.sal27||0) - (a.sal27||0));
+  if (contractPlayers.length) {
+    h += `<div class="dc-section-label">📋 Contracts <span class="dc-badge" style="background:rgba(76,175,80,.12);color:var(--green)">${contractPlayers.length} players</span></div>`;
+    h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
+    h += `<th style="min-width:140px">Player</th>`;
+    CONTRACT_YEARS.forEach(yr => { h += `<th style="text-align:right">${yr.label}</th>`; });
+    h += `<th style="text-align:right">Tot Guar</th></tr></thead><tbody>`;
+    for (const p of contractPlayers) {
+      const ini = p.name.split(' ').map(w => w[0]).join('');
+      const hs = p.headshot
+        ? `<img class="ct-hs" src="${p.headshot}" onerror="this.outerHTML='<div class=ct-ini>${ini}</div>'">`
+        : `<div class="ct-ini">${ini}</div>`;
+      h += `<tr><td><div class="player-cell">${hs}<div><div style="font-weight:600;font-size:.7rem">${p.name}</div><div style="font-size:.55rem;color:var(--muted)">${p.pos || ''} ${p.age ? '· ' + p.age : ''}</div></div></div></td>`;
+      const cd = contractsMap[p.name];
+      if (cd) {
+        cd.yrs.forEach((yr, i) => { h += contractSalCell(yr); });
+        h += `<td style="text-align:right;font-weight:600;font-size:.65rem">${cd.totG ? fmtMoney(cd.totG) : '—'}</td>`;
       } else {
-        h += `<div class="hs-ini">${p.name.split(' ').map(w => w[0]).join('')}</div>`;
+        // Fallback: show 26-27 from roster data, rest blank
+        const st27 = p._signed ? 'GUARANTEED' : (p.st27 || 'GUARANTEED');
+        h += contractSalCell({sal: p.sal27, ch: p.ch27, st: st27});
+        for (let i = 1; i < CONTRACT_YEARS.length; i++) h += `<td><span style="color:var(--muted)">—</span></td>`;
+        h += `<td style="text-align:right;font-weight:600;font-size:.65rem">${p.totalGuar ? fmtMoney(p.totalGuar) : '—'}</td>`;
       }
-
-      // Info
-      h += `<div class="info"><div class="pname">${p.name}</div>`;
-      h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}${p.end ? ' · thru ' + p.end : ''}${p.tradeKicker ? ' · TK ' + p.tradeKicker + '%' : ''}${p.fromOption ? ' · declined ' + p.fromOption : ''}</div>`;
-      h += `</div>`;
-
-      // Salary display
-      if (sec.key === 'waived') {
-        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27 || p.sal26)}</div>`;
-        h += `<div class="ch">${p.deadAmount ? fmtMoney(p.deadAmount) + ' dead cap' + (p.isStretched ? ' (stretched)' : '') : 'no dead cap'}</div></div>`;
-      } else if (sec.key === 'free_agent') {
-        if (p.status === 'renounced') {
-          h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
-        } else {
-          h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div>`;
-          h += `<div class="ch">cap hold</div>`;
-          if (p.isRFA && p.qualifyingOffer) {
-            h += `<div class="ch" style="color:var(--accent);font-size:.55rem">QO: ${fmtMoney(p.qualifyingOffer)}</div>`;
-          }
-          h += `</div>`;
-        }
-      } else if (sec.key === 'signed') {
-        h += `<div><div class="sal g">${fmtMoney(p.sal27)}</div>`;
-        h += `<div class="ch" style="color:var(--green)">✍️ signed via ${shortExc(p.exception) || 'FA'}</div></div>`;
-      } else {
-        const cls = { 'GUARANTEED': 'g', 'NOT G': 'ng', 'TEAM OPT': 'to', 'PLAYER OPT': 'po', 'PARTIAL G': 'pg' }[p.st27] || 'g';
-        h += `<div><div class="sal ${cls}">${fmtMoney(p.sal27)}</div>`;
-        if (p.ch27 && p.ch27 !== p.sal27 && (p.st27 === 'PARTIAL G' || p.st27 === 'NOT G')) {
-          h += `<div class="ch">G: ${fmtMoney(p.ch27)}</div>`;
-        }
-        if (p.status === 'pending_to') h += `<div class="ch" style="color:var(--orange)">⚡ Team Option</div>`;
-        if (p.status === 'pending_po') h += `<div class="ch" style="color:var(--cyan)">🎯 Player Option</div>`;
-        if (p.status === 'picked_up') h += `<div class="ch" style="color:var(--green)">✓ TO picked up</div>`;
-        if (p.status === 'exercised') h += `<div class="ch" style="color:var(--green)">✓ PO exercised</div>`;
-        h += `</div>`;
-      }
-
-      // Action buttons (phase-aware)
-      // Phase rules:
-      //   Sign: free_agency, training_camp
-      //   Trade: all phases
-      //   Extend: all phases
-      //   Draft: draft only
-      //   Waive: all phases
-      //   Renounce: pre_draft, draft, pre_fa
-      //   PO/TO: pre_draft, draft, pre_fa
-      //   Guarantee: pre_draft, draft, pre_fa
-      //   Convert two-way: pre_fa, free_agency, training_camp
-      const phase = STATE.phase;
-      const preFA = phase === 'pre_draft' || phase === 'draft' || phase === 'pre_fa';
-      h += `<div style="display:flex;gap:.3rem;flex-wrap:wrap">`;
-
-      // --- PO/TO decisions: pre_draft, draft, pre_fa ---
-      if (p.status === 'pending_to' && preFA) {
-        h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
-        h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
-      } else if (p.status === 'pending_po' && preFA) {
-        h += `<button class="action-btn pickup" onclick="doOption('${esc(p.name)}','exercise')">Exercise</button>`;
-        h += `<button class="action-btn decline" onclick="doOption('${esc(p.name)}','decline')">Decline</button>`;
-
-      // --- Free agent actions (including two-way FAs) ---
-      } else if (sec.key === 'free_agent' && p.status === 'held') {
-        // Renounce: pre_draft, draft, pre_fa
-        if (preFA) {
-          h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
-        }
-        // Re-sign: free_agency, training_camp
-        if (phase === 'free_agency' || phase === 'training_camp') {
-          h += `<button class="action-btn pickup" onclick="openSignModal('${esc(p.name)}', true)">Re-sign</button>`;
-        }
-
-      // --- Two-way under contract: Convert + Waive ---
-      } else if (p.twoWay && p.status === 'active' && !STATE.conversions.has(p.name) && sec.key === 'under_contract') {
-        if (phase === 'pre_fa' || phase === 'free_agency' || phase === 'training_camp') {
-          h += `<button class="action-btn convert" onclick="doConvertTwoWay('${esc(p.name)}')">Convert</button>`;
-        }
-        h += `<button class="action-btn waive" onclick="openWaiveModal('${esc(p.name)}')">Waive</button>`;
-
-      // --- Standard contract actions ---
-      } else if (sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'guaranteed_ng' || p.status === 'guaranteed_pg' || p.status === 'converted')) {
-        // Waive: all phases
-        h += `<button class="action-btn waive" onclick="openWaiveModal('${esc(p.name)}')">Waive</button>`;
-      }
-
-      // --- Guarantee: non-guaranteed & partial-guaranteed, pre_draft/draft/pre_fa ---
-      if ((sec.key === 'non_guaranteed' || sec.key === 'partial_guaranteed') && p.status === 'active' && preFA) {
-        h += `<button class="action-btn guarantee" onclick="doGuarantee('${esc(p.name)}')">Guarantee</button>`;
-      }
-
-      // --- Trade: all phases, all under-contract/option players (not two-way) ---
-      if (!acted && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed' && !p.twoWay) {
-        if (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'guaranteed_ng' || p.status === 'guaranteed_pg' || p.status === 'converted') {
-          h += `<button class="action-btn trade" onclick="openTradeModal('${esc(p.name)}')">Trade</button>`;
-        }
-      }
-
-      // --- Extend: all phases, gated by computed eligibility ---
-      if (!acted && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed') {
-        if ((p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'guaranteed_ng' || p.status === 'guaranteed_pg') && p.ext) {
-          const alreadyExtended = (STATE.extensions || []).some(e => e.name === p.name);
-          if (!alreadyExtended) {
-            if (p.ext.status === 'eligible') {
-              h += `<button class="action-btn extend" onclick="openExtModal('${esc(p.name)}')">Extend</button>`;
-            } else if (p.ext.status === 'conditional') {
-              h += `<button class="action-btn extend" style="border-style:dashed" onclick="openExtModal('${esc(p.name)}')">Extend?</button>`;
-            }
-          }
-        }
-      }
-      // Extended badge
-      const extRecord = (STATE.extensions || []).find(e => e.name === p.name);
-      if (extRecord) {
-        h += `<span class="extended-badge">EXTENDED thru ${extRecord.endYear}</span>`;
-      }
-      // Extension eligibility mini-badge (only for players eligible before Nov 1 2026)
-      if (!extRecord && p.ext && sec.key !== 'waived' && sec.key !== 'free_agent' && sec.key !== 'draft_picks' && sec.key !== 'signed') {
-        const eb = p.ext;
-        // Nov 1 2026 cutoff: only show if eligible now, conditional, or future with date before Nov 1
-        const nov1 = new Date(2026, 10, 1); // month is 0-indexed
-        const showFuture = eb.status === 'future' && eb.detail && (() => {
-          // Parse date from detail string to check if before Nov 1
-          const m = eb.detail.match(/(\w+ \d+, \d{4})/);
-          if (m) { const d = new Date(m[1]); return d <= nov1; }
-          return false;
-        })();
-        if (eb.status === 'eligible') {
-          h += `<span class="ext-elig-badge eligible" title="${eb.detail || ''}">EXT ✓</span>`;
-        } else if (eb.status === 'conditional') {
-          h += `<span class="ext-elig-badge conditional" title="${eb.detail || ''}">EXT?</span>`;
-        } else if (showFuture) {
-          h += `<span class="ext-elig-badge future" title="${eb.detail || ''}">EXT soon</span>`;
-        } else if (eb.status === 'extended') {
-          h += `<span class="ext-elig-badge extended" title="${eb.detail || ''}">Extended</span>`;
-        }
-        // ineligible, no_data, na, far-future → nothing shown
-      }
-      // Traded-in badge
-      if (p.status === 'traded_in') {
-        h += `<span class="traded-badge">TRADED IN${p.fromTeam ? ' from ' + p.fromTeam : ''}</span>`;
-      }
-      // Guaranteed badge
-      if (p.status === 'guaranteed_ng') {
-        h += `<span class="guaranteed-badge">GUARANTEED (was Non-G)</span>`;
-      } else if (p.status === 'guaranteed_pg') {
-        h += `<span class="guaranteed-badge">GUARANTEED (was Partial)</span>`;
-      }
-      // Converted badge
-      if (p.status === 'converted') {
-        h += `<span class="converted-badge">CONVERTED from Two-Way</span>`;
-      }
-      // Two-way badge
-      if (p.twoWay) {
-        h += `<span class="twoway-badge">2W</span>`;
-      }
-      // RFA badge
-      if (p.isRFA && sec.key === 'free_agent' && p.status !== 'renounced') {
-        h += `<span class="rfa-badge" title="Qualifying Offer: ${fmtMoney(p.qualifyingOffer || 0)}">RFA</span>`;
-      }
-      h += `</div>`;
-
-      h += `</div>`; // player-row
+      h += `</tr>`;
     }
-    h += `</div></div>`; // section-body, section
+    h += `</tbody></table></div>`;
+  }
+
+  // ======== TWO-WAY (if any) ========
+  if (cap.roster.twoway.length) {
+    h += `<div class="dc-section-label">🔄 Two-Way Contracts <span class="dc-badge" style="background:rgba(100,116,139,.12);color:#94a3b8">${cap.roster.twoway.length}</span></div>`;
+    h += `<div class="section"><div class="section-body">`;
+    for (const p of cap.roster.twoway) {
+      h += `<div class="player-row">`;
+      h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
+      h += `<div class="info"><div class="pname">${p.name}</div><div class="pdet">${p.pos || ''} · Two-Way</div></div>`;
+      h += `<div class="sal" style="color:#94a3b8">${fmtMoney(p.sal27 || 0)}</div>`;
+      h += `</div>`;
+    }
+    h += `</div></div>`;
+  }
+
+  // ======== FREE AGENTS ========
+  const fas = cap.roster.free_agent;
+  if (fas.length) {
+    const activeFas = fas.filter(p => p.status !== 'renounced');
+    const renouncedFas = fas.filter(p => p.status === 'renounced');
+    const totalHolds = activeFas.reduce((s,p) => s + (p.capHold||0), 0);
+    h += `<div class="dc-section-label">🔓 Free Agents <span class="dc-badge" style="background:rgba(102,126,234,.12);color:var(--accent)">${activeFas.length} held</span><span class="dc-badge" style="background:rgba(102,126,234,.12);color:var(--accent)">${fmtMoney(totalHolds)} cap holds</span></div>`;
+    h += `<div class="section"><div class="section-body">`;
+    for (const p of [...activeFas, ...renouncedFas].sort((a,b) => {
+      if (a.status === 'renounced' && b.status !== 'renounced') return 1;
+      if (b.status === 'renounced' && a.status !== 'renounced') return -1;
+      return (b.capHold||0) - (a.capHold||0);
+    })) {
+      const acted = p.status === 'renounced';
+      h += `<div class="player-row${acted ? ' acted' : ''}">`;
+      h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
+      h += `<div class="info"><div class="pname">${p.name}${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}</div>`;
+      h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}</div></div>`;
+      if (acted) {
+        h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
+      } else {
+        h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
+      }
+      h += `<div style="display:flex;gap:.3rem">`;
+      if (!acted) {
+        h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
+        if (phase === 'free_agency') h += `<button class="action-btn pickup" onclick="openSignModal('${esc(p.name)}', true)">Re-sign</button>`;
+      }
+      h += `</div></div>`;
+    }
+    h += `</div></div>`;
+  }
+
+  // ======== DRAFT PICKS ========
+  const picks = cap.roster.draft_picks;
+  if (picks.length) {
+    const draftTotal = picks.reduce((s,p) => s + (p.capHold||0), 0);
+    h += `<div class="dc-section-label">🏀 Draft Picks <span class="dc-badge" style="background:rgba(255,152,0,.12);color:var(--orange)">${picks.length} picks</span><span class="dc-badge" style="background:rgba(255,152,0,.12);color:var(--orange)">${fmtMoney(draftTotal)} cap holds</span></div>`;
+    h += `<div class="section"><div class="section-body">`;
+    for (const p of picks) {
+      const isSwapped = p.selectedProspect !== p.prospect;
+      h += `<div class="player-row">`;
+      h += `<div class="hs-ini" style="background:var(--orange);color:#000;font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
+      h += `<div class="info"><div class="pname">${p.selectedProspect || 'TBD'}${isSwapped ? ` <span style="font-size:.55rem;color:var(--muted)">(was: ${p.prospect})</span>` : ''}</div>`;
+      h += `<div class="pdet">1st Rd Pick #${p.draftRnk} · Rookie Scale</div></div>`;
+      h += `<div><div class="sal" style="color:var(--orange)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
+      h += `<div style="display:flex;gap:.3rem">`;
+      if (phase === 'draft') {
+        h += `<button class="action-btn draft-swap" onclick="openDraftPicker(${p.draftRnk})">🔄 Swap</button>`;
+        if (isSwapped) h += `<button class="action-btn decline" onclick="resetDraftPick(${p.draftRnk})">↩</button>`;
+      } else if (phase === 'pre_draft') {
+        h += `<span style="font-size:.6rem;color:var(--muted)">available in Draft Night</span>`;
+      }
+      h += `</div></div>`;
+    }
+    h += `</div></div>`;
+  }
+
+  // ======== WAIVED ========
+  if (cap.roster.waived.length) {
+    const totalDead = cap.roster.waived.reduce((s,p) => s + (p.deadAmount||0), 0);
+    h += `<div class="dc-section-label">🗑️ Waived <span class="dc-badge" style="background:rgba(239,83,80,.12);color:var(--red)">${cap.roster.waived.length}</span><span class="dc-badge" style="background:rgba(239,83,80,.12);color:var(--red)">${fmtMoney(totalDead)} dead</span></div>`;
+    h += `<div class="section"><div class="section-body">`;
+    for (const p of cap.roster.waived) {
+      h += `<div class="player-row acted">`;
+      h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
+      h += `<div class="info"><div class="pname">${p.name}</div><div class="pdet">${fmtMoney(p.sal27||p.sal26)} salary</div></div>`;
+      h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.sal27||p.sal26)}</div>`;
+      h += `<div class="ch">${p.deadAmount ? fmtMoney(p.deadAmount) + ' dead' + (p.isStretched ? ' (str)' : '') : 'no dead cap'}</div></div>`;
+      h += `</div>`;
+    }
+    h += `</div></div>`;
   }
 
   panel.innerHTML = h;
+  setupDragDrop();
+}
+
+// =============== DRAG & DROP ===============
+let _draggedCard = null;
+
+function setupDragDrop() {
+  const grid = document.getElementById('depthChartGrid');
+  if (!grid) return;
+
+  grid.querySelectorAll('.dc-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      _draggedCard = card;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.player);
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      _draggedCard = null;
+      grid.querySelectorAll('.dc-drop-indicator').forEach(el => el.remove());
+      grid.querySelectorAll('.pos-col.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+  });
+
+  grid.querySelectorAll('.pos-col').forEach(col => {
+    col.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-over');
+      // Remove existing indicators
+      grid.querySelectorAll('.dc-drop-indicator').forEach(el => el.remove());
+      // Find closest card
+      const cards = [...col.querySelectorAll('.dc-card:not(.dragging)')];
+      const afterCard = cards.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = e.clientY - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) return { offset, el: child };
+        return closest;
+      }, { offset: -Infinity, el: null }).el;
+
+      const indicator = document.createElement('div');
+      indicator.className = 'dc-drop-indicator';
+      if (afterCard) col.insertBefore(indicator, afterCard);
+      else col.appendChild(indicator);
+    });
+
+    col.addEventListener('dragleave', e => {
+      if (!col.contains(e.relatedTarget)) {
+        col.classList.remove('drag-over');
+        col.querySelectorAll('.dc-drop-indicator').forEach(el => el.remove());
+      }
+    });
+
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      grid.querySelectorAll('.dc-drop-indicator').forEach(el => el.remove());
+      if (!_draggedCard) return;
+
+      // Find insertion point
+      const cards = [...col.querySelectorAll('.dc-card:not(.dragging)')];
+      const afterCard = cards.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = e.clientY - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) return { offset, el: child };
+        return closest;
+      }, { offset: -Infinity, el: null }).el;
+
+      if (afterCard) col.insertBefore(_draggedCard, afterCard);
+      else col.appendChild(_draggedCard);
+
+      saveDepthOrder();
+    });
+  });
 }
 
 function renderCapPanel(cap) {
@@ -1574,7 +1320,6 @@ function renderCapPanel(cap) {
   h += `<div class="cap-card">`;
   h += `<h3>💰 Team Salary</h3>`;
   h += capRow('Active Salaries', cap.activeSalaries);
-  if (cap.extensionAdjustment) h += `<div class="cap-row" style="font-size:.6rem"><span class="label" style="color:var(--accent)">↳ includes extension adjustment</span><span class="value" style="color:var(--accent)">${cap.extensionAdjustment > 0 ? '+' : ''}${fmtMoney(cap.extensionAdjustment)}</span></div>`;
   h += capRow('Cap Holds (FAs)', cap.capHolds - (cap.draftCapHolds || 0));
   if (cap.draftCapHolds) h += capRow('Cap Holds (Draft)', cap.draftCapHolds);
   h += capRow('Dead Money', cap.deadMoney);
@@ -1663,8 +1408,6 @@ function doOption(name, decision) {
   const label = decision === 'pickup' ? 'Picked up' : decision === 'exercise' ? 'Exercised' : 'Declined';
   const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
   STATE.moves.push({ action: label, detail: `${name}'s option (${fmtMoney(p?.sal27 || 0)})`, undo: { type: 'option', name } });
-  // Recalculate extension eligibility (option decision changes effective contract length)
-  recalcExtElig(name);
   saveState();
   render();
 }
@@ -1682,10 +1425,7 @@ function doWaive(name, stretch = false) {
   if (stretch) STATE.stretched.add(name);
   const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
   let dead = 0;
-  const wasPickedUp = STATE.optionDecisions[p?.name] === 'pickup' || STATE.optionDecisions[p?.name] === 'exercise';
-  const wasGuaranteed = STATE.guaranteed.has(name);
-  const wasConverted = STATE.conversions.has(name);
-  if (p?.category === 'under_contract' || p?.st27 === 'GUARANTEED' || wasPickedUp || wasGuaranteed || wasConverted) dead = p.sal27 || MIN_SALARY_CAP_HOLD;
+  if (p?.category === 'under_contract' || p?.st27 === 'GUARANTEED') dead = p.sal27;
   else if (p?.category === 'partial_guaranteed') dead = p.ch27;
   if (stretch && dead > 0) {
     const rem = Math.max(1, (p.end || 2027) - 2026);
@@ -1706,9 +1446,7 @@ function openWaiveModal(name) {
   // Calculate dead cap amounts
   let fullDead = 0;
   const wasPickedUp = STATE.optionDecisions[p.name] === 'pickup' || STATE.optionDecisions[p.name] === 'exercise';
-  const wasGuaranteed = STATE.guaranteed.has(p.name);
-  const wasConverted = STATE.conversions.has(p.name);
-  if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp || wasGuaranteed || wasConverted) fullDead = p.sal27 || MIN_SALARY_CAP_HOLD;
+  if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp) fullDead = p.sal27;
   else if (p.category === 'partial_guaranteed') fullDead = p.ch27;
 
   const remainingYrs = Math.max(1, (p.end || 2027) - 2026);
@@ -1722,10 +1460,10 @@ function openWaiveModal(name) {
   if (p.end) h += ` · contract thru ${p.end}`;
   h += `</div>`;
 
-  if ((p.category === 'non_guaranteed' && !wasGuaranteed) || (p.category === 'twoway' && !wasConverted)) {
+  if (p.category === 'non_guaranteed') {
     h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}')">`;
     h += `<div class="opt-title">Waive — No dead cap</div>`;
-    h += `<div class="opt-desc">${p.category === 'twoway' ? 'Two-way contract' : 'Non-guaranteed contract'}, team owes nothing</div>`;
+    h += `<div class="opt-desc">Non-guaranteed contract, team owes nothing</div>`;
     h += `<div class="opt-amount" style="color:var(--green)">$0 dead cap</div>`;
     h += `</div>`;
   } else {
@@ -1751,32 +1489,6 @@ function closeWaiveModal() {
   document.getElementById('waiveOverlay').style.display = 'none';
 }
 
-// ======================== GUARANTEE & TWO-WAY CONVERT ========================
-function doGuarantee(name) {
-  STATE.guaranteed.add(name);
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  const isPartial = p?.category === 'partial_guaranteed';
-  const detail = isPartial
-    ? `${name} (${fmtMoney(p.sal27)} fully guaranteed, was ${fmtMoney(p.ch27)} partial)`
-    : `${name} (${fmtMoney(p?.sal27 || 0)} now guaranteed)`;
-  STATE.moves.push({ action: 'Guaranteed', detail, undo: { type: 'guarantee', name } });
-  saveState();
-  render();
-}
-
-function doConvertTwoWay(name) {
-  STATE.conversions.add(name);
-  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  const convertSal = p?.sal27 || MIN_SALARY_CAP_HOLD;
-  STATE.moves.push({
-    action: 'Converted',
-    detail: `${name} from two-way to standard contract (${fmtMoney(convertSal)})`,
-    undo: { type: 'convert', name }
-  });
-  saveState();
-  render();
-}
-
 // ======================== PHASE NAVIGATION ========================
 function setPhase(id) {
   const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
@@ -1790,48 +1502,19 @@ function setPhase(id) {
 
 function advancePhase() {
   const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
-  if (currentIdx >= PHASES.length - 1) return;
-  const nextPhase = PHASES[currentIdx + 1];
-
-  // When advancing to Free Agency, check for unresolved options
-  if (nextPhase.id === 'free_agency') {
-    const cap = calcCapSheet(STATE.team);
-    const pending = [];
-    for (const bucket of Object.values(cap.roster)) {
-      for (const p of bucket) {
-        if (p.status === 'pending_to') pending.push({ name: p.name, type: 'Team Option', sal: p.sal27 });
-        if (p.status === 'pending_po') pending.push({ name: p.name, type: 'Player Option', sal: p.sal27 });
-      }
-    }
-    if (pending.length > 0) {
-      const names = pending.map(p => `${p.name} (${p.type}, ${fmtMoney(p.sal)})`).join('\n• ');
-      const proceed = confirm(`⚠️ Unresolved Options\n\nThe following players still have pending option decisions:\n• ${names}\n\nIf you proceed, all options will be automatically picked up / exercised.\n\nContinue?`);
-      if (!proceed) return;
-      // Auto-pickup all pending options
-      for (const p of pending) {
-        const decision = p.type === 'Team Option' ? 'pickup' : 'exercise';
-        STATE.optionDecisions[p.name] = decision;
-        const label = decision === 'pickup' ? 'Picked up (auto)' : 'Exercised (auto)';
-        STATE.moves.push({ action: label, detail: `${p.name}'s option (${fmtMoney(p.sal)})`, undo: { type: 'option', name: p.name } });
-        recalcExtElig(p.name);
-      }
-    }
+  if (currentIdx < PHASES.length - 1) {
+    STATE.phase = PHASES[currentIdx + 1].id;
+    STATE.moves.push({ action: 'Phase', detail: `Advanced to ${PHASES[currentIdx + 1].label}`, undo: { type: 'phase', prev: PHASES[currentIdx].id } });
+    saveState();
+    render();
   }
-
-  STATE.phase = nextPhase.id;
-  STATE.moves.push({ action: 'Phase', detail: `Advanced to ${nextPhase.label}`, undo: { type: 'phase', prev: PHASES[currentIdx].id } });
-  saveState();
-  render();
 }
 
 function undoLast() {
   if (!STATE.moves.length) return;
   const last = STATE.moves.pop();
   if (last.undo) {
-    if (last.undo.type === 'option') {
-      delete STATE.optionDecisions[last.undo.name];
-      recalcExtElig(last.undo.name); // Recalc since option decision changed
-    }
+    if (last.undo.type === 'option') delete STATE.optionDecisions[last.undo.name];
     if (last.undo.type === 'renounce') STATE.renounced.delete(last.undo.name);
     if (last.undo.type === 'waive') {
       STATE.waived.delete(last.undo.name);
@@ -1848,20 +1531,10 @@ function undoLast() {
       STATE.trades.pop();
     }
     if (last.undo.type === 'signing') {
-      const idx = STATE.signings.findIndex(s => s.name === last.undo.name);
-      if (idx >= 0) STATE.signings.splice(idx, 1);
-      else STATE.signings.pop();
+      STATE.signings.pop();
     }
     if (last.undo.type === 'extension') {
-      const idx = STATE.extensions.findIndex(e => e.name === last.undo.name);
-      if (idx >= 0) STATE.extensions.splice(idx, 1);
-      else STATE.extensions.pop(); // fallback
-    }
-    if (last.undo.type === 'guarantee') {
-      STATE.guaranteed.delete(last.undo.name);
-    }
-    if (last.undo.type === 'convert') {
-      STATE.conversions.delete(last.undo.name);
+      STATE.extensions.pop();
     }
   }
   saveState();
@@ -1950,272 +1623,27 @@ window.addEventListener('message', function(event) {
 const EXT_CAP = 166000000; // 2026-27 projected salary cap
 const EXT_RAISE_PCT = 0.08; // 8% annual raises for extensions
 
-// --- Eligibility Helpers (ported from Contracts app, adapted for RM) ---
-
-function extMaxPct(p) {
-  // Designated Veteran: 35% regardless of YOS
-  if (p.dvEligible) return 35;
-  // 10+ YOS: 35%
-  if (p.yos >= 10) return 35;
-  // 7-9 YOS: 30%
-  if (p.yos >= 7) return 30;
-  // 0-6 YOS: 25%
-  return 25;
+function parseExtCode(code) {
+  // Format: RSE:25:5 or VET:30:4
+  if (!code) return null;
+  const parts = code.split(':');
+  if (parts.length < 3) return null;
+  const type = parts[0].toUpperCase(); // RSE or VET
+  const maxPct = parseInt(parts[1]) || 25;
+  const maxYears = parseInt(parts[2]) || 4;
+  if (type !== 'RSE' && type !== 'VET') return null;
+  return { type, maxPct, maxYears };
 }
 
-function rookieDesignated(p) {
-  // Designated Rookie Scale Extension: All-Star, All-NBA, or MVP during rookie scale contract
-  if (!p.allAwards || !p.allAwards.length) return false;
-  const DRE_AWARDS = ['Most Valuable Player', 'Defensive Player of the Year',
-    'All-NBA First Team', 'All-NBA Second Team', 'All-NBA Third Team', 'All-Star'];
-  return p.allAwards.some(a => DRE_AWARDS.includes(a.award));
-}
-
-function dvLabel(p) {
-  if (!p.dvEligible || !p.dvAwards || !p.dvAwards.length) return '';
-  const short = { 'Most Valuable Player': 'MVP', 'Defensive Player of the Year': 'DPOY',
-    'All-NBA First Team': 'All-NBA 1st', 'All-NBA Second Team': 'All-NBA 2nd', 'All-NBA Third Team': 'All-NBA 3rd' };
-  const items = p.dvAwards.map(a => `${short[a.award]||a.award} '${String(a.year).slice(-2)}`).join(', ');
-  return `DV Eligible (${items})`;
-}
-
-function guaranteedEndRM(p) {
-  // Walk backwards through contract years to find last non-option year
-  if (!p.contractYrs) return null;
-  let lastGuarIdx = -1;
-  for (let i = p.contractYrs.length - 1; i >= 0; i--) {
-    const y = p.contractYrs[i];
-    if (y.sal && y.st && y.st !== 'PLAYER OPT' && y.st !== 'TEAM OPT') {
-      lastGuarIdx = i;
-      break;
-    }
-  }
-  if (lastGuarIdx < 0) return null;
-  return C_END_YEARS[lastGuarIdx];
-}
-
-// --- Main Eligibility Calculator ---
-// Adapted for RM: considers STATE.optionDecisions to resolve option scenarios
-
-function calcExtEligRM(p) {
-  // No contracts data → not eligible (hide button)
-  if (!p.sigDate && !p.contractNotes && !p.draftYear) {
-    return { status: 'no_data' };
-  }
-
-  const notes_lc = (p.contractNotes || '').toLowerCase();
-  const pct = extMaxPct(p);
-  const dvInfo = dvLabel(p);
-
-  // Two-Way / 10-Day → not eligible
-  if (notes_lc.includes('two-way') || (p.contractYrs && p.contractYrs.every(y => y.st === 'TWO-WAY' || !y.st)))
-    return { status: 'na', detail: 'Two-Way contract', maxPct: pct };
-  if (notes_lc.includes('10-day'))
-    return { status: 'na', detail: '10-Day contract', maxPct: pct };
-
-  // Already extended (in real life, per spreadsheet notes)
-  if (notes_lc.includes('extension')) {
-    return calcAlreadyExtended(p, pct, dvInfo);
-  }
-
-  // Rookie Scale Contract
-  if (notes_lc.includes('rookie scale')) {
-    return calcRookieScaleElig(p, pct, dvInfo);
-  }
-
-  // Standard veteran contract
-  return calcVeteranElig(p, pct, dvInfo);
-}
-
-function calcAlreadyExtended(p, pct, dvInfo) {
-  if (!p.sigDate || !p.contractEnd) {
-    return { status: 'extended', detail: `Already extended (${p.contractNotes})`, maxPct: pct, dvInfo };
-  }
-  const parts = p.sigDate.split('/');
-  if (parts.length !== 3) return { status: 'extended', detail: `Already extended (${p.contractNotes})`, maxPct: pct, dvInfo };
-  let eMonth = parseInt(parts[0]), eDay = parseInt(parts[1]), eYear = parseInt(parts[2]);
-  if (isNaN(eMonth) || isNaN(eDay) || isNaN(eYear)) return { status: 'extended', detail: `Already extended`, maxPct: pct, dvInfo };
-  // Oct 1 rule
-  if (eMonth === 10 && eDay >= 2) eDay = 1;
-  const eFirstEnd = eMonth >= 7 ? eYear + 1 : eYear;
-  const eEndYear = parseInt(p.contractEnd);
-  if (isNaN(eEndYear)) return { status: 'extended', detail: 'Already extended', maxPct: pct, dvInfo };
-  const eTotalLen = eEndYear - eFirstEnd + 1;
-  if (eTotalLen <= 2) return { status: 'extended', detail: `${eTotalLen}-yr extension, re-extension ineligible`, maxPct: pct, dvInfo };
-  const eWait = eTotalLen <= 4 ? 2 : 3;
-  const eAnniv = new Date(eYear + eWait, eMonth - 1, eDay);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const eFmt = eAnniv.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  if (eAnniv <= today) {
-    return { status: 'eligible', type: 'VET', detail: `Re-eligible since ${eFmt} (previously extended)`, maxPct: pct, maxYears: 4, dvInfo };
-  } else {
-    return { status: 'future', detail: `Re-eligible ${eFmt} (${eWait === 2 ? '2nd' : '3rd'} anniversary of extension)`, maxPct: pct, dvInfo };
-  }
-}
-
-function calcRookieScaleElig(p, pct, dvInfo) {
-  const endYear = parseInt(p.contractEnd || p.end);
-  const currentSeasonEnd = 2026; // RM simulates 2026-27 offseason
-
-  // Expiring rookie scale → will be RFA, no extension
-  if (endYear <= currentSeasonEnd) {
-    return { status: 'ineligible', detail: `Expiring rookie scale (RFA ${endYear})`, maxPct: pct };
-  }
-
-  const isDRE = rookieDesignated(p);
-  const rsePct = isDRE ? 30 : 25;
-  const label = isDRE ? 'Designated Rookie Scale' : 'Rookie Scale';
-
-  if (p.draftYear > 0) {
-    const eligDate = new Date(p.draftYear + 3, 6, 1); // July 1 of draftYear+3
-    const deadline = new Date(p.draftYear + 4, 9, 21); // Oct 21 of draftYear+4
-    const today = new Date(); today.setHours(0,0,0,0);
-    const eligFmt = eligDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const deadFmt = deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-    if (today >= deadline) {
-      return { status: 'ineligible', detail: `Rookie scale window closed (${deadFmt})`, maxPct: rsePct };
-    } else if (today >= eligDate) {
-      return { status: 'eligible', type: 'RSE', detail: `${label} · Eligible since ${eligFmt} · Deadline: ${deadFmt}`, maxPct: rsePct, maxYears: 5, isDRE, dvInfo };
-    } else {
-      return { status: 'future', detail: `${label} · Window: ${eligFmt} – ${deadFmt}`, maxPct: rsePct, dvInfo };
-    }
-  }
-  return { status: 'eligible', type: 'RSE', detail: `${label} Extension`, maxPct: rsePct, maxYears: 5, isDRE, dvInfo };
-}
-
-function calcVeteranElig(p, pct, dvInfo) {
-  if (!p.sigDate || !p.contractEnd) return { status: 'no_data' };
-
-  const parts = p.sigDate.split('/');
-  if (parts.length !== 3) return { status: 'no_data' };
-  let sigMonth = parseInt(parts[0]), sigDay = parseInt(parts[1]);
-  const sigYear = parseInt(parts[2]);
-  if (isNaN(sigMonth) || isNaN(sigDay) || isNaN(sigYear)) return { status: 'no_data' };
-  // Oct 1 rule: signings Oct 2+ count as Oct 1
-  if (sigMonth === 10 && sigDay >= 2) sigDay = 1;
-  const firstSeasonEnd = sigMonth >= 7 ? sigYear + 1 : sigYear;
-
-  const endYear = parseInt(p.contractEnd);
-  if (isNaN(endYear)) return { status: 'no_data' };
-  const length = endYear - firstSeasonEnd + 1;
-
-  // Check for shorter "guaranteed end" (options) — but respect RM option decisions
-  const guarEnd = guaranteedEndRM(p);
-  const hasOptions = guarEnd && guarEnd < endYear;
-  const guarLength = hasOptions ? guarEnd - firstSeasonEnd + 1 : length;
-
-  // Check if user has made an option decision in RM
-  const optDecision = STATE ? STATE.optionDecisions[p.name] : null;
-  const hasTO = p.contractYrs && p.contractYrs.some(y => y.st === 'TEAM OPT');
-  const hasPO = p.contractYrs && p.contractYrs.some(y => y.st === 'PLAYER OPT');
-  const optType = hasPO ? 'PO' : hasTO ? 'TO' : null;
-
-  // If user declined the option → use guarLength (shorter contract)
-  // If user picked up / exercised → use full length
-  // If no decision yet → show both scenarios
-  let effectiveLength = length;
-  let optResolved = false;
-  if (optDecision === 'decline' && hasOptions) {
-    effectiveLength = guarLength;
-    optResolved = true;
-  } else if ((optDecision === 'pickup' || optDecision === 'exercise') && hasOptions) {
-    effectiveLength = length;
-    optResolved = true;
-  }
-
-  function calcForLength(len) {
-    if (len <= 2) return { elig: false };
-    const wait = len <= 4 ? 2 : 3;
-    const anniv = new Date(sigYear + wait, sigMonth - 1, sigDay);
-    const today = new Date(); today.setHours(0,0,0,0);
-    const fmt = anniv.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    if (anniv <= today) return { elig: true, fmt, date: anniv, wait, len };
-    else return { elig: null, fmt, date: anniv, wait, len };
-  }
-
-  // If option decision was made → compute for effective length only
-  if (optResolved || !hasOptions) {
-    const res = calcForLength(effectiveLength);
-    if (res.elig === false) {
-      return { status: 'ineligible', detail: `${effectiveLength}-year deal${optDecision === 'decline' ? ` (${optType} declined)` : ''}`, maxPct: pct, dvInfo };
-    } else if (res.elig === true) {
-      return { status: 'eligible', type: 'VET', detail: `Eligible since ${res.fmt}${optDecision === 'decline' ? ` (${optType} declined → ${effectiveLength}-yr)` : ''}`, maxPct: pct, maxYears: 4, dvInfo };
-    } else {
-      return { status: 'future', detail: `${effectiveLength}-year deal, ${res.wait === 2 ? '2nd' : '3rd'} anniv. ${res.fmt}`, maxPct: pct, dvInfo };
-    }
-  }
-
-  // Has options, no decision yet → show both scenarios
-  const full = calcForLength(length);
-  const decl = calcForLength(guarLength);
-
-  if (full.elig === false) {
-    if (decl.elig === false) {
-      return { status: 'ineligible', detail: `${length}-year deal · Also ineligible if ${optType} declined`, maxPct: pct, dvInfo };
-    } else if (decl.elig === true) {
-      return { status: 'conditional', detail: `Ineligible if ${optType} exercised (${length}-yr) · Eligible if declined (since ${decl.fmt})`, maxPct: pct, maxYears: 4, conditionalOn: 'decline', optType, dvInfo };
-    } else {
-      return { status: 'conditional', detail: `Ineligible if ${optType} exercised · If declined: eligible ${decl.fmt}`, maxPct: pct, conditionalOn: 'decline', optType, dvInfo };
-    }
-  } else if (full.elig === true) {
-    let optNote = '';
-    if (decl.elig === true && decl.date < full.date) optNote = ` · Earlier if ${optType} declined`;
-    else if (decl.elig === false) optNote = ` · Ineligible if ${optType} declined`;
-    return { status: 'eligible', type: 'VET', detail: `Eligible since ${full.fmt}${optNote}`, maxPct: pct, maxYears: 4, dvInfo };
-  } else {
-    let optNote = '';
-    if (decl.elig === true) optNote = ` · Already eligible if ${optType} declined`;
-    else if (decl.elig !== false && decl.date && decl.date < full.date) optNote = ` · Earlier (${decl.fmt}) if ${optType} declined`;
-    return { status: 'future', detail: `${length}-yr, ${full.wait === 2 ? '2nd' : '3rd'} anniv. ${full.fmt}${optNote}`, maxPct: pct, dvInfo };
-  }
-}
-
-// --- Trade Restriction Check ---
-function checkTradeRestriction(p) {
-  // Check if player was traded IN during this RM session → always restricted
-  if (STATE) {
-    for (const trade of (STATE.trades || [])) {
-      const tradedIn = (trade.in || []).find(tp => tp.name === p.name);
-      if (tradedIn) {
-        return { restricted: true, reason: `Traded in from ${tradedIn.fromTeam || 'another team'} — 6-month aggregation restriction applies after extension` };
-      }
-    }
-  }
-  // 6-month rule: if sigTeam differs from current team, player was traded
-  if (p.sigTeam && p.team && p.sigTeam !== p.team) {
-    // We don't know the exact trade date, so assume restricted
-    return { restricted: true, reason: `Signed by ${p.sigTeam}, now on ${p.team} — trade aggregation restriction may apply (6-month rule)` };
-  }
-  // If sigTeam matches and we have sigDate, check if >6 months ago
-  if (p.sigTeam && p.sigDate && p.sigTeam === p.team) {
-    const parts = p.sigDate.split('/');
-    if (parts.length === 3) {
-      const sigDt = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
-      const sixMonths = new Date(sigDt);
-      sixMonths.setMonth(sixMonths.getMonth() + 6);
-      const now = new Date();
-      if (now < sixMonths) {
-        return { restricted: true, reason: `Signed ${p.sigDate} — within 6-month trade restriction window (expires ${sixMonths.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})})` };
-      }
-    }
-  }
-  return { restricted: false };
-}
-
-// --- Recalculate eligibility for one player (called on option decisions) ---
-function recalcExtElig(playerName) {
-  const p = allPlayers.find(pl => pl.name === playerName);
-  if (p) p.ext = calcExtEligRM(p);
-}
-
-// --- Salary Breakdown Calculator ---
 function calcExtension(maxPct, years, customStartSalary) {
+  // Starting salary = cap × maxPct (or custom if user adjusts)
   const maxStarting = Math.round(EXT_CAP * (maxPct / 100));
   const startSalary = customStartSalary || maxStarting;
   const breakdown = [];
   let total = 0;
   for (let y = 0; y < years; y++) {
+    // 8% raise each year from starting salary (not compounding from prior year in NBA extensions)
+    // Actually NBA extensions use 8% of year-1 salary as the raise amount each year
     const raise = Math.round(startSalary * EXT_RAISE_PCT);
     const sal = startSalary + (raise * y);
     breakdown.push({ year: y + 1, salary: sal });
@@ -2224,24 +1652,21 @@ function calcExtension(maxPct, years, customStartSalary) {
   return { startSalary, maxStarting, breakdown, total };
 }
 
-// --- Extension Modal ---
 function openExtModal(playerName) {
   const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
-  if (!p) return;
+  if (!p || !p.extEligible) return;
 
-  const ext = p.ext;
-  if (!ext || (ext.status !== 'eligible' && ext.status !== 'conditional')) return;
-
-  const type = ext.type || 'VET';
-  const maxPct = ext.maxPct || 25;
-  const maxYears = ext.maxYears || 4;
-  const tradeCheck = checkTradeRestriction(p);
+  const ext = parseExtCode(p.extEligible);
+  if (!ext) { alert('Invalid extension code: ' + p.extEligible); return; }
 
   document.getElementById('extModalTitle').textContent = `Extend ${playerName}`;
   const modal = document.getElementById('extModalBody');
 
-  const maxStarting = Math.round(EXT_CAP * (maxPct / 100));
-  const extStartYear = p.end > 0 ? p.end + 1 : (parseInt(p.contractEnd) > 0 ? parseInt(p.contractEnd) + 1 : 2027);
+  const maxStarting = Math.round(EXT_CAP * (ext.maxPct / 100));
+  const initCalc = calcExtension(ext.maxPct, ext.maxYears);
+
+  // Determine extension start year
+  const extStartYear = p.end > 0 ? p.end + 1 : 2027;
 
   let h = '';
 
@@ -2250,33 +1675,16 @@ function openExtModal(playerName) {
   if (p.headshot) h += `<img src="${p.headshot}" alt="">`;
   h += `<div>`;
   h += `<div class="name">${p.name}`;
-  h += `<span class="ext-type-badge ${type.toLowerCase()}">${type === 'RSE' ? 'Rookie Scale' : 'Veteran'}</span>`;
-  if (ext.isDRE) h += `<span class="ext-type-badge rse" style="background:rgba(255,214,0,.15);color:#ffd600">Designated</span>`;
-  if (ext.dvInfo) h += `<span class="ext-dv-badge">${ext.dvInfo}</span>`;
+  h += `<span class="ext-type-badge ${ext.type.toLowerCase()}">${ext.type === 'RSE' ? 'Rookie Scale' : 'Veteran'}</span>`;
   h += `</div>`;
-  h += `<div class="meta">${p.pos || ''} · Age ${p.age || '?'} · ${p.yos || '?'} YOS · Current: ${fmtMoney(p.sal27 || p.sal26)}/yr · Thru ${p.end || p.contractEnd || '—'}</div>`;
+  h += `<div class="meta">${p.pos || ''} · ${p.age || ''} · Current: ${fmtMoney(p.sal27 || p.sal26)}/yr · Under contract thru ${p.end || '—'}</div>`;
   h += `</div></div>`;
-
-  // Eligibility info box
-  h += `<div class="ext-modal-elig">`;
-  h += `<div class="elig-status ${ext.status}">✅ ${ext.detail}</div>`;
-  if (maxPct) h += `<div>Max starting salary: <strong>${maxPct}% of cap</strong> = <strong>${fmtMoneyFull(maxStarting)}</strong></div>`;
-  h += `</div>`;
-
-  // Trade restriction warning
-  if (tradeCheck.restricted) {
-    h += `<div class="ext-trade-warn">⚠️ ${tradeCheck.reason}</div>`;
-  }
-
-  // Option-conditional note
-  if (ext.status === 'conditional') {
-    h += `<div class="ext-option-note">🔀 ${ext.detail}</div>`;
-  }
 
   // Extension config
   h += `<div class="ext-config">`;
 
-  h += `<div class="ext-note">📊 Max: <strong>${maxPct}%</strong> = <strong>${fmtMoneyFull(maxStarting)}</strong> · 8% annual raises · Up to ${maxYears} years</div>`;
+  // Max % info
+  h += `<div class="ext-note">📊 Max starting salary: <strong>${ext.maxPct}% of cap</strong> = <strong>${fmtMoneyFull(maxStarting)}</strong> · 8% annual raises · Up to ${ext.maxYears} years</div>`;
 
   // Starting salary
   h += `<label>Starting Salary (Year 1)</label>`;
@@ -2292,8 +1700,8 @@ function openExtModal(playerName) {
   h += `<label style="margin-top:.5rem">Extension Length</label>`;
   h += `<div class="row">`;
   h += `<select id="extYears" onchange="updateExtPreview()">`;
-  for (let y = 1; y <= maxYears; y++) {
-    h += `<option value="${y}" ${y === maxYears ? 'selected' : ''}>${y} year${y > 1 ? 's' : ''} (thru ${extStartYear + y - 1})</option>`;
+  for (let y = 1; y <= ext.maxYears; y++) {
+    h += `<option value="${y}" ${y === ext.maxYears ? 'selected' : ''}>${y} year${y > 1 ? 's' : ''} (thru ${extStartYear + y - 1})</option>`;
   }
   h += `</select>`;
   h += `</div>`;
@@ -2302,7 +1710,7 @@ function openExtModal(playerName) {
   // Breakdown placeholder
   h += `<div class="ext-breakdown" id="extBreakdown"></div>`;
 
-  // Cap impact note
+  // Note about cap impact
   if (extStartYear > 2027) {
     h += `<div class="ext-note">ℹ️ Extension starts in ${extStartYear}-${String(extStartYear + 1).slice(2)}, after current contract. No impact on 2026-27 cap.</div>`;
   } else {
@@ -2316,9 +1724,11 @@ function openExtModal(playerName) {
   modal.innerHTML = h;
 
   // Store context
-  window._extContext = { playerName, type, maxPct, maxYears, extStartYear, maxStarting };
+  window._extContext = { playerName, ext, extStartYear, maxStarting };
 
   document.getElementById('extOverlay').style.display = 'flex';
+
+  // Initial breakdown
   updateExtPreview();
 }
 
@@ -2341,12 +1751,13 @@ function updateExtPreview() {
   if (!ctx) return;
 
   const startSalary = parseInt(document.getElementById('extSalRange').value) || ctx.maxStarting;
-  const years = parseInt(document.getElementById('extYears').value) || ctx.maxYears;
+  const years = parseInt(document.getElementById('extYears').value) || ctx.ext.maxYears;
 
+  // Sync input field
   document.getElementById('extSalInput').value = startSalary;
   document.getElementById('extSalDisplay').textContent = fmtMoneyFull(startSalary);
 
-  const calc = calcExtension(ctx.maxPct, years, startSalary);
+  const calc = calcExtension(ctx.ext.maxPct, years, startSalary);
 
   let h = `<h4>📋 Year-by-Year Breakdown</h4>`;
   for (const yr of calc.breakdown) {
@@ -2370,14 +1781,14 @@ function confirmExtension() {
   if (!ctx) return;
 
   const startSalary = parseInt(document.getElementById('extSalRange').value) || ctx.maxStarting;
-  const years = parseInt(document.getElementById('extYears').value) || ctx.maxYears;
-  const calc = calcExtension(ctx.maxPct, years, startSalary);
+  const years = parseInt(document.getElementById('extYears').value) || ctx.ext.maxYears;
+  const calc = calcExtension(ctx.ext.maxPct, years, startSalary);
   const endYear = ctx.extStartYear + years - 1;
 
   const extension = {
     name: ctx.playerName,
-    type: ctx.type,
-    maxPct: ctx.maxPct,
+    type: ctx.ext.type,
+    maxPct: ctx.ext.maxPct,
     startSalary,
     years,
     endYear,
@@ -2392,7 +1803,7 @@ function confirmExtension() {
   STATE.moves.push({
     action: 'Extended',
     detail: `${ctx.playerName} — ${years}yr / ${fmtMoney(calc.total)} (${fmtMoney(startSalary)}/yr starting, thru ${endYear})`,
-    undo: { type: 'extension', name: ctx.playerName }
+    undo: { type: 'extension' }
   });
 
   saveState();
@@ -2401,253 +1812,97 @@ function confirmExtension() {
 }
 
 // ======================== FREE AGENCY SIGNING ========================
-function getBirdRightsMax(p) {
-  // Returns max salary available via Bird Rights for a given free agent
-  const exc = (p.exception || '').toLowerCase();
-  const sal = p.sal26 || MIN_SALARY_0YOS;
-  const yos = p.yos || 0;
-
-  if (exc.includes('bird') && !exc.includes('early') && !exc.includes('non')) {
-    // Full Bird: up to individual max (25/30/35% of cap based on YOS)
-    const pct = yos >= 10 ? 0.35 : yos >= 7 ? 0.30 : 0.25;
-    return Math.round(T.cap * pct);
-  } else if (exc.includes('early bird') || exc.includes('early')) {
-    // Early Bird: greater of 175% of prior salary or avg salary
-    return Math.max(Math.round(sal * 1.75), EST_AVG_SALARY);
-  } else if (exc.includes('non-bird') || exc.includes('non bird')) {
-    // Non-Bird: 120% of prior salary or 120% of minimum
-    return Math.max(Math.round(sal * 1.20), Math.round(MIN_SALARY_0YOS * 1.20));
-  } else if (exc.includes('rookie')) {
-    // Rookie scale RFA: up to max
-    return Math.round(T.cap * 0.25);
-  }
-  return 0; // No Bird Rights
-}
-
-function buildFAList(isOwn) {
-  // Build a list of available FAs (own team or all teams)
-  const cap = calcCapSheet(STATE.team);
-  const teamAbbrev = TEAMS[STATE.team];
-  const signedNames = new Set((STATE.signings || []).map(s => s.name));
-  const list = [];
-
-  if (isOwn) {
-    // Own FAs from cap sheet
-    for (const p of cap.roster.free_agent) {
-      if (p.status === 'renounced' || signedNames.has(p.name)) continue;
-      const tv = tradeValueMap[normName(p.name)];
-      list.push({ name: p.name, pos: p.pos || '', sal26: p.sal26 || 0, capHold: p.capHold,
-        exception: p.exception || '', isRFA: p.isRFA, qualifyingOffer: p.qualifyingOffer || 0,
-        twoWay: p.twoWay, fromOption: p.fromOption,
-        tv: tv ? tv.tv : 0, rank: tv ? tv.rank : 999, headshot: p.headshot,
-        birdMax: getBirdRightsMax(p), own: true });
-    }
-  } else {
-    // All league FAs (other teams)
-    for (const p of allPlayers) {
-      if (p.team === STATE.team) continue;
-      if (signedNames.has(p.name)) continue;
-      if (p.category !== 'free_agent') continue;
-      const tv = tradeValueMap[normName(p.name)];
-      list.push({ name: p.name, pos: p.pos || '', sal26: p.sal26 || 0,
-        team: TEAMS[p.team] || p.team, exception: p.exception || '',
-        tv: tv ? tv.tv : 0, rank: tv ? tv.rank : 999, headshot: p.headshot, own: false });
-    }
-  }
-
-  // Also include drafted second-round picks (after draft phase)
-  if (!isOwn && (STATE.phase === 'free_agency' || STATE.phase === 'training_camp')) {
-    const picks = teamDraftPicks[teamAbbrev] || [];
-    for (const pick of picks) {
-      if (pick.round !== 2) continue;
-      const prospect = (STATE.draftSelections && STATE.draftSelections[pick.draftRnk]) || pick.prospect;
-      if (signedNames.has(prospect)) continue;
-      list.push({ name: prospect, pos: '', sal26: 0, team: 'Draft',
-        exception: '', tv: 0, rank: 999, headshot: '', own: false,
-        isDraftPick: true, draftRnk: pick.draftRnk, round: 2 });
-    }
-  }
-
-  list.sort((a, b) => (b.tv || 0) - (a.tv || 0));
-  return list;
-}
-
 function openSignModal(faName, isResign) {
   const modal = document.getElementById('signModalBody');
+  document.getElementById('signModalTitle').textContent = isResign ? `Re-sign ${faName}` : 'Sign Free Agent';
+
   const cap = calcCapSheet(STATE.team);
+  let h = '';
 
-  if (faName && isResign) {
-    // === RE-SIGN OWN FREE AGENT ===
-    document.getElementById('signModalTitle').textContent = `Re-sign ${faName}`;
-    const p = allPlayers.find(p => p.name === faName);
-    const fa = cap.roster.free_agent.find(f => f.name === faName);
-    const birdMax = fa ? getBirdRightsMax(fa) : 0;
-    const excType = (p?.exception || '').trim();
-
-    let h = `<div style="padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.75rem">`;
+  if (!faName) {
+    // Show search for FA
+    h += `<div style="margin-bottom:.75rem">`;
+    h += `<input id="signSearchInput" class="trade-input" style="width:100%" placeholder="Type player name..." oninput="filterSignOptions(this.value)">`;
+    h += `</div>`;
+    h += `<div id="signSearchResults" style="max-height:150px;overflow-y:auto;margin-bottom:.75rem"></div>`;
+    h += `<div id="signExcSection" style="display:none">`;
+  } else {
+    h += `<div style="padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.75rem">`;
     h += `<span style="font-weight:600">${faName}</span>`;
+    const p = allPlayers.find(p => p.name === faName);
     if (p) h += ` · ${p.pos || ''} · was ${fmtMoney(p.sal26)} in 25-26`;
-    if (excType) h += ` · <span style="color:var(--accent)">${excType}</span>`;
-    if (fa?.isRFA) h += ` · <span style="color:var(--accent);font-weight:600">RFA</span> (QO: ${fmtMoney(fa.qualifyingOffer || 0)})`;
     h += `</div>`;
     h += `<input type="hidden" id="signPlayerName" value="${faName}">`;
-
-    // Exception options: Bird Rights first if available, then standard exceptions
     h += `<div id="signExcSection">`;
-    h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
-
-    if (birdMax > 0) {
-      const birdLabel = excType.includes('Early') ? 'Early Bird Rights' : excType.includes('Non') ? 'Non-Bird Rights' : excType.includes('Rookie') ? 'Rookie Scale (RFA)' : 'Full Bird Rights';
-      h += `<div class="sign-exc-option" onclick="selectSignException('${esc(birdLabel)}', ${birdMax})">`;
-      h += `<div class="exc-name" style="color:var(--accent);font-weight:700">🦅 ${birdLabel}</div>`;
-      h += `<div class="exc-detail">Up to ${fmtMoney(birdMax)} · Signs over the cap</div>`;
-      h += `</div>`;
-    }
-    if (fa?.isRFA) {
-      h += `<div class="sign-exc-option" onclick="selectSignException('Qualifying Offer', ${fa.qualifyingOffer})">`;
-      h += `<div class="exc-name">📋 Qualifying Offer</div>`;
-      h += `<div class="exc-detail">1-year at ${fmtMoney(fa.qualifyingOffer)}</div>`;
-      h += `</div>`;
-    }
-    for (const exc of cap.exceptions) {
-      const cls = exc.available ? '' : 'unavailable';
-      h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
-      h += `<div class="exc-name">${exc.name}</div>`;
-      h += `<div class="exc-detail">${exc.available ? 'Up to ' + fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount) : 'Not available'}</div>`;
-      h += `</div>`;
-    }
-    h += `</div>`;
-    h += `<div id="signSalarySection" style="display:none">`;
-    h += `<div class="sign-salary-input"><label>Salary:</label><input id="signSalaryInput" class="trade-input" type="number" placeholder="Annual salary" style="flex:1"></div>`;
-    h += `<div class="sign-salary-input"><label>Years:</label><input id="signYearsInput" class="trade-input" type="number" placeholder="Contract length" value="1" min="1" max="5" style="flex:1"></div>`;
-    h += `<button class="trade-confirm-btn" onclick="confirmSigning()">✅ Sign Player</button>`;
-    h += `</div>`;
-    h += `<button class="waive-cancel" onclick="closeSignModal()">Cancel</button>`;
-    modal.innerHTML = h;
-
-  } else {
-    // === SIGN EXTERNAL FA / DRAFT PICK ===
-    document.getElementById('signModalTitle').textContent = 'Sign Free Agent';
-    const ownFAs = buildFAList(true);
-    const leagueFAs = buildFAList(false);
-
-    let h = `<div style="margin-bottom:.5rem">`;
-    h += `<div style="display:flex;gap:.3rem;margin-bottom:.5rem">`;
-    h += `<button class="action-btn pickup" style="font-size:.65rem;padding:.25rem .5rem" id="signTabOwn" onclick="switchSignTab('own')">Own FAs (${ownFAs.length})</button>`;
-    h += `<button class="action-btn trade" style="font-size:.65rem;padding:.25rem .5rem" id="signTabLeague" onclick="switchSignTab('league')">All FAs (${leagueFAs.length})</button>`;
-    h += `</div>`;
-    h += `<input id="signSearchInput" class="trade-input" style="width:100%;margin-bottom:.3rem" placeholder="Filter players..." oninput="filterSignList(this.value)">`;
-    h += `</div>`;
-
-    // Own FAs list
-    h += `<div id="signListOwn" style="max-height:250px;overflow-y:auto;margin-bottom:.5rem">`;
-    h += renderFAList(ownFAs, true);
-    h += `</div>`;
-
-    // League FAs list (hidden initially)
-    h += `<div id="signListLeague" style="max-height:250px;overflow-y:auto;margin-bottom:.5rem;display:none">`;
-    h += renderFAList(leagueFAs, false);
-    h += `</div>`;
-
-    h += `<div id="signExcSection" style="display:none">`;
-    h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
-    for (const exc of cap.exceptions) {
-      const cls = exc.available ? '' : 'unavailable';
-      h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
-      h += `<div class="exc-name">${exc.name}</div>`;
-      h += `<div class="exc-detail">${exc.available ? 'Up to ' + fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount) : 'Not available'}</div>`;
-      h += `</div>`;
-    }
-    h += `</div>`;
-    h += `<div id="signSalarySection" style="display:none">`;
-    h += `<div class="sign-salary-input"><label>Salary:</label><input id="signSalaryInput" class="trade-input" type="number" placeholder="Annual salary" style="flex:1"></div>`;
-    h += `<div class="sign-salary-input"><label>Years:</label><input id="signYearsInput" class="trade-input" type="number" placeholder="Contract length" value="1" min="1" max="5" style="flex:1"></div>`;
-    h += `<div class="sign-salary-input"><label style="white-space:nowrap">Two-Way?</label><input id="signTwoWayCheck" type="checkbox" style="width:auto"> <span style="font-size:.6rem;color:var(--muted)">Two-way contract (no cap hit)</span></div>`;
-    h += `<button class="trade-confirm-btn" onclick="confirmSigning()">✅ Sign Player</button>`;
-    h += `</div>`;
-    h += `<button class="waive-cancel" onclick="closeSignModal()">Cancel</button>`;
-    modal.innerHTML = h;
-    window._signFAData = { own: ownFAs, league: leagueFAs };
   }
 
+  // Exception options
+  h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
+  for (const exc of cap.exceptions) {
+    const cls = exc.available ? '' : 'unavailable';
+    h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.amount})"` : ''}>`;
+    h += `<div class="exc-name">${exc.name}</div>`;
+    h += `<div class="exc-detail">${exc.available ? 'Up to ' + fmtMoney(exc.amount) : 'Not available'}</div>`;
+    h += `</div>`;
+  }
+
+  if (!faName) h += `</div>`; // close signExcSection
+  h += `<div id="signSalarySection" style="display:none">`;
+  h += `<div class="sign-salary-input">`;
+  h += `<label>Salary:</label>`;
+  h += `<input id="signSalaryInput" class="trade-input" type="number" placeholder="Annual salary" style="flex:1">`;
+  h += `</div>`;
+  h += `<div class="sign-salary-input">`;
+  h += `<label>Years:</label>`;
+  h += `<input id="signYearsInput" class="trade-input" type="number" placeholder="Contract length" value="1" min="1" max="5" style="flex:1">`;
+  h += `</div>`;
+  h += `<button class="trade-confirm-btn" onclick="confirmSigning()">✅ Sign Player</button>`;
+  h += `</div>`;
+  h += `<button class="waive-cancel" onclick="closeSignModal()">Cancel</button>`;
+
+  modal.innerHTML = h;
   document.getElementById('signOverlay').style.display = 'flex';
   window._signContext = { exception: null, maxAmount: 0 };
 }
 
-function renderFAList(players, isOwn) {
-  if (!players.length) return `<div style="font-size:.7rem;color:var(--muted);padding:.5rem;text-align:center">No free agents available</div>`;
-  let h = '';
-  for (const p of players) {
-    const tvStr = p.tv > 0 ? fmtMoney(p.tv) : '—';
-    const rankStr = p.rank < 999 ? `#${p.rank}` : '';
-    h += `<div class="draft-pick-option fa-list-item" data-name="${esc(p.name.toLowerCase())}" onclick="${isOwn ? `closeSignModal();openSignModal('${esc(p.name)}', true)` : `selectSignPlayer('${esc(p.name)}')`}">`;
-    h += `<div style="display:flex;align-items:center;gap:.4rem;flex:1;min-width:0">`;
-    if (p.headshot) {
-      h += `<img src="${p.headshot}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">`;
-    }
-    h += `<div style="min-width:0">`;
-    h += `<div style="font-weight:600;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}`;
-    if (p.isRFA) h += ` <span style="color:var(--accent);font-size:.55rem">RFA</span>`;
-    if (p.twoWay) h += ` <span style="color:var(--muted);font-size:.55rem">2W</span>`;
-    if (p.isDraftPick) h += ` <span style="color:var(--orange);font-size:.55rem">#${p.draftRnk} Pick</span>`;
-    h += `</div>`;
-    h += `<div style="font-size:.55rem;color:var(--muted)">${p.pos || ''}${isOwn ? '' : ' · ' + (p.team || '')}${p.sal26 ? ' · ' + fmtMoney(p.sal26) : ''}</div>`;
-    h += `</div></div>`;
-    h += `<div style="text-align:right;flex-shrink:0">`;
-    h += `<div style="font-size:.65rem;font-weight:600;color:var(--green)">${tvStr}</div>`;
-    if (rankStr) h += `<div style="font-size:.5rem;color:var(--muted)">${rankStr}</div>`;
-    h += `</div>`;
-    h += `</div>`;
-  }
-  return h;
-}
-
-function switchSignTab(tab) {
-  const ownList = document.getElementById('signListOwn');
-  const leagueList = document.getElementById('signListLeague');
-  const ownBtn = document.getElementById('signTabOwn');
-  const leagueBtn = document.getElementById('signTabLeague');
-  if (tab === 'own') {
-    ownList.style.display = ''; leagueList.style.display = 'none';
-    ownBtn.style.opacity = '1'; leagueBtn.style.opacity = '.5';
-  } else {
-    ownList.style.display = 'none'; leagueList.style.display = '';
-    ownBtn.style.opacity = '.5'; leagueBtn.style.opacity = '1';
-  }
-  document.getElementById('signSearchInput').value = '';
-  filterSignList('');
-}
-
-function filterSignList(query) {
-  const q = query.toLowerCase();
-  document.querySelectorAll('.fa-list-item').forEach(el => {
-    el.style.display = !q || el.dataset.name.includes(q) ? '' : 'none';
-  });
-}
-
 function closeSignModal() {
   document.getElementById('signOverlay').style.display = 'none';
-  window._signFAData = null;
+}
+
+function filterSignOptions(query) {
+  const results = document.getElementById('signSearchResults');
+  if (!query || query.length < 2) { results.innerHTML = ''; return; }
+  const q = query.toLowerCase();
+  // Search all FAs across the league (players whose contract ends in 25-26 / no sal27)
+  const fas = allPlayers.filter(p =>
+    p.name.toLowerCase().includes(q) &&
+    (p.category === 'free_agent' || !p.sal27) &&
+    p.team !== STATE.team
+  ).slice(0, 15);
+
+  let h = '';
+  for (const p of fas) {
+    h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(p.name)}')">`;
+    h += `<span class="name">${p.name}</span>`;
+    h += `<span class="assigned">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoney(p.sal26)}</span>`;
+    h += `</div>`;
+  }
+  if (!fas.length) h = `<div style="font-size:.7rem;color:var(--muted);padding:.5rem;text-align:center">No matching free agents</div>`;
+  results.innerHTML = h;
 }
 
 function selectSignPlayer(name) {
-  // For external FAs: select and show exception picker
+  document.getElementById('signSearchResults').innerHTML = `<div style="padding:.4rem;background:var(--surface);border-radius:4px;font-size:.75rem"><strong>${name}</strong> selected</div>`;
+  // Create hidden input
   let inp = document.getElementById('signPlayerName');
   if (!inp) {
-    inp = document.createElement('input'); inp.type = 'hidden'; inp.id = 'signPlayerName';
+    inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.id = 'signPlayerName';
     document.getElementById('signModalBody').appendChild(inp);
   }
   inp.value = name;
-  // Highlight selection
-  document.querySelectorAll('.fa-list-item').forEach(el => el.style.background = '');
-  event.currentTarget.style.background = 'rgba(102,126,234,.15)';
   document.getElementById('signExcSection').style.display = '';
-
-  // For drafted picks, pre-fill minimum
-  const isDraft = window._signFAData?.league?.find(p => p.name === name && p.isDraftPick);
-  if (isDraft) {
-    selectSignException('Minimum', MIN_SALARY_0YOS);
-  }
 }
 
 function selectSignException(excName, maxAmount) {
@@ -2655,12 +1910,9 @@ function selectSignException(excName, maxAmount) {
   document.getElementById('signSalarySection').style.display = '';
   document.getElementById('signSalaryInput').max = maxAmount;
   document.getElementById('signSalaryInput').placeholder = `Up to ${fmtMoney(maxAmount)}`;
-  // Pre-fill for certain exceptions
+  // For minimum exception, pre-fill
   if (excName === 'Minimum') {
     document.getElementById('signSalaryInput').value = MIN_SALARY_0YOS;
-  } else if (excName === 'Qualifying Offer') {
-    document.getElementById('signSalaryInput').value = maxAmount;
-    document.getElementById('signYearsInput').value = 1;
   }
 }
 
@@ -2670,9 +1922,8 @@ function confirmSigning() {
   const name = nameEl.value;
   const salary = parseInt(document.getElementById('signSalaryInput').value) || 0;
   const years = parseInt(document.getElementById('signYearsInput').value) || 1;
-  const isTwoWay = document.getElementById('signTwoWayCheck')?.checked || false;
-  if (!salary && !isTwoWay) { alert('Enter a salary amount'); return; }
-  if (window._signContext.maxAmount && salary > window._signContext.maxAmount && !isTwoWay) {
+  if (!salary) { alert('Enter a salary amount'); return; }
+  if (window._signContext.maxAmount && salary > window._signContext.maxAmount) {
     alert(`Salary exceeds ${window._signContext.exception} limit of ${fmtMoney(window._signContext.maxAmount)}`);
     return;
   }
@@ -2680,21 +1931,24 @@ function confirmSigning() {
   const p = allPlayers.find(p => p.name === name);
   const signing = {
     name,
-    salary: isTwoWay ? 0 : salary,
+    salary,
     years,
-    exception: isTwoWay ? 'Two-Way' : (window._signContext.exception || 'FA'),
+    exception: window._signContext.exception || 'FA',
     pos: p?.pos || '',
     headshot: p?.headshot || '',
-    end: 2027 + years - 1,
-    isTwoWay
+    end: 2027 + years - 1
   };
   STATE.signings.push(signing);
 
-  const excLabel = isTwoWay ? 'Two-Way' : (window._signContext.exception || 'FA');
+  // Remove cap hold if this was an own FA
+  if (STATE.renounced.has(name)) {
+    // Already renounced, no hold to remove
+  }
+
   STATE.moves.push({
     action: 'Signed',
-    detail: `${name} for ${isTwoWay ? 'two-way' : fmtMoney(salary) + '/yr × ' + years + 'yr'} via ${excLabel}`,
-    undo: { type: 'signing', name }
+    detail: `${name} for ${fmtMoney(salary)}/yr × ${years}yr via ${window._signContext.exception || 'FA'}`,
+    undo: { type: 'signing' }
   });
   saveState();
   closeSignModal();
@@ -2803,47 +2057,19 @@ async function init() {
   document.getElementById('loadingState').style.display = 'block';
   renderTeamGrid();
 
-  const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContractsData(), fetchTradeValues()]);
+  const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContracts()]);
   if (!csv) {
     document.getElementById('loadingState').innerHTML = '<p style="color:var(--red)">Failed to load data. Try refreshing.</p>';
     return;
   }
 
   allPlayers = parseAllPlayers(csv);
-
-  // Enrich players with contracts data for extension eligibility
-  enrichPlayersWithContracts();
-
   document.getElementById('loadingState').style.display = 'none';
   renderTeamGrid(); // re-render with logos
 
   // Check if team was previously selected
   const lastTeam = localStorage.getItem('rm_last_team');
   if (lastTeam && TEAMS[lastTeam]) selectTeam(lastTeam);
-}
-
-function enrichPlayersWithContracts() {
-  let matched = 0;
-  allPlayers.forEach(p => {
-    const cd = contractsMap[normName(p.name)];
-    if (cd) {
-      p.sigDate = cd.sigDate;
-      p.sigTeam = cd.sigTeam;
-      p.contractNotes = cd.notes;
-      p.yos = cd.yos;
-      p.draftYear = cd.draftYear;
-      p.contractYrs = cd.yrs; // [{sal, ch, st}] for each year 25-26 through 30-31
-      p.contractEnd = cd.end; // string end year from contracts sheet
-      p.dvEligible = cd.dvEligible;
-      p.dvAwards = cd.dvAwards;
-      p.allAwards = cd.allAwards;
-      p.exc_contract = cd.exc; // exception from contracts sheet
-      matched++;
-    }
-    // Compute extension eligibility (will be recomputed on option decisions)
-    p.ext = calcExtEligRM(p);
-  });
-  console.log(`[EXT] Enriched ${matched}/${allPlayers.length} players with contracts data`);
 }
 
 // Override selectTeam to also save last team
