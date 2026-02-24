@@ -239,7 +239,17 @@ a{color:var(--accent);text-decoration:none}
 @keyframes pickPulse{0%{box-shadow:0 0 0 0 rgba(102,126,234,.5)}70%{box-shadow:0 0 0 12px rgba(102,126,234,0)}100%{box-shadow:0 0 0 0 rgba(102,126,234,0)}}
 .your-pick-box{animation:pickPulse 1.5s ease-out 2}
 
-/* Trade modal */
+/* Trade Machine iframe overlay */
+.tm-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:250;background:rgba(0,0,0,.85);display:flex;flex-direction:column;backdrop-filter:blur(4px)}
+.tm-bar{display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
+.tm-bar h3{flex:1;font-size:.8rem;font-weight:600;color:var(--cyan)}
+.tm-bar .tm-close{background:none;border:1px solid var(--border);color:var(--text);font-size:.75rem;padding:.3rem .8rem;border-radius:6px;cursor:pointer;transition:all .15s}
+.tm-bar .tm-close:hover{border-color:var(--red);color:var(--red)}
+.tm-bar .tm-external{background:none;border:1px solid var(--border);color:var(--muted);font-size:.65rem;padding:.3rem .6rem;border-radius:6px;cursor:pointer;text-decoration:none;transition:all .15s}
+.tm-bar .tm-external:hover{border-color:var(--accent);color:var(--accent)}
+.tm-iframe{flex:1;border:none;width:100%;background:var(--bg)}
+
+/* Trade modal (legacy — keep for manual record) */
 .trade-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
 .trade-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:520px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
 .trade-modal-hdr{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
@@ -374,6 +384,17 @@ a{color:var(--accent);text-decoration:none}
 
 <!-- Extension Modal -->
 <div id="extOverlay" class="ext-overlay" style="display:none" onclick="if(event.target===this)closeExtModal()">
+
+<!-- Trade Machine Iframe Overlay -->
+<div id="tmOverlay" class="tm-overlay" style="display:none">
+  <div class="tm-bar">
+    <span style="font-size:1rem">🔄</span>
+    <h3>Trade Machine</h3>
+    <a id="tmExternalLink" class="tm-external" href="#" target="_blank">Open in new tab ↗</a>
+    <button class="tm-close" onclick="closeTradeMachine()">✕ Close</button>
+  </div>
+  <iframe id="tmIframe" class="tm-iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+</div>
   <div class="ext-modal">
     <div class="ext-modal-hdr">
       <span style="font-size:1.1rem">📝</span>
@@ -1701,7 +1722,7 @@ function renderRoster(cap) {
   // Action bar
   h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">`;
   if (phase !== 'training_camp') {
-    h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Open Trade Machine</button>`;
+    h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Trade Machine</button>`;
   }
   if (phase === 'free_agency') {
     h += `<button class="action-btn pickup" style="font-size:.7rem;padding:.35rem .75rem" onclick="openSignModal()">✍️ Sign Free Agent</button>`;
@@ -2206,24 +2227,37 @@ function openTradeModal(playerName) {
     tmUrl += `&p=${encodeURIComponent(pParam)}&pd=0-`;
   }
   
-  // Open Trade Machine in popup (desktop) or new tab (mobile)
-  const isMobile = window.innerWidth < 768;
-  if (isMobile) {
-    window.open(tmUrl, '_blank');
-  } else {
-    const w = Math.min(1400, screen.width - 100);
-    const h = Math.min(900, screen.height - 100);
-    const left = (screen.width - w) / 2;
-    const top = (screen.height - h) / 2;
-    window.open(tmUrl, 'TradeMachine', `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`);
-  }
+  // Show iframe overlay
+  const overlay = document.getElementById('tmOverlay');
+  const iframe = document.getElementById('tmIframe');
+  const extLink = document.getElementById('tmExternalLink');
+  
+  extLink.href = tmUrl;
+  iframe.src = tmUrl;
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
 }
+
+function closeTradeMachine() {
+  const overlay = document.getElementById('tmOverlay');
+  const iframe = document.getElementById('tmIframe');
+  overlay.style.display = 'none';
+  iframe.src = 'about:blank';
+  document.body.style.overflow = '';
+}
+
+// Escape key closes Trade Machine overlay
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('tmOverlay').style.display !== 'none') {
+    closeTradeMachine();
+  }
+});
 
 function closeTradeModal() {
-  // No-op — popup closes itself
+  closeTradeMachine();
 }
 
-// Listen for trade data from Trade Machine popup
+// Listen for trade data from Trade Machine iframe
 window.addEventListener('message', function(event) {
   if (!event.data || event.data.type !== 'ROSTER_MANAGER_TRADE') return;
   if (!STATE) return;
@@ -2255,6 +2289,10 @@ window.addEventListener('message', function(event) {
   });
   
   saveState();
+  
+  // Close the Trade Machine iframe overlay
+  closeTradeMachine();
+  
   render();
   
   console.log('[RM] Trade received from Trade Machine:', trade);
