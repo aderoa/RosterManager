@@ -290,7 +290,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.6</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.7</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
@@ -922,6 +922,17 @@ function calcCapSheet(team) {
 
   // === SIGNINGS (Free Agency) ===
   for (const sig of (STATE.signings || [])) {
+    if (STATE.waived.has(sig.name)) {
+      // Waived after signing — full salary as dead money
+      const dead = sig.salary;
+      deadMoney += dead;
+      roster.waived.push({
+        name: sig.name, sal27: sig.salary, sal26: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
+        exception: sig.exception, st27: 'GUARANTEED', status: 'waived',
+        deadAmount: dead, isStretched: false, tv: tradeValueMap[sig.name.toLowerCase()] || 0
+      });
+      continue;
+    }
     activeSalaries += sig.salary;
     rosterCount++;
     roster.signed.push({
@@ -1181,11 +1192,11 @@ function dcActions(p) {
     return h;
   }
   // Waive (not for two-way, not during draft)
-  if (!p._twoWay && !p._signed && phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in')) {
+  if (!p._twoWay && phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'signed')) {
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();openWaiveModal('${esc(p.name)}')">Waive</button>`;
   }
   // Trade
-  if (!p._twoWay && !p._signed && phase !== 'training_camp' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in')) {
+  if (!p._twoWay && phase !== 'training_camp' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in')) {
     h += `<button class="dc-btn trade" onclick="event.stopPropagation();openTradeModal('${esc(p.name)}')">Trade</button>`;
   }
   // Extend
@@ -2026,22 +2037,35 @@ function closeSignModal() {
   document.getElementById('signOverlay').style.display = 'none';
 }
 
+function isProjectedFA(p) {
+  // Already a free agent (expiring contract)
+  if (p.category === 'free_agent' || !p.sal27) return true;
+  // Team option: team declines if player's trade value < their salary
+  if (p.category === 'team_option' && (p.tv || 0) < (p.sal27 || 0)) return true;
+  // Player option: player declines if trade value > salary (they'd get more on open market)
+  if (p.category === 'player_option' && (p.tv || 0) > (p.sal27 || 0)) return true;
+  return false;
+}
+
 function filterSignOptions(query) {
   const results = document.getElementById('signSearchResults');
   if (!query || query.length < 2) { results.innerHTML = ''; return; }
   const q = query.toLowerCase();
-  // Search all FAs across the league (players whose contract ends in 25-26 / no sal27)
+  // Search all projected FAs across the league
   const fas = allPlayers.filter(p =>
     p.name.toLowerCase().includes(q) &&
-    (p.category === 'free_agent' || !p.sal27) &&
+    isProjectedFA(p) &&
     p.team !== STATE.team
   ).slice(0, 15);
 
   let h = '';
   for (const p of fas) {
+    let reason = 'expiring';
+    if (p.category === 'team_option') reason = 'TO decline proj.';
+    else if (p.category === 'player_option') reason = 'PO decline proj.';
     h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(p.name)}')">`;
     h += `<span class="name">${p.name}</span>`;
-    h += `<span class="assigned">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoney(p.sal26)}</span>`;
+    h += `<span class="assigned">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoney(p.sal26)} · ${reason}</span>`;
     h += `</div>`;
   }
   if (!fas.length) h = `<div style="font-size:.7rem;color:var(--muted);padding:.5rem;text-align:center">No matching free agents</div>`;
@@ -2067,10 +2091,8 @@ function selectSignException(excName, maxAmount) {
   document.getElementById('signSalarySection').style.display = '';
   document.getElementById('signSalaryInput').max = maxAmount;
   document.getElementById('signSalaryInput').placeholder = `Up to ${fmtMoney(maxAmount)}`;
-  // For minimum exception, pre-fill
-  if (excName === 'Minimum') {
-    document.getElementById('signSalaryInput').value = MIN_SALARY_0YOS;
-  }
+  // Pre-fill with full exception amount (user can lower it)
+  document.getElementById('signSalaryInput').value = excName === 'Minimum' ? MIN_SALARY_0YOS : maxAmount;
 }
 
 function confirmSigning() {
