@@ -339,7 +339,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.9.4b</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.9.5</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
@@ -2266,35 +2266,32 @@ function openTradeModal(playerName) {
   
   extLink.href = _tmUrl;
   
-  // If preloaded and no specific player, show the preloaded version instantly
   const iframeReady = iframe.dataset.ready === '1';
-  const needsReload = !iframeReady || !!playerName;
   
-  if (needsReload) {
-    loading.style.display = 'flex';
-    iframe.style.display = 'none';
-    iframe.onload = function() {
-      loading.style.display = 'none';
-      iframe.style.display = 'block';
-      iframe.dataset.ready = '1';
-    };
-    iframe.src = _tmUrl;
-  } else {
-    // Already loaded — show instantly
+  if (iframeReady && !playerName) {
+    // Team-level open with preloaded iframe — show instantly
     loading.style.display = 'none';
     iframe.style.display = 'block';
+  } else if (iframeReady && playerName) {
+    // Player-specific but iframe already loaded — navigate and show immediately
+    iframe.style.display = 'block';
+    loading.style.display = 'none';
+    iframe.src = _tmUrl;
+  } else {
+    // Not yet loaded — show iframe (it may be mid-load from preload) + spinner
+    iframe.style.display = 'block';
+    loading.style.display = 'flex';
+    iframe.onload = function() {
+      loading.style.display = 'none';
+      iframe.dataset.ready = '1';
+    };
+    if (iframe.src === 'about:blank' || !iframe.src) {
+      iframe.src = _tmUrl;
+    }
   }
   
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
-  
-  // Fallback: if iframe hasn't loaded after 5s, highlight the new-tab button
-  setTimeout(() => {
-    if (loading.style.display !== 'none') {
-      loading.querySelector('button').style.borderColor = 'var(--cyan)';
-      loading.querySelector('button').style.color = 'var(--cyan)';
-    }
-  }, 5000);
 }
 
 function tmFallbackNewTab() {
@@ -2928,7 +2925,7 @@ selectTeam = function(team) {
   _selectTeam(team);
   // Preload Trade Machine in background after a short delay
   _tmPreloaded = false; // Reset for new team
-  setTimeout(preloadTradeMachine, 2000);
+  setTimeout(preloadTradeMachine, 500);
 };
 
 init();
