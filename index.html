@@ -290,7 +290,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.4</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.5</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
@@ -1051,10 +1051,11 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
+  const ALGO_VERSION = 2; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
-  // If user has custom order, respect it
-  if (Object.keys(saved).length) {
+  // Only use saved order if it was made with current algorithm
+  if (saved._v === ALGO_VERSION && Object.keys(saved).length > 1) {
     const byPos = {}; POS.forEach(p => byPos[p] = []);
     const pm = {}; players.forEach(p => pm[p.name] = p);
     const placed = new Set();
@@ -1063,37 +1064,40 @@ function buildDepthPositions(players) {
         if (pm[n] && !placed.has(n)) { byPos[pos].push(pm[n]); placed.add(n); }
       });
     });
-    // Any new players not in saved order go to natural position
     players.forEach(p => { if (!placed.has(p.name)) byPos[posOf(p)].push(p); });
     return byPos;
   }
 
-  // === AUTO BALANCE (draft-style by Trade Value) ===
-  // Place players one-by-one in TV order (best first). Each player goes to the
-  // least-filled valid position (natural + adjacent). Ties favor natural position.
-  // This ensures the top 5 become starters and higher-TV players always get
-  // placed into rotation spots before lower-TV ones.
-  const sorted = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
+  // === DRAFT-STYLE PLACEMENT ===
+  // Players placed one-by-one by TV (best first).
+  // Always stay at natural position unless it's at target capacity,
+  // then overflow to least-filled adjacent.
   const ADJ = { PG:['SG'], SG:['PG','SF'], SF:['SG','PF'], PF:['SF','C'], C:['PF'] };
+  const total = players.length;
+  const target = Math.ceil(total / 5);
+  const sorted = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
   const byPos = {}; POS.forEach(p => byPos[p] = []);
 
   for (const p of sorted) {
     const nat = posOf(p);
-    const options = [nat, ...ADJ[nat]];
-    options.sort((a,b) => {
-      const diff = byPos[a].length - byPos[b].length;
-      if (diff !== 0) return diff;
-      return a === nat ? -1 : b === nat ? 1 : 0;
-    });
-    byPos[options[0]].push(p);
+    if (byPos[nat].length < target) {
+      byPos[nat].push(p);
+    } else {
+      const adj = [...ADJ[nat]].sort((a,b) => byPos[a].length - byPos[b].length);
+      byPos[adj[0]].push(p);
+    }
   }
+
+  // Clear stale order
+  STATE.depthOrder = {};
+  saveState();
 
   return byPos;
 }
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = {};
+  const order = { _v: 2 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
