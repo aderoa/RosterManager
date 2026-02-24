@@ -290,7 +290,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.7</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.9.0</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
@@ -404,6 +404,7 @@ const TEAMS_REV = {};
 for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
 
 const PHASES = [
+  { id: 'lottery', label: 'Draft Lottery', icon: '🎱' },
   { id: 'pre_draft', label: 'Pre-Draft', icon: '📋' },
   { id: 'draft', label: 'Draft Night', icon: '🏀' },
   { id: 'pre_fa', label: 'Pre-Free Agency', icon: '📝' },
@@ -415,7 +416,7 @@ const PHASES = [
 const TRADE_MACHINE_URL = 'https://hoopsmatic.com';
 
 function defaultState(team) {
-  return { team, phase: 'pre_draft', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], depthOrder: {} };
+  return { team, phase: 'lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0 };
 }
 
 function saveState() {
@@ -442,7 +443,10 @@ function loadState(team) {
       s.signings = s.signings || [];
       s.extensions = s.extensions || [];
       s.depthOrder = s.depthOrder || {};
-      s.phase = s.phase || 'pre_draft';
+      s.lotteryResults = s.lotteryResults || null;
+      s.draftResults = s.draftResults || [];
+      s.draftCurrentPick = s.draftCurrentPick || 0;
+      s.phase = s.phase || 'lottery';
       return s;
     } catch(e) {}
   }
@@ -1012,6 +1016,8 @@ function selectTeam(team) {
   STATE = loadState(team);
   document.getElementById('teamSelect').value = team;
   document.getElementById('appContent').style.display = 'block';
+  // Re-apply lottery results if they exist
+  if (STATE.lotteryResults) applyLotteryResults(STATE.lotteryResults);
   // Team banner
   const abbr = TEAMS[team] || '';
   const logo = teamLogos[team] || '';
@@ -1023,9 +1029,17 @@ function selectTeam(team) {
 function render() {
   if (!STATE) return;
   renderPhaseBar();
-  const cap = calcCapSheet(STATE.team);
-  renderRoster(cap);
-  renderCapPanel(cap);
+  if (STATE.phase === 'lottery') {
+    renderLottery();
+    renderCapPanel(calcCapSheet(STATE.team));
+  } else if (STATE.phase === 'draft') {
+    renderDraftBoard();
+    renderCapPanel(calcCapSheet(STATE.team));
+  } else {
+    const cap = calcCapSheet(STATE.team);
+    renderRoster(cap);
+    renderCapPanel(cap);
+  }
 }
 
 function renderPhaseBar() {
@@ -1232,6 +1246,319 @@ function contractSalCell(yr) {
   else if (yr.st === 'PLAYER OPT') inner += `<div style="font-size:.55rem;color:var(--cyan)">PO</div>`;
   else if (yr.st === 'TEAM OPT') inner += `<div style="font-size:.55rem;color:var(--orange)">TO</div>`;
   return `<td>${inner}</td>`;
+}
+
+// =============== LOTTERY ===============
+const LOTTERY_ODDS = [140, 140, 140, 125, 105, 90, 75, 60, 45, 30, 20, 15, 10, 5]; // per 1000
+
+function getLotteryTeams() {
+  // Picks 1-14 from allPickSlots are the lottery teams
+  const teams = [];
+  for (let i = 1; i <= 14; i++) {
+    const slot = allPickSlots[i];
+    if (slot) teams.push({ team: slot.team, originalPick: i });
+  }
+  return teams;
+}
+
+function runLotterySimulation() {
+  const lotteryTeams = getLotteryTeams();
+  if (lotteryTeams.length < 14) return null;
+
+  const remaining = lotteryTeams.map((t, i) => ({ ...t, weight: LOTTERY_ODDS[i] }));
+  const results = [];
+
+  // Draw top 4 picks by weighted random
+  for (let pick = 1; pick <= 4; pick++) {
+    const totalW = remaining.reduce((s, t) => s + t.weight, 0);
+    let rand = Math.random() * totalW;
+    let winner;
+    for (const t of remaining) {
+      rand -= t.weight;
+      if (rand <= 0) { winner = t; break; }
+    }
+    if (!winner) winner = remaining[remaining.length - 1];
+    results.push({ pick, team: winner.team, originalPick: winner.originalPick });
+    remaining.splice(remaining.indexOf(winner), 1);
+  }
+
+  // Remaining 10 fill in original order
+  remaining.sort((a, b) => a.originalPick - b.originalPick);
+  for (let i = 0; i < remaining.length; i++) {
+    results.push({ pick: 5 + i, team: remaining[i].team, originalPick: remaining[i].originalPick });
+  }
+
+  return results;
+}
+
+function applyLotteryResults(results) {
+  if (!results) return;
+  // Remap allPickSlots for picks 1-14
+  for (const r of results) {
+    const originalSlot = allPickSlots[r.originalPick];
+    if (!originalSlot) continue;
+    // The prospect stays with the pick number (team changes)
+    allPickSlots[r.pick] = { ...allPickSlots[r.pick], team: r.team };
+  }
+  // Rebuild teamDraftPicks from updated allPickSlots
+  const picks = {};
+  for (const [slot, info] of Object.entries(allPickSlots)) {
+    const s = parseInt(slot);
+    if (s < 1 || s > 30) continue;
+    if (!picks[info.team]) picks[info.team] = [];
+    const capHold = ROOKIE_SCALE[s - 1] || 0;
+    picks[info.team].push({ prospect: info.defaultProspect, draftRnk: s, capHold });
+  }
+  for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
+  teamDraftPicks = picks;
+}
+
+function doRunLottery() {
+  const results = runLotterySimulation();
+  STATE.lotteryResults = results;
+  applyLotteryResults(results);
+  saveState();
+  render();
+}
+
+function renderLottery() {
+  const panel = document.getElementById('rosterPanel');
+  const teamAbbrev = TEAMS[STATE.team];
+  const results = STATE.lotteryResults;
+  let h = '';
+
+  h += `<div class="dc-section-label">🎱 2026 NBA Draft Lottery</div>`;
+
+  if (!results) {
+    // Show odds table
+    const lotteryTeams = getLotteryTeams();
+    h += `<div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">14 lottery teams compete for the top 4 picks. Remaining teams fill picks 5-14 in original order.</div>`;
+    h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
+    h += `<th>Slot</th><th>Team</th><th>Odds (#1)</th><th>Top 4</th>`;
+    h += `</tr></thead><tbody>`;
+    const top4Odds = [
+      [140,0,0,0],[140,0,0,0],[140,0,0,0],[125,0,0,0],[105,0,0,0],[90,0,0,0],[75,0,0,0],[60,0,0,0],[45,0,0,0],[30,0,0,0],[20,0,0,0],[15,0,0,0],[10,0,0,0],[5,0,0,0]
+    ];
+    // Approximate top-4 odds (simplified)
+    const top4Approx = [52.1,52.1,52.1,48.1,42.1,37.2,31.9,26.3,20.8,14.5,10.1,7.6,5.2,2.4];
+    for (let i = 0; i < lotteryTeams.length; i++) {
+      const lt = lotteryTeams[i];
+      const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === lt.team)] || '';
+      const isUser = lt.team === teamAbbrev;
+      const rowStyle = isUser ? ' style="background:rgba(102,126,234,.1)"' : '';
+      h += `<tr${rowStyle}><td style="font-weight:700;color:var(--orange)">#${i+1}</td>`;
+      h += `<td><div style="display:flex;align-items:center;gap:.4rem">${logo ? `<img src="${logo}" style="width:20px;height:20px">` : ''}`;
+      h += `<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${lt.team}</span></div></td>`;
+      h += `<td style="font-weight:600">${(LOTTERY_ODDS[i]/10).toFixed(1)}%</td>`;
+      h += `<td>${top4Approx[i].toFixed(1)}%</td>`;
+      h += `</tr>`;
+    }
+    h += `</tbody></table></div>`;
+    h += `<div style="text-align:center;margin-top:1.5rem">`;
+    h += `<button class="phase-advance" onclick="doRunLottery()" style="font-size:1rem;padding:.75rem 2rem">🎱 Run Draft Lottery</button>`;
+    h += `</div>`;
+  } else {
+    // Show results
+    if (STATE.lotteryResults) applyLotteryResults(STATE.lotteryResults);
+    h += `<div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">Lottery complete! Top 4 picks have been drawn.</div>`;
+    h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
+    h += `<th>Pick</th><th>Team</th><th>Original</th><th>Movement</th>`;
+    h += `</tr></thead><tbody>`;
+    for (const r of results) {
+      const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === r.team)] || '';
+      const isUser = r.team === teamAbbrev;
+      const diff = r.originalPick - r.pick;
+      const move = diff > 0 ? `<span style="color:var(--green);font-weight:700">▲ ${diff}</span>` : diff < 0 ? `<span style="color:var(--red);font-weight:700">▼ ${Math.abs(diff)}</span>` : `<span style="color:var(--muted)">—</span>`;
+      const rowStyle = isUser ? ' style="background:rgba(102,126,234,.1)"' : '';
+      const isTop4 = r.pick <= 4;
+      h += `<tr${rowStyle}><td style="font-weight:700;color:${isTop4?'var(--orange)':'var(--text)'}">`;
+      h += `${isTop4?'🏆 ':''}#${r.pick}</td>`;
+      h += `<td><div style="display:flex;align-items:center;gap:.4rem">${logo ? `<img src="${logo}" style="width:20px;height:20px">` : ''}`;
+      h += `<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${r.team}</span></div></td>`;
+      h += `<td style="color:var(--muted)">#${r.originalPick}</td>`;
+      h += `<td>${move}</td></tr>`;
+    }
+    h += `</tbody></table></div>`;
+  }
+
+  panel.innerHTML = h;
+}
+
+// =============== DRAFT SIMULATION ===============
+function getDraftedProspects() {
+  return new Set((STATE.draftResults || []).map(r => r.prospect));
+}
+
+function getPickTeam(pick) {
+  // Use lottery results if available for picks 1-14
+  if (STATE.lotteryResults && pick <= 14) {
+    const lr = STATE.lotteryResults.find(r => r.pick === pick);
+    if (lr) return lr.team;
+  }
+  const slot = allPickSlots[pick];
+  return slot ? slot.team : null;
+}
+
+function autoDraftPick(pick) {
+  const drafted = getDraftedProspects();
+  // Pick highest-ranked remaining prospect (allProspects is consensus order)
+  for (const name of allProspects) {
+    if (!drafted.has(name)) return name;
+  }
+  return null;
+}
+
+function runDraftUntilUser() {
+  const teamAbbrev = TEAMS[STATE.team];
+  let current = STATE.draftCurrentPick || 1;
+
+  while (current <= 30) {
+    const pickTeam = getPickTeam(current);
+    if (!pickTeam) { current++; continue; }
+
+    if (pickTeam === teamAbbrev) {
+      // It's the user's turn — pause
+      STATE.draftCurrentPick = current;
+      saveState();
+      return;
+    }
+
+    // Auto-draft for AI team
+    const prospect = autoDraftPick(current);
+    if (prospect) {
+      STATE.draftResults.push({ pick: current, team: pickTeam, prospect });
+    }
+    current++;
+  }
+
+  // Draft complete
+  STATE.draftCurrentPick = 31;
+  saveState();
+}
+
+function userDraftPick(prospect) {
+  const pick = STATE.draftCurrentPick;
+  const teamAbbrev = TEAMS[STATE.team];
+  STATE.draftResults.push({ pick, team: teamAbbrev, prospect });
+  STATE.draftSelections[pick] = prospect;
+  STATE.moves.push({
+    action: 'Draft',
+    detail: `Pick #${pick}: ${prospect}`,
+    undo: { type: 'draft_sim', pick }
+  });
+  STATE.draftCurrentPick = pick + 1;
+  saveState();
+
+  // Continue auto-drafting
+  runDraftUntilUser();
+  render();
+}
+
+function renderDraftBoard() {
+  const panel = document.getElementById('rosterPanel');
+  const teamAbbrev = TEAMS[STATE.team];
+  let h = '';
+
+  // Start draft sim if not started
+  if (!STATE.draftCurrentPick || STATE.draftCurrentPick < 1) {
+    STATE.draftCurrentPick = 1;
+    runDraftUntilUser();
+  }
+
+  const current = STATE.draftCurrentPick;
+  const isDraftComplete = current > 30;
+  const drafted = getDraftedProspects();
+
+  h += `<div class="dc-section-label">🏀 2026 NBA Draft ${isDraftComplete ? '— Complete' : `— Pick #${current}`}</div>`;
+
+  // User's pick selection (if it's their turn)
+  if (!isDraftComplete && getPickTeam(current) === teamAbbrev) {
+    h += `<div style="background:rgba(102,126,234,.1);border:2px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem">`;
+    h += `<h3 style="color:var(--accent);margin-bottom:.5rem;font-size:.9rem">🎯 Your Pick — #${current}</h3>`;
+    h += `<input id="draftSearchInput" class="trade-input" style="width:100%;margin-bottom:.5rem" placeholder="Filter prospects..." oninput="filterDraftProspects(this.value)">`;
+    h += `<div id="draftProspectList" style="max-height:250px;overflow-y:auto">`;
+    h += buildDraftProspectList('');
+    h += `</div></div>`;
+  }
+
+  // Draft board
+  h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
+  h += `<th>Pick</th><th>Team</th><th>Prospect</th>`;
+  h += `</tr></thead><tbody>`;
+
+  for (let pick = 1; pick <= 30; pick++) {
+    const pickTeam = getPickTeam(pick);
+    if (!pickTeam) continue;
+    const result = STATE.draftResults.find(r => r.pick === pick);
+    const isUser = pickTeam === teamAbbrev;
+    const isCurrent = pick === current && !isDraftComplete;
+    const isPicked = !!result;
+
+    let rowStyle = '';
+    if (isUser) rowStyle = ' style="background:rgba(102,126,234,.1)"';
+    else if (isCurrent) rowStyle = ' style="background:rgba(255,152,0,.08)"';
+
+    const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === pickTeam)] || '';
+
+    h += `<tr${rowStyle}>`;
+    h += `<td style="font-weight:700;color:${isCurrent?'var(--orange)':isPicked?'var(--green)':'var(--muted)'}">${isCurrent?'➡️ ':''}#${pick}</td>`;
+    h += `<td><div style="display:flex;align-items:center;gap:.3rem">${logo?`<img src="${logo}" style="width:18px;height:18px">`:''}<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${pickTeam}</span></div></td>`;
+    if (isPicked) {
+      h += `<td style="font-weight:600">${result.prospect}</td>`;
+    } else if (isCurrent) {
+      h += `<td style="color:var(--orange);font-style:italic">On the clock...</td>`;
+    } else {
+      h += `<td style="color:var(--muted)">—</td>`;
+    }
+    h += `</tr>`;
+  }
+  h += `</tbody></table></div>`;
+
+  // Undrafted prospects (after draft complete)
+  if (isDraftComplete) {
+    const undrafted = allProspects.filter(n => !drafted.has(n));
+    if (undrafted.length) {
+      h += `<div class="dc-section-label" style="margin-top:1rem">📋 Undrafted Prospects <span class="dc-badge" style="background:rgba(100,116,139,.12);color:#94a3b8">${undrafted.length}</span></div>`;
+      h += `<div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem">These players will be available as undrafted free agents.</div>`;
+      h += `<div style="display:flex;flex-wrap:wrap;gap:.3rem">`;
+      for (const n of undrafted.slice(0, 30)) {
+        h += `<span style="font-size:.65rem;padding:.2rem .5rem;background:var(--surface);border-radius:4px;border:1px solid var(--border)">${n}</span>`;
+      }
+      if (undrafted.length > 30) h += `<span style="font-size:.65rem;padding:.2rem .5rem;color:var(--muted)">+${undrafted.length-30} more</span>`;
+      h += `</div>`;
+    }
+  }
+
+  panel.innerHTML = h;
+}
+
+function buildDraftProspectList(filter) {
+  const drafted = getDraftedProspects();
+  const q = filter.toLowerCase();
+  let h = '';
+  let rank = 0;
+  for (const name of allProspects) {
+    rank++;
+    if (drafted.has(name)) continue;
+    if (q && !name.toLowerCase().includes(q)) continue;
+    // Show projected pick info
+    let proj = '';
+    for (const [s, info] of Object.entries(allPickSlots)) {
+      if (info.defaultProspect === name) { proj = `proj #${s}`; break; }
+    }
+    h += `<div class="draft-pick-option" onclick="userDraftPick('${esc(name)}')">`;
+    h += `<span class="rank">${rank}</span>`;
+    h += `<span class="name">${name}</span>`;
+    if (proj) h += `<span class="assigned">${proj}</span>`;
+    h += `</div>`;
+  }
+  if (!h) h = '<div style="padding:.5rem;text-align:center;color:var(--muted);font-size:.7rem">No prospects available</div>';
+  return h;
+}
+
+function filterDraftProspects(query) {
+  const list = document.getElementById('draftProspectList');
+  if (list) list.innerHTML = buildDraftProspectList(query);
 }
 
 // =============== MAIN RENDER ===============
@@ -1671,6 +1998,11 @@ function setPhase(id) {
 function advancePhase() {
   const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
   if (currentIdx < PHASES.length - 1) {
+    // Can't leave lottery without running it
+    if (STATE.phase === 'lottery' && !STATE.lotteryResults) {
+      alert('Run the lottery first!');
+      return;
+    }
     STATE.phase = PHASES[currentIdx + 1].id;
     STATE.moves.push({ action: 'Phase', detail: `Advanced to ${PHASES[currentIdx + 1].label}`, undo: { type: 'phase', prev: PHASES[currentIdx].id } });
     saveState();
@@ -1691,6 +2023,15 @@ function undoLast() {
     if (last.undo.type === 'draft') {
       if (last.undo.prev) STATE.draftSelections[last.undo.slot] = last.undo.prev;
       else delete STATE.draftSelections[last.undo.slot];
+    }
+    if (last.undo.type === 'draft_sim') {
+      // Remove last draft result and back up pick counter
+      const pick = last.undo.pick;
+      STATE.draftResults = (STATE.draftResults || []).filter(r => r.pick !== pick);
+      delete STATE.draftSelections[pick];
+      // Also remove AI picks after user's pick
+      STATE.draftResults = STATE.draftResults.filter(r => r.pick < pick);
+      STATE.draftCurrentPick = pick;
     }
     if (last.undo.type === 'phase') {
       STATE.phase = last.undo.prev;
@@ -1988,11 +2329,19 @@ function openSignModal(faName, isResign) {
   let h = '';
 
   if (!faName) {
-    // Show search for FA
-    h += `<div style="margin-bottom:.75rem">`;
-    h += `<input id="signSearchInput" class="trade-input" style="width:100%" placeholder="Type player name..." oninput="filterSignOptions(this.value)">`;
+    // Build full FA list
+    const alreadySigned = new Set((STATE.signings || []).map(s => s.name));
+    const allFAs = allPlayers.filter(p =>
+      isProjectedFA(p) && p.team !== STATE.team && !alreadySigned.has(p.name)
+    ).sort((a,b) => (b.tv||0) - (a.tv||0));
+
+    h += `<div style="margin-bottom:.5rem">`;
+    h += `<input id="signSearchInput" class="trade-input" style="width:100%" placeholder="Filter players..." oninput="filterSignList(this.value)">`;
     h += `</div>`;
-    h += `<div id="signSearchResults" style="max-height:150px;overflow-y:auto;margin-bottom:.75rem"></div>`;
+    h += `<div id="signSearchResults" style="max-height:300px;overflow-y:auto;margin-bottom:.75rem">`;
+    const undrafted = getUndraftedProspects();
+    h += buildFAListHTML(allFAs, undrafted);
+    h += `</div>`;
     h += `<div id="signExcSection" style="display:none">`;
   } else {
     h += `<div style="padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.75rem">`;
@@ -2033,6 +2382,57 @@ function openSignModal(faName, isResign) {
   window._signContext = { exception: null, maxAmount: 0 };
 }
 
+function buildFAListHTML(fas, undrafted) {
+  if (!fas.length && !(undrafted && undrafted.length)) return `<div style="font-size:.7rem;color:var(--muted);padding:.5rem;text-align:center">No free agents available</div>`;
+  let h = '';
+  for (const p of fas) {
+    let reason = 'expiring';
+    if (p.category === 'team_option') reason = 'TO decline proj.';
+    else if (p.category === 'player_option') reason = 'PO decline proj.';
+    const ini = p.name.split(' ').map(w => w[0]).join('');
+    const hs = p.headshot
+      ? `<img src="${p.headshot}" style="width:28px;height:21px;border-radius:3px;object-fit:cover;background:var(--surface)" onerror="this.outerHTML='<span style=\\'display:inline-block;width:28px;text-align:center;font-size:.5rem;color:var(--muted)\\'>${ini}</span>'">`
+      : `<span style="display:inline-block;width:28px;text-align:center;font-size:.5rem;color:var(--muted)">${ini}</span>`;
+    h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(p.name)}')" style="display:flex;align-items:center;gap:.4rem">`;
+    h += hs;
+    h += `<span class="name" style="flex:1">${p.name}</span>`;
+    h += `<span class="assigned" style="font-size:.6rem">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoney(p.sal26)} · ${reason}</span>`;
+    h += `</div>`;
+  }
+  // Undrafted prospects
+  if (undrafted && undrafted.length) {
+    h += `<div style="padding:.4rem .5rem;font-size:.6rem;font-weight:700;color:var(--orange);border-bottom:1px solid var(--border);margin-top:.3rem">UNDRAFTED FREE AGENTS</div>`;
+    for (const name of undrafted) {
+      const ini = name.split(' ').map(w => w[0]).join('');
+      h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(name)}')" style="display:flex;align-items:center;gap:.4rem">`;
+      h += `<span style="display:inline-block;width:28px;text-align:center;font-size:.5rem;color:var(--muted)">${ini}</span>`;
+      h += `<span class="name" style="flex:1">${name}</span>`;
+      h += `<span class="assigned" style="font-size:.6rem">UDFA · min salary</span>`;
+      h += `</div>`;
+    }
+  }
+  return h;
+}
+
+function getUndraftedProspects() {
+  if (!STATE.draftResults || !STATE.draftResults.length || STATE.draftCurrentPick <= 30) return [];
+  const drafted = getDraftedProspects();
+  const alreadySigned = new Set((STATE.signings || []).map(s => s.name));
+  return allProspects.filter(n => !drafted.has(n) && !alreadySigned.has(n));
+}
+
+function filterSignList(query) {
+  const results = document.getElementById('signSearchResults');
+  const alreadySigned = new Set((STATE.signings || []).map(s => s.name));
+  const q = (query || '').toLowerCase();
+  const fas = allPlayers.filter(p =>
+    isProjectedFA(p) && p.team !== STATE.team && !alreadySigned.has(p.name) &&
+    (!q || p.name.toLowerCase().includes(q) || (TEAMS[p.team]||'').toLowerCase().includes(q) || (p.pos||'').toLowerCase().includes(q))
+  ).sort((a,b) => (b.tv||0) - (a.tv||0));
+  const undrafted = getUndraftedProspects().filter(n => !q || n.toLowerCase().includes(q));
+  results.innerHTML = buildFAListHTML(fas, undrafted);
+}
+
 function closeSignModal() {
   document.getElementById('signOverlay').style.display = 'none';
 }
@@ -2045,31 +2445,6 @@ function isProjectedFA(p) {
   // Player option: player declines if trade value > salary (they'd get more on open market)
   if (p.category === 'player_option' && (p.tv || 0) > (p.sal27 || 0)) return true;
   return false;
-}
-
-function filterSignOptions(query) {
-  const results = document.getElementById('signSearchResults');
-  if (!query || query.length < 2) { results.innerHTML = ''; return; }
-  const q = query.toLowerCase();
-  // Search all projected FAs across the league
-  const fas = allPlayers.filter(p =>
-    p.name.toLowerCase().includes(q) &&
-    isProjectedFA(p) &&
-    p.team !== STATE.team
-  ).slice(0, 15);
-
-  let h = '';
-  for (const p of fas) {
-    let reason = 'expiring';
-    if (p.category === 'team_option') reason = 'TO decline proj.';
-    else if (p.category === 'player_option') reason = 'PO decline proj.';
-    h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(p.name)}')">`;
-    h += `<span class="name">${p.name}</span>`;
-    h += `<span class="assigned">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoney(p.sal26)} · ${reason}</span>`;
-    h += `</div>`;
-  }
-  if (!fas.length) h = `<div style="font-size:.7rem;color:var(--muted);padding:.5rem;text-align:center">No matching free agents</div>`;
-  results.innerHTML = h;
 }
 
 function selectSignPlayer(name) {
