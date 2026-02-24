@@ -290,7 +290,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.9.1</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.9.2</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
@@ -1017,6 +1017,7 @@ function renderTeamDropdown() {
 }
 
 function selectTeam(team) {
+  if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
   STATE = loadState(team);
   document.getElementById('teamSelect').value = team;
   document.getElementById('appContent').style.display = 'block';
@@ -1337,6 +1338,9 @@ function renderLottery() {
     // Show odds table
     const lotteryTeams = getLotteryTeams();
     h += `<div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">14 lottery teams compete for the top 4 picks. Remaining teams fill picks 5-14 in original order.</div>`;
+    h += `<div style="text-align:center;margin-bottom:1.25rem">`;
+    h += `<button class="phase-advance" onclick="doRunLottery()" style="font-size:1rem;padding:.75rem 2rem">🎱 Run Draft Lottery</button>`;
+    h += `</div>`;
     h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
     h += `<th>Slot</th><th>Team</th><th>Odds (#1)</th><th>Top 4</th>`;
     h += `</tr></thead><tbody>`;
@@ -1358,9 +1362,6 @@ function renderLottery() {
       h += `</tr>`;
     }
     h += `</tbody></table></div>`;
-    h += `<div style="text-align:center;margin-top:1.5rem">`;
-    h += `<button class="phase-advance" onclick="doRunLottery()" style="font-size:1rem;padding:.75rem 2rem">🎱 Run Draft Lottery</button>`;
-    h += `</div>`;
   } else {
     // Show results
     if (STATE.lotteryResults) applyLotteryResults(STATE.lotteryResults);
@@ -1415,32 +1416,48 @@ function autoDraftPick(pick) {
   return null;
 }
 
-function runDraftUntilUser() {
-  const teamAbbrev = TEAMS[STATE.team];
-  let current = STATE.draftCurrentPick || 1;
+let _draftAnimTimer = null;
 
-  while (current <= 60) {
+function runDraftUntilUser() {
+  // Animated: one pick per second, pauses at user's pick
+  if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
+  const teamAbbrev = TEAMS[STATE.team];
+
+  function draftNextPick() {
+    let current = STATE.draftCurrentPick || 1;
+    if (current > 60) {
+      clearInterval(_draftAnimTimer); _draftAnimTimer = null;
+      saveState(); render();
+      return;
+    }
     const pickTeam = getPickTeam(current);
-    if (!pickTeam) { current++; continue; }
+    if (!pickTeam) { STATE.draftCurrentPick = current + 1; render(); return; }
 
     if (pickTeam === teamAbbrev) {
-      // It's the user's turn — pause
-      STATE.draftCurrentPick = current;
-      saveState();
+      // User's turn — pause animation
+      clearInterval(_draftAnimTimer); _draftAnimTimer = null;
+      saveState(); render();
       return;
     }
 
-    // Auto-draft for AI team
+    // AI pick
     const prospect = autoDraftPick(current);
     if (prospect) {
       STATE.draftResults.push({ pick: current, team: pickTeam, prospect });
     }
-    current++;
+    STATE.draftCurrentPick = current + 1;
+    saveState();
+    render();
   }
 
-  // Draft complete
-  STATE.draftCurrentPick = 31;
+  _draftAnimTimer = setInterval(draftNextPick, 1000);
+}
+
+function startDraft() {
+  STATE.draftCurrentPick = 1;
   saveState();
+  render();
+  runDraftUntilUser();
 }
 
 function userDraftPick(prospect) {
@@ -1456,9 +1473,9 @@ function userDraftPick(prospect) {
   STATE.draftCurrentPick = pick + 1;
   saveState();
 
-  // Continue auto-drafting
-  runDraftUntilUser();
+  // Continue animated drafting
   render();
+  runDraftUntilUser();
 }
 
 function renderDraftBoard() {
@@ -1466,15 +1483,57 @@ function renderDraftBoard() {
   const teamAbbrev = TEAMS[STATE.team];
   let h = '';
 
-  // Start draft sim if not started
-  if (!STATE.draftCurrentPick || STATE.draftCurrentPick < 1) {
-    STATE.draftCurrentPick = 1;
-    runDraftUntilUser();
-  }
-
-  const current = STATE.draftCurrentPick;
+  const current = STATE.draftCurrentPick || 0;
+  const draftNotStarted = current < 1;
   const isDraftComplete = current > 60;
   const drafted = getDraftedProspects();
+
+  if (draftNotStarted) {
+    h += `<div class="dc-section-label">🎯 2026 NBA Draft</div>`;
+    h += `<div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">60 picks across 2 rounds. The draft will simulate automatically, pausing when it's your turn to pick.</div>`;
+
+    // Show user's picks
+    const userPicks = (teamDraftPicks[teamAbbrev] || []).slice().sort((a,b) => a.draftRnk - b.draftRnk);
+    if (userPicks.length) {
+      h += `<div style="margin-bottom:1.25rem">`;
+      h += `<div style="font-size:.7rem;font-weight:700;color:var(--accent);margin-bottom:.5rem">YOUR PICKS</div>`;
+      for (const p of userPicks) {
+        const rd = p.draftRnk <= 30 ? '1st' : '2nd';
+        h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;background:rgba(102,126,234,.06);border-radius:4px;margin-bottom:.2rem;font-size:.75rem">`;
+        h += `<span style="font-weight:700;color:var(--orange)">#${p.draftRnk}</span>`;
+        h += `<span>${rd} Round</span>`;
+        h += `<span style="color:var(--muted)">· proj. ${p.prospect}</span>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+    }
+
+    h += `<div style="text-align:center;margin-top:1rem">`;
+    h += `<button class="phase-advance" onclick="startDraft()" style="font-size:1rem;padding:.75rem 2rem">🏀 Start Draft</button>`;
+    h += `</div>`;
+
+    // Show full draft board preview (empty)
+    h += `<div class="contract-wrap" style="margin-top:1.5rem"><table class="contract-table"><thead><tr>`;
+    h += `<th>Pick</th><th>Team</th><th>Prospect</th>`;
+    h += `</tr></thead><tbody>`;
+    for (let pick = 1; pick <= 60; pick++) {
+      if (pick === 1) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(255,152,0,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
+      if (pick === 31) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(102,126,234,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
+      const pickTeam = getPickTeam(pick);
+      if (!pickTeam) continue;
+      const isUser = pickTeam === teamAbbrev;
+      const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === pickTeam)] || '';
+      const rowStyle = isUser ? ' style="background:rgba(102,126,234,.1)"' : '';
+      h += `<tr${rowStyle}>`;
+      h += `<td style="font-weight:700;color:var(--muted)">#${pick}</td>`;
+      h += `<td><div style="display:flex;align-items:center;gap:.3rem">${logo?`<img src="${logo}" style="width:18px;height:18px">`:''}<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${pickTeam}</span></div></td>`;
+      h += `<td style="color:var(--muted)">—</td>`;
+      h += `</tr>`;
+    }
+    h += `</tbody></table></div>`;
+    panel.innerHTML = h;
+    return;
+  }
 
   h += `<div class="dc-section-label">🏀 2026 NBA Draft ${isDraftComplete ? '— Complete' : `— ${current <= 30 ? 'Round 1' : 'Round 2'}, Pick #${current}`}</div>`;
 
@@ -1510,7 +1569,7 @@ function renderDraftBoard() {
 
     const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === pickTeam)] || '';
 
-    h += `<tr${rowStyle}>`;
+    h += `<tr${rowStyle}${isCurrent?' data-current="1"':''}>`;
     h += `<td style="font-weight:700;color:${isCurrent?'var(--orange)':isPicked?'var(--green)':'var(--muted)'}">${isCurrent?'➡️ ':''}#${pick}</td>`;
     h += `<td><div style="display:flex;align-items:center;gap:.3rem">${logo?`<img src="${logo}" style="width:18px;height:18px">`:''}<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${pickTeam}</span></div></td>`;
     if (isPicked) {
@@ -1540,6 +1599,12 @@ function renderDraftBoard() {
   }
 
   panel.innerHTML = h;
+
+  // Auto-scroll to current pick
+  if (!isDraftComplete) {
+    const row = panel.querySelector('tr[data-current]');
+    if (row) setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+  }
 }
 
 function buildDraftProspectList(filter) {
@@ -2630,11 +2695,12 @@ async function init() {
 
   allPlayers = parseAllPlayers(csv);
   document.getElementById('loadingState').style.display = 'none';
-  renderTeamDropdown(); // re-render with logos available
+  renderTeamDropdown();
 
-  // Check if team was previously selected
-  const lastTeam = localStorage.getItem('rm_last_team');
-  if (lastTeam && TEAMS[lastTeam]) selectTeam(lastTeam);
+  // Hard refresh = clean slate: clear all saved state
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith('rm_state_') || key === 'rm_last_team') localStorage.removeItem(key);
+  }
 }
 
 // Override selectTeam to also save last team
