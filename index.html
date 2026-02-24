@@ -290,7 +290,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.9.0</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.9.1</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
@@ -404,9 +404,10 @@ const TEAMS_REV = {};
 for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
 
 const PHASES = [
+  { id: 'pre_lottery', label: 'Pre-Lottery', icon: '📋' },
   { id: 'lottery', label: 'Draft Lottery', icon: '🎱' },
-  { id: 'pre_draft', label: 'Pre-Draft', icon: '📋' },
-  { id: 'draft', label: 'Draft Night', icon: '🏀' },
+  { id: 'pre_draft', label: 'Pre-Draft', icon: '🏀' },
+  { id: 'draft', label: 'Draft Night', icon: '🎯' },
   { id: 'pre_fa', label: 'Pre-Free Agency', icon: '📝' },
   { id: 'free_agency', label: 'Free Agency', icon: '✍️' },
   { id: 'training_camp', label: 'Training Camp', icon: '⛺' }
@@ -415,8 +416,10 @@ const PHASES = [
 // Trade Machine base URL
 const TRADE_MACHINE_URL = 'https://hoopsmatic.com';
 
+const MIN_SALARY_2ND_RD = 1157379; // 2nd round minimum cap hold
+
 function defaultState(team) {
-  return { team, phase: 'lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0 };
+  return { team, phase: 'pre_lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0 };
 }
 
 function saveState() {
@@ -446,7 +449,7 @@ function loadState(team) {
       s.lotteryResults = s.lotteryResults || null;
       s.draftResults = s.draftResults || [];
       s.draftCurrentPick = s.draftCurrentPick || 0;
-      s.phase = s.phase || 'lottery';
+      s.phase = s.phase || 'pre_lottery';
       return s;
     } catch(e) {}
   }
@@ -521,10 +524,11 @@ async function fetchDraftPicks() {
         if (!prospect) continue;
         prospects.push(prospect);
 
-        // Only first-round picks (1-30) get cap holds
-        if (pickPos < 1 || pickPos > 30 || !rawTeam) continue;
+        // First-round picks (1-30) get rookie scale cap holds
+        // Second-round picks (31-60) get minimum salary cap hold
+        if (pickPos < 1 || pickPos > 60 || !rawTeam) continue;
         const abbrev = rawTeam.length <= 3 ? rawTeam : (TEAMS[rawTeam] || rawTeam);
-        const capHold = ROOKIE_SCALE[pickPos - 1] || 0;
+        const capHold = pickPos <= 30 ? (ROOKIE_SCALE[pickPos - 1] || 0) : MIN_SALARY_2ND_RD;
 
         pickSlots[pickPos] = { team: abbrev, defaultProspect: prospect };
 
@@ -1195,12 +1199,12 @@ function dcActions(p) {
   const phase = STATE.phase;
   let h = '';
   // Option decisions
-  if (p.status === 'pending_to' && (phase === 'pre_draft' || phase === 'pre_fa')) {
+  if (p.status === 'pending_to' && (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa')) {
     h += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
     return h;
   }
-  if (p.status === 'pending_po' && (phase === 'pre_draft' || phase === 'pre_fa')) {
+  if (p.status === 'pending_po' && (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa')) {
     h += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','exercise')">Exercise</button>`;
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
     return h;
@@ -1214,7 +1218,7 @@ function dcActions(p) {
     h += `<button class="dc-btn trade" onclick="event.stopPropagation();openTradeModal('${esc(p.name)}')">Trade</button>`;
   }
   // Extend
-  if ((phase === 'pre_draft' || phase === 'pre_fa') && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && p.extEligible) {
+  if ((phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa') && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && p.extEligible) {
     if (!(STATE.extensions || []).some(e => e.name === p.name)) {
       h += `<button class="dc-btn opt" onclick="event.stopPropagation();openExtModal('${esc(p.name)}')">Ext</button>`;
     }
@@ -1304,9 +1308,9 @@ function applyLotteryResults(results) {
   const picks = {};
   for (const [slot, info] of Object.entries(allPickSlots)) {
     const s = parseInt(slot);
-    if (s < 1 || s > 30) continue;
+    if (s < 1 || s > 60) continue;
     if (!picks[info.team]) picks[info.team] = [];
-    const capHold = ROOKIE_SCALE[s - 1] || 0;
+    const capHold = s <= 30 ? (ROOKIE_SCALE[s - 1] || 0) : MIN_SALARY_2ND_RD;
     picks[info.team].push({ prospect: info.defaultProspect, draftRnk: s, capHold });
   }
   for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
@@ -1379,6 +1383,9 @@ function renderLottery() {
       h += `<td>${move}</td></tr>`;
     }
     h += `</tbody></table></div>`;
+    h += `<div style="text-align:center;margin-top:1rem">`;
+    h += `<button class="waive-cancel" onclick="doRunLottery()" style="font-size:.8rem;padding:.5rem 1.5rem;border:1px solid var(--orange);color:var(--orange)">🔄 Reshuffle Lottery</button>`;
+    h += `</div>`;
   }
 
   panel.innerHTML = h;
@@ -1412,7 +1419,7 @@ function runDraftUntilUser() {
   const teamAbbrev = TEAMS[STATE.team];
   let current = STATE.draftCurrentPick || 1;
 
-  while (current <= 30) {
+  while (current <= 60) {
     const pickTeam = getPickTeam(current);
     if (!pickTeam) { current++; continue; }
 
@@ -1466,10 +1473,10 @@ function renderDraftBoard() {
   }
 
   const current = STATE.draftCurrentPick;
-  const isDraftComplete = current > 30;
+  const isDraftComplete = current > 60;
   const drafted = getDraftedProspects();
 
-  h += `<div class="dc-section-label">🏀 2026 NBA Draft ${isDraftComplete ? '— Complete' : `— Pick #${current}`}</div>`;
+  h += `<div class="dc-section-label">🏀 2026 NBA Draft ${isDraftComplete ? '— Complete' : `— ${current <= 30 ? 'Round 1' : 'Round 2'}, Pick #${current}`}</div>`;
 
   // User's pick selection (if it's their turn)
   if (!isDraftComplete && getPickTeam(current) === teamAbbrev) {
@@ -1486,7 +1493,10 @@ function renderDraftBoard() {
   h += `<th>Pick</th><th>Team</th><th>Prospect</th>`;
   h += `</tr></thead><tbody>`;
 
-  for (let pick = 1; pick <= 30; pick++) {
+  for (let pick = 1; pick <= 60; pick++) {
+    // Round dividers
+    if (pick === 1) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(255,152,0,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
+    if (pick === 31) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(102,126,234,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
     const pickTeam = getPickTeam(pick);
     if (!pickTeam) continue;
     const result = STATE.draftResults.find(r => r.pick === pick);
@@ -1603,7 +1613,7 @@ function renderRoster(cap) {
 
   // ======== CONTRACT TABLE ========
   const contractPlayers = [...cap.roster.under_contract, ...cap.roster.non_guaranteed, ...cap.roster.partial_guaranteed, ...cap.roster.signed].sort((a,b) => (b.sal27||0) - (a.sal27||0));
-  const showPreFa = phase === 'pre_draft' || phase === 'draft' || phase === 'pre_fa';
+  const showPreFa = phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'lottery' || phase === 'draft' || phase === 'pre_fa';
   const visibleYears = CONTRACT_YEARS.filter(yr => !yr.preFaOnly || showPreFa);
   if (contractPlayers.length) {
     h += `<div class="dc-section-label">📋 Contracts <span class="dc-badge" style="background:rgba(76,175,80,.12);color:var(--green)">${contractPlayers.length} players</span></div>`;
@@ -1699,13 +1709,14 @@ function renderRoster(cap) {
       h += `<div class="player-row">`;
       h += `<div class="hs-ini" style="background:var(--orange);color:#000;font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
       h += `<div class="info"><div class="pname">${p.selectedProspect || 'TBD'}${isSwapped ? ` <span style="font-size:.55rem;color:var(--muted)">(was: ${p.prospect})</span>` : ''}</div>`;
-      h += `<div class="pdet">1st Rd Pick #${p.draftRnk} · Rookie Scale</div></div>`;
+      const rdLabel = p.draftRnk <= 30 ? `1st Rd Pick #${p.draftRnk} · Rookie Scale` : `2nd Rd Pick #${p.draftRnk} · Min Salary`;
+      h += `<div class="pdet">${rdLabel}</div></div>`;
       h += `<div><div class="sal" style="color:var(--orange)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
       h += `<div style="display:flex;gap:.3rem">`;
       if (phase === 'draft') {
         h += `<button class="action-btn draft-swap" onclick="openDraftPicker(${p.draftRnk})">🔄 Swap</button>`;
         if (isSwapped) h += `<button class="action-btn decline" onclick="resetDraftPick(${p.draftRnk})">↩</button>`;
-      } else if (phase === 'pre_draft') {
+      } else if (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'lottery') {
         h += `<span style="font-size:.6rem;color:var(--muted)">available in Draft Night</span>`;
       }
       h += `</div></div>`;
@@ -2415,7 +2426,7 @@ function buildFAListHTML(fas, undrafted) {
 }
 
 function getUndraftedProspects() {
-  if (!STATE.draftResults || !STATE.draftResults.length || STATE.draftCurrentPick <= 30) return [];
+  if (!STATE.draftResults || !STATE.draftResults.length || STATE.draftCurrentPick <= 60) return [];
   const drafted = getDraftedProspects();
   const alreadySigned = new Set((STATE.signings || []).map(s => s.name));
   return allProspects.filter(n => !drafted.has(n) && !alreadySigned.has(n));
