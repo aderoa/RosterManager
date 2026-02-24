@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://hoopsmatic.com" crossorigin>
+<link rel="dns-prefetch" href="https://hoopsmatic.com">
 <title>Roster Manager – HoopsMatic</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -337,7 +339,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.9.3a</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.9.4</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
@@ -2219,12 +2221,36 @@ function resetTeam() {
 let _tradeContext = null; // { playerName } or null for team-level
 
 let _tmUrl = '';
+let _tmBaseUrl = '';
+let _tmPreloaded = false;
+
+function preloadTradeMachine() {
+  if (_tmPreloaded || !STATE) return;
+  const abbrev = TEAMS[STATE.team];
+  if (!abbrev) return;
+  _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}`;
+  const iframe = document.getElementById('tmIframe');
+  if (iframe) {
+    iframe.src = _tmBaseUrl;
+    _tmPreloaded = true;
+    iframe.onload = function() {
+      iframe.dataset.ready = '1';
+    };
+    console.log('[TM] Preloading Trade Machine');
+  }
+}
+
+function getRandomTradePartner(excludeAbbrev) {
+  const allAbbrevs = Object.values(TEAMS).filter(a => a !== excludeAbbrev);
+  return allAbbrevs[Math.floor(Math.random() * allAbbrevs.length)];
+}
 
 function openTradeModal(playerName) {
   const abbrev = TEAMS[STATE.team];
+  const partner = getRandomTradePartner(abbrev);
   
-  // Build Trade Machine URL with RM mode flag
-  _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev}`;
+  // Build Trade Machine URL with RM mode flag + both teams
+  _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}`;
   
   if (playerName) {
     const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
@@ -2233,26 +2259,36 @@ function openTradeModal(playerName) {
     _tmUrl += `&p=${encodeURIComponent(pParam)}&pd=0-`;
   }
   
-  // Show iframe overlay with loading state
   const overlay = document.getElementById('tmOverlay');
   const iframe = document.getElementById('tmIframe');
   const loading = document.getElementById('tmLoading');
   const extLink = document.getElementById('tmExternalLink');
   
   extLink.href = _tmUrl;
-  loading.style.display = 'flex';
-  iframe.style.display = 'none';
   
-  iframe.onload = function() {
+  // If preloaded and no specific player, show the preloaded version instantly
+  const iframeReady = iframe.dataset.ready === '1';
+  const needsReload = !iframeReady || !!playerName;
+  
+  if (needsReload) {
+    loading.style.display = 'flex';
+    iframe.style.display = 'none';
+    iframe.onload = function() {
+      loading.style.display = 'none';
+      iframe.style.display = 'block';
+      iframe.dataset.ready = '1';
+    };
+    iframe.src = _tmUrl;
+  } else {
+    // Already loaded — show instantly
     loading.style.display = 'none';
     iframe.style.display = 'block';
-  };
+  }
   
-  iframe.src = _tmUrl;
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   
-  // Fallback: if iframe hasn't loaded after 5s, show the fallback button more prominently
+  // Fallback: if iframe hasn't loaded after 5s, highlight the new-tab button
   setTimeout(() => {
     if (loading.style.display !== 'none') {
       loading.querySelector('button').style.borderColor = 'var(--cyan)';
@@ -2268,10 +2304,8 @@ function tmFallbackNewTab() {
 
 function closeTradeMachine() {
   const overlay = document.getElementById('tmOverlay');
-  const iframe = document.getElementById('tmIframe');
+  // Don't destroy the iframe — keep it loaded for next time
   overlay.style.display = 'none';
-  iframe.src = 'about:blank';
-  iframe.style.display = 'none';
   document.body.style.overflow = '';
 }
 
@@ -2288,7 +2322,15 @@ function closeTradeModal() {
 
 // Listen for trade data from Trade Machine iframe
 window.addEventListener('message', function(event) {
-  if (!event.data || event.data.type !== 'ROSTER_MANAGER_TRADE') return;
+  if (!event.data) return;
+  
+  // Close message from Trade Machine
+  if (event.data.type === 'ROSTER_MANAGER_CLOSE') {
+    closeTradeMachine();
+    return;
+  }
+  
+  if (event.data.type !== 'ROSTER_MANAGER_TRADE') return;
   if (!STATE) return;
   
   const data = event.data;
@@ -2884,6 +2926,9 @@ selectTeam = function(team) {
     setTimeout(() => { landing.style.display = 'none'; }, 300);
   }
   _selectTeam(team);
+  // Preload Trade Machine in background after a short delay
+  _tmPreloaded = false; // Reset for new team
+  setTimeout(preloadTradeMachine, 2000);
 };
 
 init();
