@@ -390,10 +390,15 @@ a{color:var(--accent);text-decoration:none}
   <div class="tm-bar">
     <span style="font-size:1rem">🔄</span>
     <h3>Trade Machine</h3>
-    <a id="tmExternalLink" class="tm-external" href="#" target="_blank">Open in new tab ↗</a>
+    <a id="tmExternalLink" class="tm-external" href="#" target="_blank" onclick="closeTradeMachine()">Open in new tab ↗</a>
     <button class="tm-close" onclick="closeTradeMachine()">✕ Close</button>
   </div>
-  <iframe id="tmIframe" class="tm-iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+  <div id="tmLoading" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.5rem">
+    <div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite"></div>
+    <p style="font-size:.75rem;color:var(--muted)">Loading Trade Machine...</p>
+    <button onclick="tmFallbackNewTab()" style="margin-top:.5rem;font-size:.7rem;padding:.3rem .8rem;border:1px solid var(--border);background:none;color:var(--muted);border-radius:6px;cursor:pointer">Not loading? Open in new tab instead</button>
+  </div>
+  <iframe id="tmIframe" class="tm-iframe" style="display:none" referrerpolicy="no-referrer-when-downgrade"></iframe>
 </div>
   <div class="ext-modal">
     <div class="ext-modal-hdr">
@@ -2213,29 +2218,52 @@ function resetTeam() {
 // ======================== TRADE MACHINE INTEGRATION ========================
 let _tradeContext = null; // { playerName } or null for team-level
 
+let _tmUrl = '';
+
 function openTradeModal(playerName) {
   const abbrev = TEAMS[STATE.team];
   
   // Build Trade Machine URL with RM mode flag
-  let tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev}`;
+  _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev}`;
   
   if (playerName) {
-    // Find player ID from headshot URL for precise matching
     const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
     const playerId = p?.headshot ? (p.headshot.match(/\/(\d+)\.png/)?.[1] || '') : '';
     const pParam = playerId || playerName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
-    tmUrl += `&p=${encodeURIComponent(pParam)}&pd=0-`;
+    _tmUrl += `&p=${encodeURIComponent(pParam)}&pd=0-`;
   }
   
-  // Show iframe overlay
+  // Show iframe overlay with loading state
   const overlay = document.getElementById('tmOverlay');
   const iframe = document.getElementById('tmIframe');
+  const loading = document.getElementById('tmLoading');
   const extLink = document.getElementById('tmExternalLink');
   
-  extLink.href = tmUrl;
-  iframe.src = tmUrl;
+  extLink.href = _tmUrl;
+  loading.style.display = 'flex';
+  iframe.style.display = 'none';
+  
+  iframe.onload = function() {
+    loading.style.display = 'none';
+    iframe.style.display = 'block';
+  };
+  
+  iframe.src = _tmUrl;
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  
+  // Fallback: if iframe hasn't loaded after 5s, show the fallback button more prominently
+  setTimeout(() => {
+    if (loading.style.display !== 'none') {
+      loading.querySelector('button').style.borderColor = 'var(--cyan)';
+      loading.querySelector('button').style.color = 'var(--cyan)';
+    }
+  }, 5000);
+}
+
+function tmFallbackNewTab() {
+  closeTradeMachine();
+  window.open(_tmUrl, '_blank');
 }
 
 function closeTradeMachine() {
@@ -2243,6 +2271,7 @@ function closeTradeMachine() {
   const iframe = document.getElementById('tmIframe');
   overlay.style.display = 'none';
   iframe.src = 'about:blank';
+  iframe.style.display = 'none';
   document.body.style.overflow = '';
 }
 
