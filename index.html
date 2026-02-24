@@ -290,7 +290,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.5</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v0.8.6</span></h1>
     <div class="subtitle">HoopsMatic GM Simulator</div>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
@@ -1051,7 +1051,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 2; // bump this to invalidate saved orders
+  const ALGO_VERSION = 3; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -1068,25 +1068,69 @@ function buildDepthPositions(players) {
     return byPos;
   }
 
-  // === DRAFT-STYLE PLACEMENT ===
-  // Players placed one-by-one by TV (best first).
-  // Always stay at natural position unless it's at target capacity,
-  // then overflow to least-filled adjacent.
+  // === ROW-BY-ROW PLACEMENT ===
+  // Fill starters (row 1) across all 5 positions first, then 2nd unit, then 3rd.
+  // For each open slot, pick the highest-TV remaining player who can play that position.
+  // This guarantees higher-TV players always land in higher rows.
   const ADJ = { PG:['SG'], SG:['PG','SF'], SF:['SG','PF'], PF:['SF','C'], C:['PF'] };
-  const total = players.length;
-  const target = Math.ceil(total / 5);
-  const sorted = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
+  const remaining = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
   const byPos = {}; POS.forEach(p => byPos[p] = []);
+  const maxRows = Math.ceil(players.length / 5);
 
-  for (const p of sorted) {
-    const nat = posOf(p);
-    if (byPos[nat].length < target) {
-      byPos[nat].push(p);
-    } else {
-      const adj = [...ADJ[nat]].sort((a,b) => byPos[a].length - byPos[b].length);
-      byPos[adj[0]].push(p);
+  for (let row = 0; row < maxRows; row++) {
+    // For each position in this row, find best available player
+    const rowPicks = [];
+    for (const pos of POS) {
+      // Find highest-TV remaining player whose natural or adjacent includes this position
+      let bestIdx = -1, bestTV = -1;
+      for (let i = 0; i < remaining.length; i++) {
+        const p = remaining[i];
+        const nat = posOf(p);
+        const valid = [nat, ...ADJ[nat]];
+        if (valid.includes(pos) && (p.tv||0) > bestTV) {
+          bestTV = p.tv||0;
+          bestIdx = i;
+        }
+      }
+      if (bestIdx >= 0) {
+        rowPicks.push({ pos, idx: bestIdx, tv: bestTV });
+      }
+    }
+    // Assign picks — but each player can only go to one position.
+    // Sort picks by TV ascending so we process lowest first;
+    // if a player is best for multiple positions, they go to the one
+    // where they're most needed (handled by processing order).
+    // Actually: process positions that have fewer candidates first to avoid conflicts.
+    const used = new Set();
+    // Sort: positions with fewer valid remaining candidates first (most constrained)
+    rowPicks.sort((a,b) => {
+      const countA = remaining.filter(p => !used.has(p) && [posOf(p), ...ADJ[posOf(p)]].includes(a.pos)).length;
+      const countB = remaining.filter(p => !used.has(p) && [posOf(p), ...ADJ[posOf(p)]].includes(b.pos)).length;
+      return countA - countB;
+    });
+    for (const pick of rowPicks) {
+      // Re-find best for this position among unused
+      let bestP = null, bestTV = -1, bestRI = -1;
+      for (let i = 0; i < remaining.length; i++) {
+        const p = remaining[i];
+        if (used.has(p)) continue;
+        const nat = posOf(p);
+        const valid = [nat, ...ADJ[nat]];
+        if (valid.includes(pick.pos) && (p.tv||0) > bestTV) {
+          bestTV = p.tv||0;
+          bestP = p;
+          bestRI = i;
+        }
+      }
+      if (bestP) {
+        byPos[pick.pos].push(bestP);
+        used.add(bestP);
+        remaining.splice(bestRI, 1);
+      }
     }
   }
+  // Any leftover (shouldn't happen but safety)
+  for (const p of remaining) byPos[posOf(p)].push(p);
 
   // Clear stale order
   STATE.depthOrder = {};
@@ -1097,7 +1141,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 2 };
+  const order = { _v: 3 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
