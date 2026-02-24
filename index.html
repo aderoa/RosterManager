@@ -235,6 +235,10 @@ a{color:var(--accent);text-decoration:none}
 .action-btn.draft-swap{background:rgba(255,152,0,.15);color:var(--orange);border-color:rgba(255,152,0,.3)}
 .action-btn.draft-swap:hover{background:rgba(255,152,0,.25)}
 
+/* Your Pick pulse */
+@keyframes pickPulse{0%{box-shadow:0 0 0 0 rgba(102,126,234,.5)}70%{box-shadow:0 0 0 12px rgba(102,126,234,0)}100%{box-shadow:0 0 0 0 rgba(102,126,234,0)}}
+.your-pick-box{animation:pickPulse 1.5s ease-out 2}
+
 /* Trade modal */
 .trade-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
 .trade-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:520px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
@@ -284,9 +288,42 @@ a{color:var(--accent);text-decoration:none}
 /* Traded badge */
 .traded-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(38,198,218,.15);color:var(--cyan);border:1px solid rgba(38,198,218,.3);margin-left:.3rem;font-weight:600}
 .signed-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(76,175,80,.15);color:var(--green);border:1px solid rgba(76,175,80,.3);margin-left:.3rem;font-weight:600}
+
+/* Landing Page */
+.landing{position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:var(--bg);display:flex;flex-direction:column;overflow-y:auto}
+.landing-hdr{text-align:center;padding:2.5rem 1rem 1rem;background:linear-gradient(180deg,rgba(102,126,234,.12) 0%,transparent 100%)}
+.landing-hdr h1{font-size:2rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
+.landing-hdr .landing-sub{font-size:.85rem;color:var(--muted);margin-top:.4rem}
+.landing-hdr .landing-badge{display:inline-block;margin-top:.75rem;font-size:.65rem;padding:.3rem .8rem;border-radius:20px;background:rgba(102,126,234,.12);color:var(--accent);border:1px solid rgba(102,126,234,.2);font-weight:600;letter-spacing:.5px}
+.landing-body{max-width:900px;margin:0 auto;padding:1rem 1.5rem 3rem;width:100%}
+.conf-label{font-size:.7rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:1.5rem 0 .75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.conf-label::before{content:'';display:inline-block;width:3px;height:14px;border-radius:2px}
+.conf-label.east::before{background:var(--accent)}
+.conf-label.west::before{background:var(--orange)}
+.team-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem}
+@media(max-width:700px){.team-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:420px){.team-grid{grid-template-columns:repeat(2,1fr)}}
+.team-card{display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:.8rem .5rem;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s;text-align:center}
+.team-card:hover{border-color:var(--accent);background:rgba(102,126,234,.08);transform:translateY(-2px)}
+.team-card:active{transform:translateY(0)}
+.team-card img{width:48px;height:48px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+.team-card .tc-abbr{font-size:.75rem;font-weight:700;color:var(--text)}
+.team-card .tc-name{font-size:.6rem;color:var(--muted);line-height:1.2}
 </style>
 </head>
 <body>
+
+<!-- Landing Page -->
+<div id="landingPage" class="landing">
+  <div class="landing-hdr">
+    <h1>🏀 ROSTER MANAGER</h1>
+    <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
+    <div class="landing-badge">SELECT YOUR TEAM TO BEGIN</div>
+  </div>
+  <div class="landing-body" id="landingBody">
+    <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
+  </div>
+</div>
 
 <div class="header">
   <div>
@@ -397,6 +434,7 @@ let allProspects = []; // all prospect names from Draft Predictor
 let allPickSlots = {}; // pickSlot# -> {team (abbrev), defaultProspect}
 let contractsMap = {}; // playerName -> { yrs: [{sal, ch, st},...], totG }
 let tradeValueMap = {}; // playerName (lowercase) -> trade value ($)
+let preLotteryOrder = []; // team abbrevs in standings order (worst to best)
 let STATE = null; // current GM state
 
 // Reverse team map: abbreviation -> full name
@@ -510,7 +548,7 @@ async function fetchDraftPicks() {
       if (txt.includes('<!DOCTYPE') || txt.includes('<html')) continue;
       const rows = parseCSV(txt);
 
-      // Columns: 0=Prospect name, 15=POS (pick position), 16=TEAM
+      // Columns: 0=Prospect name, 15=POS (pre-lottery standings rank), 16=TEAM (3-letter abbrev)
       const prospects = [];
       const pickSlots = {};
       const picks = {};
@@ -540,6 +578,14 @@ async function fetchDraftPicks() {
       allProspects = prospects;
       allPickSlots = pickSlots;
       teamDraftPicks = picks;
+
+      // Build pre-lottery order from picks 1-14 (column P = standings rank, 1 = worst record)
+      preLotteryOrder = [];
+      for (let i = 1; i <= 14; i++) {
+        if (pickSlots[i]) preLotteryOrder.push(pickSlots[i].team);
+      }
+      console.log(`[DP] Pre-lottery order: ${preLotteryOrder.join(', ')}`);
+
       const totalPicks = Object.values(picks).reduce((s, arr) => s + arr.length, 0);
       console.log(`[DP] Loaded ${prospects.length} prospects, ${totalPicks} first-round picks for ${Object.keys(picks).length} teams`);
       return;
@@ -1257,11 +1303,15 @@ function contractSalCell(yr) {
 const LOTTERY_ODDS = [140, 140, 140, 125, 105, 90, 75, 60, 45, 30, 20, 15, 10, 5]; // per 1000
 
 function getLotteryTeams() {
-  // Picks 1-14 from allPickSlots are the lottery teams
+  // Use pre-lottery standings order if available (worst record = index 0)
+  if (preLotteryOrder.length >= 14) {
+    return preLotteryOrder.slice(0, 14).map((team, i) => ({ team, originalSlot: i + 1 }));
+  }
+  // Fallback: picks 1-14 from allPickSlots
   const teams = [];
   for (let i = 1; i <= 14; i++) {
     const slot = allPickSlots[i];
-    if (slot) teams.push({ team: slot.team, originalPick: i });
+    if (slot) teams.push({ team: slot.team, originalSlot: i });
   }
   return teams;
 }
@@ -1283,14 +1333,14 @@ function runLotterySimulation() {
       if (rand <= 0) { winner = t; break; }
     }
     if (!winner) winner = remaining[remaining.length - 1];
-    results.push({ pick, team: winner.team, originalPick: winner.originalPick });
+    results.push({ pick, team: winner.team, originalSlot: winner.originalSlot });
     remaining.splice(remaining.indexOf(winner), 1);
   }
 
-  // Remaining 10 fill in original order
-  remaining.sort((a, b) => a.originalPick - b.originalPick);
+  // Remaining 10 fill in original standings order (worst to best)
+  remaining.sort((a, b) => a.originalSlot - b.originalSlot);
   for (let i = 0; i < remaining.length; i++) {
-    results.push({ pick: 5 + i, team: remaining[i].team, originalPick: remaining[i].originalPick });
+    results.push({ pick: 5 + i, team: remaining[i].team, originalSlot: remaining[i].originalSlot });
   }
 
   return results;
@@ -1298,12 +1348,11 @@ function runLotterySimulation() {
 
 function applyLotteryResults(results) {
   if (!results) return;
-  // Remap allPickSlots for picks 1-14
+  // Remap allPickSlots for picks 1-14: team changes, prospect stays with pick number
   for (const r of results) {
-    const originalSlot = allPickSlots[r.originalPick];
-    if (!originalSlot) continue;
-    // The prospect stays with the pick number (team changes)
-    allPickSlots[r.pick] = { ...allPickSlots[r.pick], team: r.team };
+    if (allPickSlots[r.pick]) {
+      allPickSlots[r.pick] = { ...allPickSlots[r.pick], team: r.team };
+    }
   }
   // Rebuild teamDraftPicks from updated allPickSlots
   const picks = {};
@@ -1372,7 +1421,7 @@ function renderLottery() {
     for (const r of results) {
       const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === r.team)] || '';
       const isUser = r.team === teamAbbrev;
-      const diff = r.originalPick - r.pick;
+      const diff = r.originalSlot - r.pick;
       const move = diff > 0 ? `<span style="color:var(--green);font-weight:700">▲ ${diff}</span>` : diff < 0 ? `<span style="color:var(--red);font-weight:700">▼ ${Math.abs(diff)}</span>` : `<span style="color:var(--muted)">—</span>`;
       const rowStyle = isUser ? ' style="background:rgba(102,126,234,.1)"' : '';
       const isTop4 = r.pick <= 4;
@@ -1380,7 +1429,7 @@ function renderLottery() {
       h += `${isTop4?'🏆 ':''}#${r.pick}</td>`;
       h += `<td><div style="display:flex;align-items:center;gap:.4rem">${logo ? `<img src="${logo}" style="width:20px;height:20px">` : ''}`;
       h += `<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${r.team}</span></div></td>`;
-      h += `<td style="color:var(--muted)">#${r.originalPick}</td>`;
+      h += `<td style="color:var(--muted)">#${r.originalSlot}</td>`;
       h += `<td>${move}</td></tr>`;
     }
     h += `</tbody></table></div>`;
@@ -1450,7 +1499,7 @@ function runDraftUntilUser() {
     render();
   }
 
-  _draftAnimTimer = setInterval(draftNextPick, 1000);
+  _draftAnimTimer = setInterval(draftNextPick, 500);
 }
 
 function startDraft() {
@@ -1539,7 +1588,7 @@ function renderDraftBoard() {
 
   // User's pick selection (if it's their turn)
   if (!isDraftComplete && getPickTeam(current) === teamAbbrev) {
-    h += `<div style="background:rgba(102,126,234,.1);border:2px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem">`;
+    h += `<div id="yourPickBox" class="your-pick-box" style="background:rgba(102,126,234,.1);border:2px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem">`;
     h += `<h3 style="color:var(--accent);margin-bottom:.5rem;font-size:.9rem">🎯 Your Pick — #${current}</h3>`;
     h += `<input id="draftSearchInput" class="trade-input" style="width:100%;margin-bottom:.5rem" placeholder="Filter prospects..." oninput="filterDraftProspects(this.value)">`;
     h += `<div id="draftProspectList" style="max-height:250px;overflow-y:auto">`;
@@ -1600,10 +1649,17 @@ function renderDraftBoard() {
 
   panel.innerHTML = h;
 
-  // Auto-scroll to current pick
+  // Auto-scroll: prioritize Your Pick box when it's user's turn
   if (!isDraftComplete) {
-    const row = panel.querySelector('tr[data-current]');
-    if (row) setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    const yourBox = panel.querySelector('#yourPickBox');
+    if (yourBox) {
+      setTimeout(() => yourBox.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+      // Focus the search input for immediate typing
+      setTimeout(() => { const inp = panel.querySelector('#draftSearchInput'); if (inp) inp.focus(); }, 150);
+    } else {
+      const row = panel.querySelector('tr[data-current]');
+      if (row) setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    }
   }
 }
 
@@ -2690,12 +2746,15 @@ async function init() {
   const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContracts(), fetchTradeValues()]);
   if (!csv) {
     document.getElementById('loadingState').innerHTML = '<p style="color:var(--red)">Failed to load data. Try refreshing.</p>';
+    const lb = document.getElementById('landingBody');
+    if (lb) lb.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--red)">Failed to load data. Try refreshing.</div>';
     return;
   }
 
   allPlayers = parseAllPlayers(csv);
   document.getElementById('loadingState').style.display = 'none';
   renderTeamDropdown();
+  renderLandingPage();
 
   // Hard refresh = clean slate: clear all saved state
   for (const key of Object.keys(localStorage)) {
@@ -2703,10 +2762,60 @@ async function init() {
   }
 }
 
-// Override selectTeam to also save last team
+function renderLandingPage() {
+  const body = document.getElementById('landingBody');
+  if (!body) return;
+
+  const EAST = ['Atlanta','Boston','Brooklyn','Charlotte','Chicago','Cleveland','Detroit','Indiana','Miami','Milwaukee','New York','Orlando','Philadelphia','Toronto','Washington'];
+  const WEST = ['Dallas','Denver','Golden State','Houston','LA Clippers','LA Lakers','Memphis','Minnesota','New Orleans','Oklahoma City','Phoenix','Portland','Sacramento','San Antonio','Utah'];
+
+  function buildGrid(teams) {
+    let h = '<div class="team-grid">';
+    for (const full of teams) {
+      const abbr = TEAMS[full] || full;
+      const logo = teamLogos[full] || '';
+      h += `<div class="team-card" onclick="pickTeamFromLanding('${full.replace(/'/g,"\\'")}')">`;
+      if (logo) {
+        h += `<img src="${logo}" alt="${abbr}">`;
+      } else {
+        h += `<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--surface);border-radius:50%;font-size:1rem;font-weight:700;color:var(--accent)">${abbr}</div>`;
+      }
+      h += `<div class="tc-abbr">${abbr}</div>`;
+      h += `<div class="tc-name">${full}</div>`;
+      h += `</div>`;
+    }
+    h += '</div>';
+    return h;
+  }
+
+  let h = '';
+  h += `<div class="conf-label east">Eastern Conference</div>`;
+  h += buildGrid(EAST);
+  h += `<div class="conf-label west">Western Conference</div>`;
+  h += buildGrid(WEST);
+  body.innerHTML = h;
+}
+
+function pickTeamFromLanding(team) {
+  const landing = document.getElementById('landingPage');
+  if (landing) {
+    landing.style.transition = 'opacity .3s ease';
+    landing.style.opacity = '0';
+    setTimeout(() => { landing.style.display = 'none'; }, 300);
+  }
+  selectTeam(team);
+}
+
+// Override selectTeam to also save last team and hide landing
 const _selectTeam = selectTeam;
 selectTeam = function(team) {
   localStorage.setItem('rm_last_team', team);
+  const landing = document.getElementById('landingPage');
+  if (landing && landing.style.display !== 'none') {
+    landing.style.transition = 'opacity .3s ease';
+    landing.style.opacity = '0';
+    setTimeout(() => { landing.style.display = 'none'; }, 300);
+  }
   _selectTeam(team);
 };
 
