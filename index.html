@@ -20,6 +20,27 @@ a{color:var(--accent);text-decoration:none}
 
 /* Header */
 .header{background:linear-gradient(135deg,var(--team1),var(--team2));padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100;transition:background .4s}
+
+/* === MOBILE: LANDSCAPE + AUTO-FIT === */
+@media(max-width:1024px) and (orientation:portrait){
+  .header{position:relative} /* not sticky in portrait on mobile */
+  /* Landscape prompt overlay */
+  .landscape-hint{display:flex!important}
+}
+@media(max-width:1024px) and (orientation:landscape){
+  .header{position:relative;padding:.5rem 1rem;gap:.5rem}
+  .header h1{font-size:.9rem}
+  .header .subtitle{font-size:.6rem}
+  .main{padding:.5rem;gap:.5rem}
+  .depth-chart{grid-template-columns:repeat(5,1fr)!important;gap:.3rem;padding:.5rem}
+  .dc-card{padding:.3rem}
+  .dc-name{font-size:.55rem}
+  .dc-sal{font-size:.45rem}
+  .landscape-hint{display:none!important}
+}
+.landscape-hint{display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:1rem;text-align:center;padding:2rem}
+.landscape-hint .rotate-icon{font-size:3rem;animation:rotateHint 2s ease-in-out infinite}
+@keyframes rotateHint{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
 .header h1{font-size:1.2rem;font-weight:700;letter-spacing:.5px}
 .header .subtitle{font-size:.75rem;opacity:.8}
 .header .season-badge{background:rgba(0,0,0,.25);padding:.3rem .8rem;border-radius:20px;font-size:.8rem;font-weight:600}
@@ -48,7 +69,7 @@ a{color:var(--accent);text-decoration:none}
 .main{display:grid;grid-template-columns:1fr 320px;gap:1rem;padding:1rem;max-width:1600px;margin:0 auto}
 @media(max-width:900px){.main{grid-template-columns:1fr}}
 @media(max-width:768px){
-  .header{flex-wrap:wrap;gap:.5rem;padding:.75rem 1rem}
+  .header{flex-wrap:wrap;gap:.5rem;padding:.75rem 1rem;position:relative}
   .header h1{font-size:1rem}
   .cap-mini{min-width:100px}
   .team-dropdown{min-width:120px;font-size:.7rem}
@@ -153,8 +174,8 @@ a{color:var(--accent);text-decoration:none}
 .dc-drop-indicator{height:3px;background:var(--accent);border-radius:2px;margin:2px 0;pointer-events:none;box-shadow:0 0 6px rgba(102,126,234,.6)}
 .dc-section-label{font-size:.85rem;font-weight:700;color:var(--text);margin:1rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
 .dc-section-label .dc-badge{font-size:.6rem;padding:.15rem .5rem;border-radius:10px;font-weight:600}
-@media(max-width:768px){.depth-chart{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:500px){.depth-chart{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px) and (orientation:portrait){.depth-chart{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:500px) and (orientation:portrait){.depth-chart{grid-template-columns:repeat(2,1fr)}}
 
 /* Contract Table */
 .contract-table{width:100%;font-size:.7rem;border-collapse:collapse}
@@ -439,6 +460,14 @@ a{color:var(--accent);text-decoration:none}
 <!-- Toast Notifications -->
 <div class="toast-container" id="toastContainer"></div>
 
+<!-- Landscape Orientation Hint (mobile only) -->
+<div class="landscape-hint" id="landscapeHint">
+  <div class="rotate-icon">📱</div>
+  <div style="font-size:1.1rem;font-weight:700">Rotate Your Phone</div>
+  <div style="font-size:.8rem;color:var(--muted);max-width:280px">Roster Manager works best in landscape mode for the full depth chart view</div>
+  <button onclick="dismissLandscapeHint()" style="margin-top:.5rem;padding:.4rem 1.2rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.75rem;cursor:pointer">Continue in Portrait →</button>
+</div>
+
 <!-- Landing Page -->
 <div id="landingPage" class="landing">
   <div class="landing-hdr">
@@ -560,6 +589,21 @@ a{color:var(--accent);text-decoration:none}
 
 <script>
 // ======================== CONSTANTS ========================
+let _landscapeDismissed = false;
+function dismissLandscapeHint() {
+  _landscapeDismissed = true;
+  document.getElementById('landscapeHint').style.display = 'none';
+}
+// Re-show hint only if not dismissed and back in portrait
+window.addEventListener('orientationchange', () => {
+  if (_landscapeDismissed) return;
+  const hint = document.getElementById('landscapeHint');
+  if (!hint) return;
+  setTimeout(() => {
+    if (window.innerWidth < 1024 && window.innerHeight > window.innerWidth) hint.style.display = 'flex';
+    else hint.style.display = 'none';
+  }, 200);
+});
 const SEASON = '2026-27';
 const THRESHOLDS = {
   '2025-2026': {cap:154647000,tax:187895000,apron1:195945000,apron2:207824000,bae:5134000,ntmle:14104000,tmle:5685000,rmle:8781000},
@@ -927,7 +971,12 @@ function parseAllPlayers(csv) {
     const sal27 = parseMoney(r[6]);
     const ch27 = parseMoney(r[7]);
     const st27 = (r[8] || '').trim();
+    const contractType = (r[1] || '').trim();
     const exception = (r[20] || '').trim();
+
+    // Skip 10-day contract players — they won't be on the offseason roster
+    const is10Day = /10.?day/i.test(contractType) || /10.?day/i.test(exception) || /10.?day/i.test(st26);
+    if (is10Day) continue;
     const logo = (r[24] || '').trim();
     const headshot = (r[25] || '').trim();
     const pos = (r[26] || '').trim();
@@ -941,11 +990,10 @@ function parseAllPlayers(csv) {
     if (logo && team) teamLogos[team] = logo;
 
     // Determine player category for 2026-27 offseason
+    // Two-way players are treated as regular roster players
     let category, capHold = 0;
-    if (st26 === 'TWO-WAY' || st27 === 'TWO-WAY') {
-      category = 'twoway';
-    } else if (!sal27 && !st27) {
-      // No 2026-27 salary = expiring, becomes free agent
+    if (!sal27 && !st27) {
+      // No 2026-27 salary = expiring (or two-way expiring), becomes free agent
       category = 'free_agent';
       capHold = calcCapHold(sal26, exception);
     } else if (st27 === 'TEAM OPT') {
@@ -957,13 +1005,16 @@ function parseAllPlayers(csv) {
     } else if (st27 === 'PARTIAL G') {
       category = 'partial_guaranteed';
     } else {
-      category = 'under_contract'; // GUARANTEED
+      category = 'under_contract'; // GUARANTEED or TWO-WAY with sal27
     }
+    
+    // Track if originally a two-way for badge display
+    const isTwoWay = (st26 === 'TWO-WAY' || st27 === 'TWO-WAY');
 
     players.push({
       name, team, sal26, ch26, st26, sal27, ch27, st27,
       exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
-      category, capHold, extEligible, rat365,
+      category, capHold, extEligible, rat365, isTwoWay,
       tv: tradeValueMap[name.toLowerCase()] || 0
     });
   }
@@ -997,7 +1048,7 @@ function calcCapHold(priorSalary, exception) {
 function calcCapSheet(team) {
   const players = allPlayers.filter(p => p.team === team);
   let activeSalaries = 0, capHolds = 0, deadMoney = 0;
-  let rosterCount = 0, twowayCount = 0;
+  let rosterCount = 0;
 
   // Build set of traded-out player names
   const tradedOut = new Set();
@@ -1007,7 +1058,7 @@ function calcCapSheet(team) {
     for (const p of (trade.in || [])) tradedIn.push(p);
   }
 
-  const roster = { under_contract: [], free_agent: [], non_guaranteed: [], partial_guaranteed: [], twoway: [], waived: [], draft_picks: [], signed: [] };
+  const roster = { under_contract: [], free_agent: [], non_guaranteed: [], partial_guaranteed: [], waived: [], draft_picks: [], signed: [] };
 
   for (const p of players) {
     // Skip traded-out players
@@ -1035,13 +1086,6 @@ function calcCapSheet(team) {
       }
       if (dead) deadMoney += dead;
       roster.waived.push({ ...p, status: 'waived', deadAmount: dead, isStretched });
-      continue;
-    }
-
-    // === TWO-WAY ===
-    if (p.category === 'twoway') {
-      twowayCount++;
-      roster.twoway.push({ ...p, status: 'active' });
       continue;
     }
 
@@ -1177,7 +1221,7 @@ function calcCapSheet(team) {
   const apron1Room = T.apron1 - teamSalary;
   const apron2Room = T.apron2 - teamSalary;
 
-  // Available exceptions
+  // Available exceptions — always activate BAE + applicable MLE
   const hasCapSpace = capSpace > 0;
   const belowTax = taxRoom > 0;
   const belowApron1 = apron1Room > 0;
@@ -1190,15 +1234,18 @@ function calcCapSheet(team) {
   } else {
     exceptions.push({ name: 'Cap Space', amount: 0, available: false });
   }
-  if (!hasCapSpace && belowApron1) {
-    exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: true });
+  // MLE: Non-Tax if below 1st apron, Tax MLE if between aprons, both shown as available
+  if (!hasCapSpace) {
+    if (belowApron1) {
+      exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: true });
+    } else {
+      exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false });
+      exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: true });
+    }
+  }
+  // BAE: always available when team doesn't have cap space
+  if (!hasCapSpace) {
     exceptions.push({ name: 'BAE', amount: T.bae, available: true });
-  } else if (!hasCapSpace && !belowApron1 && belowApron2) {
-    exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: true });
-  } else if (!hasCapSpace) {
-    exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false });
-    exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: !hasCapSpace && !belowApron1 ? false : true });
-    exceptions.push({ name: 'BAE', amount: T.bae, available: false });
   }
   exceptions.push({ name: 'Minimum', amount: MIN_SALARY_0YOS, available: true });
 
@@ -1219,7 +1266,7 @@ function calcCapSheet(team) {
   return {
     roster, activeSalaries, capHolds, deadMoney, incompleteCharge, draftCapHolds,
     teamSalary, capSpace, taxRoom, apron1Room, apron2Room,
-    rosterCount, twowayCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2
+    rosterCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2
   };
 }
 
@@ -1339,7 +1386,6 @@ function getDepthPlayers(cap) {
   for (const p of cap.roster.non_guaranteed) players.push(p);
   for (const p of cap.roster.partial_guaranteed) players.push(p);
   for (const p of cap.roster.signed) players.push({...p, _signed: true});
-  for (const p of cap.roster.twoway) players.push({...p, _twoWay: true});
   return players;
 }
 
@@ -1459,7 +1505,7 @@ function dcBadge(p) {
   if (p.status === 'exercised') return '<span class="dc-opt-badge" style="background:rgba(76,175,80,.15);color:var(--green)">✓PO</span>';
   if (p._signed) return '<span class="dc-opt-badge signed">FA</span>';
   if (p.status === 'traded_in') return '<span class="dc-opt-badge traded">TRD</span>';
-  if (p._twoWay) return '<span class="dc-opt-badge" style="background:rgba(100,116,139,.15);color:#94a3b8">2W</span>';
+  if (p.isTwoWay) return '<span class="dc-opt-badge" style="background:rgba(100,116,139,.15);color:#94a3b8">2W</span>';
   if (p.category === 'non_guaranteed') return '<span class="dc-opt-badge ng">NG</span>';
   if (p.category === 'partial_guaranteed') return '<span class="dc-opt-badge pg">PG</span>';
   return '';
@@ -1479,12 +1525,12 @@ function dcActions(p) {
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
     return h;
   }
-  // Waive (not for two-way, not during draft)
-  if (!p._twoWay && phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'signed')) {
+  // Waive (not during draft)
+  if (phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'signed')) {
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();openWaiveModal('${esc(p.name)}')">Waive</button>`;
   }
   // Trade
-  if (!p._twoWay && phase !== 'training_camp' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in')) {
+  if (phase !== 'training_camp' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in')) {
     h += `<button class="dc-btn trade" onclick="event.stopPropagation();openTradeModal('${esc(p.name)}')">Trade</button>`;
   }
   // Extend
@@ -1967,17 +2013,16 @@ function renderRoster(cap) {
     h += `<button class="action-btn pickup" style="font-size:.7rem;padding:.35rem .75rem" onclick="openSignModal()">✍️ Sign Free Agent</button>`;
   }
   // Roster count pill
-  const rCount = cap.rosterCount + cap.twowayCount;
-  h += `<span style="margin-left:auto;font-size:.6rem;padding:.2rem .6rem;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--muted)">${rCount} players · ${cap.twowayCount} two-way</span>`;
+  const rCount = cap.rosterCount;
+  h += `<span style="margin-left:auto;font-size:.6rem;padding:.2rem .6rem;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--muted)">${rCount} players</span>`;
   h += `</div>`;
 
   // Training camp compliance
   if (phase === 'training_camp') {
-    const total = cap.rosterCount, twoWay = cap.twowayCount;
-    if (total > 15) h += `<div class="camp-warning"><h4>⚠️ Roster Over Limit</h4><p>You have ${total} standard contracts — must cut ${total - 15} player(s) to reach the 15-player limit.</p></div>`;
-    else if (total < 14) h += `<div class="camp-warning"><h4>⚠️ Roster Under Minimum</h4><p>You have ${total} standard contracts — need at least 14 for opening night.</p></div>`;
-    else h += `<div class="camp-ok"><h4>✅ Roster Compliant</h4><p>${total} standard contracts (limit: 15) · ${twoWay} two-way (limit: 3)</p></div>`;
-    if (twoWay > 3) h += `<div class="camp-warning"><h4>⚠️ Too Many Two-Way</h4><p>You have ${twoWay} two-way contracts — must cut ${twoWay - 3} to reach the 3-player limit.</p></div>`;
+    const total = cap.rosterCount;
+    if (total > 15) h += `<div class="camp-warning"><h4>⚠️ Roster Over Limit</h4><p>You have ${total} contracts — must cut ${total - 15} player(s) to reach the 15-player limit.</p></div>`;
+    else if (total < 14) h += `<div class="camp-warning"><h4>⚠️ Roster Under Minimum</h4><p>You have ${total} contracts — need at least 14 for opening night.</p></div>`;
+    else h += `<div class="camp-ok"><h4>✅ Roster Compliant</h4><p>${total} contracts (limit: 15)</p></div>`;
   }
 
   // ======== DEPTH CHART ========
@@ -2035,20 +2080,6 @@ function renderRoster(cap) {
     h += `</tbody></table></div>`;
   }
 
-  // ======== TWO-WAY (if any) ========
-  if (cap.roster.twoway.length) {
-    h += `<div class="dc-section-label">🔄 Two-Way Contracts <span class="dc-badge" style="background:rgba(100,116,139,.12);color:#94a3b8">${cap.roster.twoway.length}</span></div>`;
-    h += `<div class="section"><div class="section-body">`;
-    for (const p of cap.roster.twoway) {
-      h += `<div class="player-row">`;
-      h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
-      h += `<div class="info"><div class="pname">${p.name}</div><div class="pdet">${p.pos || ''} · Two-Way</div></div>`;
-      h += `<div class="sal" style="color:#94a3b8">${fmtMoney(p.sal27 || 0)}</div>`;
-      h += `</div>`;
-    }
-    h += `</div></div>`;
-  }
-
   // ======== FREE AGENTS ========
   const fas = cap.roster.free_agent;
   if (fas.length) {
@@ -2065,7 +2096,7 @@ function renderRoster(cap) {
       const acted = p.status === 'renounced';
       h += `<div class="player-row${acted ? ' acted' : ''}">`;
       h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
-      h += `<div class="info"><div class="pname">${p.name}${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}</div>`;
+      h += `<div class="info"><div class="pname">${p.name}${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(100,116,139,.15);color:#94a3b8">2W</span>' : ''}</div>`;
       h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}</div></div>`;
       if (acted) {
         h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
@@ -2249,7 +2280,6 @@ function renderCapPanel(cap) {
   h += `<div class="cap-card">`;
   h += `<h3>👥 Roster</h3>`;
   h += capRow('Standard Contracts', cap.rosterCount + '/15');
-  h += capRow('Two-Way Slots', cap.twowayCount + '/3');
   if (cap.rosterCount < 14) {
     h += `<div style="font-size:.65rem;color:var(--red);margin-top:.3rem">⚠️ Need at least 14 standard contracts by opening night</div>`;
   }
