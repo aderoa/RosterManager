@@ -3,19 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#667eea">
+<meta name="theme-color" content="#3b82f6">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://hoopsmatic.com" crossorigin>
 <link rel="dns-prefetch" href="https://hoopsmatic.com">
 <title>Roster Manager – HoopsMatic</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#0a0e1a;--surface:#111827;--card:#1a2236;--border:#1e2d4a;
-  --text:#e2e8f0;--muted:#64748b;--accent:#667eea;--accent2:#764ba2;
-  --green:#4caf50;--red:#ef5350;--orange:#ff9800;--yellow:#ffd600;--cyan:#26c6da;
-  --team1:#667eea;--team2:#764ba2;--team1-dim:#667eea18;--team2-dim:#764ba218;
+  --bg:#f5f5f7;--surface:#ffffff;--card:#ffffff;--border:#d1d1d6;
+  --text:#1d1d1f;--muted:#6e6e73;--accent:#3b82f6;--accent2:#2563eb;
+  --green:#34c759;--red:#ff453a;--orange:#b45309;--yellow:#f59e0b;--cyan:#0ea5e9;
+  --team1:#3b82f6;--team2:#2563eb;--team1-dim:rgba(59,130,246,.1);--team2-dim:rgba(37,99,235,.1);
+  --green-dim:rgba(52,199,89,.15);--red-dim:rgba(255,69,58,.15);--accent-dim:rgba(59,130,246,.15);
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;max-width:100vw}
+body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;max-width:100vw;line-height:1.5}
 a{color:var(--accent);text-decoration:none}
 
 /* Header */
@@ -40,23 +43,23 @@ a{color:var(--accent);text-decoration:none}
   .pos-col{min-width:0}
   .cap-panel{min-width:0}
 }
-.header h1{font-size:1.2rem;font-weight:700;letter-spacing:.5px}
-.header .subtitle{font-size:.75rem;opacity:.8}
-.header .season-badge{background:rgba(0,0,0,.25);padding:.3rem .8rem;border-radius:20px;font-size:.8rem;font-weight:600}
+.header h1{font-size:1.2rem;font-weight:700;letter-spacing:-.02em;color:#fff}
+.header .subtitle{font-size:.75rem;opacity:.85;color:#fff}
+.header .season-badge{background:rgba(255,255,255,.2);padding:.3rem .8rem;border-radius:20px;font-size:.8rem;font-weight:600;color:#fff}
 .header .hdr-team{display:flex;align-items:center;gap:.6rem}
-.header .hdr-team img{width:36px;height:36px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
-.header .hdr-team-name{font-size:.85rem;font-weight:600;line-height:1.2}
-.header .hdr-team-sub{font-size:.6rem;opacity:.7}
+.header .hdr-team img{width:36px;height:36px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))}
+.header .hdr-team-name{font-size:.85rem;font-weight:600;line-height:1.2;color:#fff}
+.header .hdr-team-sub{font-size:.6rem;opacity:.8;color:#fff}
 .cap-mini{display:flex;flex-direction:column;gap:.15rem;min-width:140px}
-.cap-mini-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.5px;opacity:.7;display:flex;justify-content:space-between}
-.cap-mini-bar{height:6px;background:rgba(0,0,0,.3);border-radius:3px;overflow:hidden}
+.cap-mini-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.5px;opacity:.8;display:flex;justify-content:space-between;color:#fff}
+.cap-mini-bar{height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden}
 .cap-mini-fill{height:100%;border-radius:3px;transition:width .5s ease,background .3s}
-.cap-mini-vals{font-size:.55rem;opacity:.8;display:flex;justify-content:space-between}
+.cap-mini-vals{font-size:.55rem;opacity:.8;display:flex;justify-content:space-between;color:#fff}
 
 /* Team Dropdown */
-.team-dropdown{font-family:inherit;font-size:.8rem;padding:.4rem .8rem;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);border-radius:6px;color:var(--text);cursor:pointer;outline:none;min-width:160px;appearance:auto}
-.team-dropdown:focus{border-color:var(--accent)}
-.team-dropdown option{background:var(--card);color:var(--text)}
+.team-dropdown{font-family:inherit;font-size:.8rem;padding:.4rem .8rem;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;cursor:pointer;outline:none;min-width:160px;appearance:auto}
+.team-dropdown:focus{border-color:rgba(255,255,255,.5)}
+.team-dropdown option{background:var(--surface);color:var(--text)}
 
 /* Team Banner */
 .team-banner{display:flex;align-items:center;gap:1rem;padding:1rem 2rem;max-width:1600px;margin:0 auto}
@@ -79,18 +82,18 @@ a{color:var(--accent);text-decoration:none}
 
 /* Roster Panel */
 .roster-panel{display:flex;flex-direction:column;gap:.75rem}
-.section{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-.section-hdr{padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
+.section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.section-hdr{padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);background:var(--bg)}
 .section-hdr .dot{width:10px;height:10px;border-radius:50%}
 .section-hdr h3{font-size:.8rem;font-weight:600;flex:1}
 .section-hdr .badge{font-size:.65rem;padding:.15rem .5rem;border-radius:10px;font-weight:600}
 .section-body{padding:.5rem}
 
 /* Player Row */
-.player-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:6px;transition:background .1s}
-.player-row:hover{background:rgba(255,255,255,.03)}
-.player-row .hs{width:36px;height:28px;border-radius:4px;object-fit:cover;background:var(--surface)}
-.player-row .hs-ini{width:36px;height:28px;border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.55rem;color:var(--muted)}
+.player-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:8px;transition:background .1s}
+.player-row:hover{background:var(--bg)}
+.player-row .hs{width:36px;height:28px;border-radius:4px;object-fit:cover;background:var(--bg)}
+.player-row .hs-ini{width:36px;height:28px;border-radius:4px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:.55rem;color:var(--muted)}
 .player-row .info{flex:1;min-width:0}
 .player-row .pname{font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .player-row .pdet{font-size:.6rem;color:var(--muted)}
@@ -98,82 +101,82 @@ a{color:var(--accent);text-decoration:none}
 .player-row .sal.g{color:var(--green)}.player-row .sal.ng{color:var(--red)}.player-row .sal.to{color:var(--orange)}.player-row .sal.po{color:var(--cyan)}.player-row .sal.pg{color:var(--yellow)}
 .player-row .ch{font-size:.6rem;color:var(--muted);text-align:right}
 .player-row .action-btn{
-  font-size:.6rem;padding:.2rem .5rem;border-radius:4px;border:1px solid var(--border);
-  background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s
+  font-size:.6rem;padding:.2rem .5rem;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit
 }
 .player-row .action-btn:hover{border-color:var(--accent);color:var(--accent)}
-.player-row .action-btn.pickup{border-color:var(--green);color:var(--green)}
-.player-row .action-btn.pickup:hover{background:rgba(76,175,80,.15)}
-.player-row .action-btn.decline{border-color:var(--red);color:var(--red)}
-.player-row .action-btn.decline:hover{background:rgba(239,83,80,.15)}
+.player-row .action-btn.pickup{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.player-row .action-btn.pickup:hover{background:var(--green);color:#fff}
+.player-row .action-btn.decline{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+.player-row .action-btn.decline:hover{background:var(--red);color:#fff}
 .player-row .action-btn.renounce{border-color:var(--orange);color:var(--orange)}
-.player-row .action-btn.renounce:hover{background:rgba(255,152,0,.15)}
+.player-row .action-btn.renounce:hover{background:rgba(180,83,9,.15)}
 .player-row .action-btn.waive{border-color:var(--red);color:var(--red)}
-.player-row .action-btn.waive:hover{background:rgba(239,83,80,.15)}
+.player-row .action-btn.waive:hover{background:var(--red-dim)}
 .player-row .action-btn.done{opacity:.5;pointer-events:none}
 .player-row.acted{opacity:.45}
 
 /* Cap Panel */
 .cap-panel{position:sticky;top:60px;display:flex;flex-direction:column;gap:.75rem;align-self:start}
-.cap-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem}
+.cap-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .cap-card h3{font-size:.8rem;font-weight:700;margin-bottom:.75rem;color:var(--accent)}
-.cap-row{display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.75rem}
+.cap-row{display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.75rem}
 .cap-row:last-child{border-bottom:none}
 .cap-row .label{color:var(--muted)}
 .cap-row .value{font-weight:600}
 .cap-row .value.pos{color:var(--green)}.cap-row .value.neg{color:var(--red)}
-.cap-bar{height:8px;border-radius:4px;background:var(--surface);margin:.5rem 0;overflow:hidden;position:relative}
+.cap-bar{height:8px;border-radius:4px;background:var(--bg);margin:.5rem 0;overflow:hidden;position:relative}
 .cap-bar-fill{height:100%;border-radius:4px;transition:width .3s}
 .cap-bar-marker{position:absolute;top:-2px;height:12px;width:2px;border-radius:1px}
 
 /* Exception chips */
 .exc-list{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
-.exc-chip{font-size:.65rem;padding:.2rem .5rem;border-radius:4px;background:var(--surface);border:1px solid var(--border)}
-.exc-chip.available{border-color:var(--green);color:var(--green)}
+.exc-chip{font-size:.65rem;padding:.2rem .5rem;border-radius:6px;background:var(--bg);border:1px solid var(--border);font-family:inherit}
+.exc-chip.available{border-color:var(--green);color:#15803d;background:var(--green-dim)}
 .exc-chip.unavailable{border-color:var(--border);color:var(--muted);opacity:.5}
 
 /* Move log */
 .move-log{max-height:200px;overflow-y:auto}
-.move-entry{font-size:.68rem;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04);color:var(--muted)}
+.move-entry{font-size:.68rem;padding:.3rem 0;border-bottom:1px solid var(--border);color:var(--muted)}
 .move-entry .action{color:var(--accent)}
 
 /* Controls */
 .controls{display:flex;gap:.5rem;margin-top:.5rem}
-.ctrl-btn{font-size:.7rem;padding:.35rem .75rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;transition:all .15s}
+.ctrl-btn{font-size:.7rem;padding:.35rem .75rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:all .15s;font-family:inherit}
 .ctrl-btn:hover{border-color:var(--accent);color:var(--accent)}
 .ctrl-btn.reset{border-color:var(--red);color:var(--red)}
-.ctrl-btn.reset:hover{background:rgba(239,83,80,.15)}
+.ctrl-btn.reset:hover{background:var(--red-dim)}
 
 /* Depth Chart */
-.depth-chart{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;background:rgba(255,255,255,.04);border-radius:12px;padding:1rem;margin-bottom:.75rem}
+.depth-chart{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;background:var(--bg);border-radius:12px;padding:1rem;margin-bottom:.75rem;border:1px solid var(--border)}
 .pos-col{display:flex;flex-direction:column;gap:.4rem;min-height:120px}
-.pos-hdr{text-align:center;font-weight:700;font-size:.85rem;color:var(--accent);padding:.35rem;border-bottom:2px solid var(--accent);margin-bottom:.2rem;letter-spacing:.5px}
-.dc-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.5rem;cursor:grab;transition:all .15s;position:relative}
-.dc-card:hover{border-color:var(--accent);background:rgba(102,126,234,.06)}
+.pos-hdr{text-align:center;font-weight:700;font-size:.85rem;color:var(--accent);padding:.35rem;border-bottom:2px solid var(--accent);margin-bottom:.2rem;letter-spacing:-.01em}
+.dc-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.5rem;cursor:grab;transition:all .15s;position:relative;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.dc-card:hover{border-color:var(--accent);background:var(--accent-dim)}
 .dc-card.dragging{opacity:.4;cursor:grabbing}
-.dc-card.touch-dragging{opacity:.6;transform:scale(1.08);box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 0 2px var(--team1);z-index:50;transition:none}
-.dc-card.touch-held{animation:touchPulse .4s ease;box-shadow:0 0 0 2px var(--team1),0 4px 12px rgba(0,0,0,.4)}
+.dc-card.touch-dragging{opacity:.6;transform:scale(1.08);box-shadow:0 8px 24px rgba(0,0,0,.2),0 0 0 2px var(--team1);z-index:50;transition:none}
+.dc-card.touch-held{animation:touchPulse .4s ease;box-shadow:0 0 0 2px var(--team1),0 4px 12px rgba(0,0,0,.15)}
 @keyframes touchPulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1.04)}}
 .dc-card .dc-top{display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;flex-wrap:wrap}
-.dc-card .dc-hs{width:40px;height:30px;border-radius:4px;object-fit:cover;background:var(--surface)}
-.dc-card .dc-ini{width:40px;height:30px;border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.5rem;color:var(--muted)}
+.dc-card .dc-hs{width:40px;height:30px;border-radius:4px;object-fit:cover;background:var(--bg)}
+.dc-card .dc-ini{width:40px;height:30px;border-radius:4px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:.5rem;color:var(--muted)}
 .dc-card .dc-name{font-size:.7rem;font-weight:600;flex:0 0 100%;order:3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dc-card .dc-sal{font-size:.6rem;font-weight:600;color:var(--green);white-space:nowrap;margin-left:auto}
 .dc-card .dc-actions{display:flex;gap:.2rem;flex-wrap:wrap}
-.dc-card .dc-btn{font-size:.5rem;padding:.15rem .35rem;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .1s}
+.dc-card .dc-btn{font-size:.5rem;padding:.15rem .35rem;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .1s;font-family:inherit}
 .dc-card .dc-btn:hover{border-color:var(--accent);color:var(--accent)}
 .dc-card .dc-btn.trade{border-color:var(--cyan);color:var(--cyan)}
 .dc-card .dc-btn.waive{border-color:var(--red);color:var(--red)}
 .dc-card .dc-btn.opt{border-color:var(--orange);color:var(--orange)}
 .dc-card .dc-opt-badge{position:absolute;top:2px;right:4px;font-size:.45rem;padding:.1rem .25rem;border-radius:2px;font-weight:700}
-.dc-card .dc-opt-badge.to{background:rgba(255,152,0,.15);color:var(--orange)}
-.dc-card .dc-opt-badge.po{background:rgba(38,198,218,.15);color:var(--cyan)}
-.dc-card .dc-opt-badge.ng{background:rgba(239,83,80,.15);color:var(--red)}
+.dc-card .dc-opt-badge.to{background:rgba(180,83,9,.15);color:var(--orange)}
+.dc-card .dc-opt-badge.po{background:rgba(14,165,233,.15);color:var(--cyan)}
+.dc-card .dc-opt-badge.ng{background:rgba(255,69,58,.15);color:var(--red)}
 .dc-card .dc-opt-badge.pg{background:rgba(255,214,0,.15);color:var(--yellow)}
-.dc-card .dc-opt-badge.signed{background:rgba(76,175,80,.15);color:var(--green)}
-.dc-card .dc-opt-badge.traded{background:rgba(38,198,218,.15);color:var(--cyan)}
-.pos-col.drag-over{background:rgba(102,126,234,.08);border-radius:8px}
-.dc-drop-indicator{height:3px;background:var(--accent);border-radius:2px;margin:2px 0;pointer-events:none;box-shadow:0 0 6px rgba(102,126,234,.6)}
+.dc-card .dc-opt-badge.signed{background:rgba(52,199,89,.15);color:var(--green)}
+.dc-card .dc-opt-badge.traded{background:rgba(14,165,233,.15);color:var(--cyan)}
+.pos-col.drag-over{background:rgba(59,130,246,.08);border-radius:8px}
+.dc-drop-indicator{height:3px;background:var(--accent);border-radius:2px;margin:2px 0;pointer-events:none;box-shadow:0 0 6px rgba(59,130,246,.6)}
 .dc-section-label{font-size:.85rem;font-weight:700;color:var(--text);margin:1rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
 .dc-section-label .dc-badge{font-size:.6rem;padding:.15rem .5rem;border-radius:10px;font-weight:600}
 @media(max-width:768px) and (orientation:portrait){.depth-chart{grid-template-columns:repeat(3,1fr)}}
@@ -181,16 +184,16 @@ a{color:var(--accent);text-decoration:none}
 
 /* Contract Table */
 .contract-table{width:100%;font-size:.7rem;border-collapse:collapse}
-.contract-table th{padding:.4rem .5rem;font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface)}
+.contract-table th{padding:.4rem .5rem;font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--bg)}
 .contract-table th:first-child{text-align:left}.contract-table th:not(:first-child){text-align:right}
-.contract-table td{padding:.35rem .5rem;border-bottom:1px solid rgba(255,255,255,.03)}
+.contract-table td{padding:.35rem .5rem;border-bottom:1px solid var(--border)}
 .contract-table td:not(:first-child){text-align:right}
-.contract-table tr:hover td{background:rgba(255,255,255,.02)}
+.contract-table tr:hover td{background:var(--bg)}
 .contract-table .sal-g{color:var(--green)}.contract-table .sal-to{color:var(--orange)}.contract-table .sal-po{color:var(--cyan)}.contract-table .sal-ng{color:var(--red)}.contract-table .sal-pg{color:var(--yellow)}
 .contract-table .player-cell{display:flex;align-items:center;gap:.4rem}
-.contract-table .ct-hs{width:28px;height:21px;border-radius:3px;object-fit:cover;background:var(--surface)}
-.contract-table .ct-ini{width:28px;height:21px;border-radius:3px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.45rem;color:var(--muted)}
-.contract-wrap{border-radius:8px;border:1px solid var(--border);background:var(--card);overflow-x:auto}
+.contract-table .ct-hs{width:28px;height:21px;border-radius:3px;object-fit:cover;background:var(--bg)}
+.contract-table .ct-ini{width:28px;height:21px;border-radius:3px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:.45rem;color:var(--muted)}
+.contract-wrap{border-radius:12px;border:1px solid var(--border);background:var(--surface);overflow-x:auto;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 
 /* Loading */
 .loading{text-align:center;padding:3rem;color:var(--muted)}
@@ -201,14 +204,14 @@ a{color:var(--accent);text-decoration:none}
 .empty{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem}
 
 /* Phase Stepper */
-.phase-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;gap:.4rem;justify-content:center;flex-wrap:wrap}
+.phase-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;gap:.4rem;justify-content:center;flex-wrap:wrap;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 
 /* Content transitions */
 .roster-panel,.cap-panel{animation:fadeSlideIn .3s ease}
 @keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 /* Player hover card */
-.player-hover-card{position:fixed;z-index:200;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.75rem;box-shadow:0 12px 40px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .15s;min-width:220px;max-width:280px}
+.player-hover-card{position:fixed;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.75rem;box-shadow:0 4px 20px rgba(0,0,0,.15);pointer-events:none;opacity:0;transition:opacity .15s;min-width:220px;max-width:280px}
 .player-hover-card.show{opacity:1}
 .phc-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem}
 .phc-header img{width:40px;height:40px;border-radius:50%;background:var(--surface)}
@@ -219,21 +222,21 @@ a{color:var(--accent);text-decoration:none}
 .phc-stat .label{color:var(--muted)}
 .phc-stat .val{font-weight:600;float:right}
 .phase-step{display:flex;align-items:center;gap:.3rem;font-size:.65rem;font-weight:600;padding:.3rem .6rem;border-radius:20px;color:var(--muted);background:transparent;border:1px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap}
-.phase-step.active{background:rgba(102,126,234,.15);color:var(--accent);border-color:var(--accent)}
+.phase-step.active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
 .phase-step.completed{color:var(--green);opacity:.8}
 .phase-step.locked{opacity:.4;cursor:not-allowed}
 .phase-arrow{color:var(--muted);font-size:.6rem;opacity:.5}
-.phase-advance{font-size:.65rem;padding:.3rem .7rem;border-radius:6px;border:1px solid var(--green);background:rgba(76,175,80,.1);color:var(--green);cursor:pointer;font-weight:600;margin-left:.5rem;transition:all .15s}
-.phase-advance:hover{background:rgba(76,175,80,.25)}
+.phase-advance{font-size:.65rem;padding:.3rem .7rem;border-radius:8px;border:1px solid var(--green);background:var(--green-dim);color:#15803d;cursor:pointer;font-weight:600;margin-left:.5rem;transition:all .15s;font-family:inherit}
+.phase-advance:hover{background:var(--green);color:#fff}
 
 /* Waive modal */
 .waive-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-.waive-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:380px;max-width:90vw;padding:1.2rem}
+.waive-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:380px;max-width:90vw;padding:1.2rem;box-shadow:0 4px 20px rgba(0,0,0,.15)}
 .waive-modal h3{font-size:.9rem;font-weight:700;margin-bottom:.8rem;color:var(--text)}
 .waive-modal .player-info{font-size:.75rem;color:var(--muted);margin-bottom:1rem;padding:.5rem;background:var(--surface);border-radius:6px}
 .waive-modal .player-info .name{color:var(--text);font-weight:600;font-size:.85rem}
 .waive-option{display:flex;flex-direction:column;gap:.3rem;padding:.7rem;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:.5rem;transition:all .15s}
-.waive-option:hover{border-color:var(--accent);background:rgba(102,126,234,.06)}
+.waive-option:hover{border-color:var(--accent);background:var(--accent-dim)}
 .waive-option .opt-title{font-size:.75rem;font-weight:600;color:var(--text)}
 .waive-option .opt-desc{font-size:.65rem;color:var(--muted)}
 .waive-option .opt-amount{font-size:.8rem;font-weight:700;color:var(--red)}
@@ -241,10 +244,10 @@ a{color:var(--accent);text-decoration:none}
 
 /* Coming soon badge */
 .coming-soon{font-size:.55rem;padding:.1rem .3rem;border-radius:3px;background:var(--surface);color:var(--muted);border:1px solid var(--border);margin-left:.3rem}
-.action-btn.trade{background:rgba(38,198,218,.12);color:var(--cyan);border-color:rgba(38,198,218,.3)}
-.action-btn.extend{background:rgba(102,126,234,.12);color:var(--accent);border-color:rgba(102,126,234,.3)}
+.action-btn.trade{background:rgba(14,165,233,.1);color:var(--cyan);border-color:rgba(14,165,233,.3)}
+.action-btn.extend{background:var(--accent-dim);color:var(--accent);border-color:rgba(59,130,246,.3)}
 .ext-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:.5rem}
-.ext-modal{background:var(--card);border-radius:12px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.ext-modal{background:var(--surface);border-radius:12px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.15)}
 .ext-modal-hdr{display:flex;align-items:center;gap:.5rem;padding:.75rem 1rem;border-bottom:1px solid var(--border)}
 .ext-modal-hdr h3{flex:1;font-size:.85rem;margin:0}
 .ext-modal-body{padding:1rem}
@@ -253,7 +256,7 @@ a{color:var(--accent);text-decoration:none}
 .ext-player-info .name{font-weight:600;font-size:.8rem}
 .ext-player-info .meta{font-size:.65rem;color:var(--muted)}
 .ext-type-badge{display:inline-block;padding:.15rem .45rem;border-radius:4px;font-size:.6rem;font-weight:600;margin-left:.4rem}
-.ext-type-badge.rse{background:rgba(102,126,234,.15);color:#667eea}
+.ext-type-badge.rse{background:var(--accent-dim);color:var(--accent)}
 .ext-type-badge.vet{background:rgba(245,158,11,.15);color:#f59e0b}
 .ext-config{margin:.75rem 0}
 .ext-config label{display:block;font-size:.7rem;color:var(--muted);margin-bottom:.25rem}
@@ -265,19 +268,19 @@ a{color:var(--accent);text-decoration:none}
 .ext-breakdown{margin:.75rem 0}
 .ext-breakdown h4{font-size:.7rem;color:var(--muted);margin:0 0 .35rem}
 .ext-year-row{display:flex;justify-content:space-between;padding:.3rem .5rem;font-size:.7rem;border-radius:4px}
-.ext-year-row:nth-child(even){background:var(--surface)}
+.ext-year-row:nth-child(even){background:var(--bg)}
 .ext-year-row .yr{color:var(--muted);min-width:60px}
 .ext-year-row .sal{font-weight:600}
 .ext-total-row{display:flex;justify-content:space-between;padding:.4rem .5rem;font-size:.75rem;font-weight:700;border-top:1px solid var(--border);margin-top:.25rem}
-.ext-note{font-size:.6rem;color:var(--muted);padding:.4rem;background:var(--surface);border-radius:4px;margin:.5rem 0}
+.ext-note{font-size:.6rem;color:var(--muted);padding:.4rem;background:var(--bg);border-radius:4px;margin:.5rem 0}
 .ext-confirm-btn{width:100%;padding:.6rem;background:var(--accent);color:white;border:none;border-radius:8px;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer;margin-top:.5rem}
 .ext-confirm-btn:hover{opacity:.9}
 .ext-confirm-btn:disabled{opacity:.4;cursor:not-allowed}
-.extended-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(102,126,234,.15);color:#667eea;font-weight:600;white-space:nowrap}
+.extended-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:var(--accent-dim);color:var(--accent);font-weight:600;white-space:nowrap}
 
 /* Draft Picker Modal */
 .draft-picker-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-.draft-picker{background:var(--card);border:1px solid var(--border);border-radius:12px;width:400px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.draft-picker{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:400px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.15)}
 .draft-picker-hdr{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
 .draft-picker-hdr h3{flex:1;font-size:.85rem;font-weight:700;color:var(--orange)}
 .draft-picker-hdr .close-btn{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:.2rem}
@@ -287,22 +290,22 @@ a{color:var(--accent);text-decoration:none}
 .draft-picker-search input:focus{border-color:var(--accent)}
 .draft-picker-list{overflow-y:auto;flex:1;padding:.3rem}
 .draft-pick-option{display:flex;align-items:center;gap:.6rem;padding:.45rem .8rem;border-radius:6px;cursor:pointer;font-size:.75rem;transition:background .1s}
-.draft-pick-option:hover{background:rgba(255,255,255,.06)}
-.draft-pick-option.current{background:rgba(255,152,0,.12);border:1px solid rgba(255,152,0,.3)}
+.draft-pick-option:hover{background:var(--bg)}
+.draft-pick-option.current{background:rgba(180,83,9,.12);border:1px solid rgba(180,83,9,.3)}
 .draft-pick-option.taken{opacity:.35;cursor:not-allowed}
 .draft-pick-option .rank{color:var(--muted);font-size:.65rem;min-width:30px}
 .draft-pick-option .name{flex:1;font-weight:500}
 .draft-pick-option .assigned{font-size:.6rem;color:var(--muted);padding:.1rem .4rem;background:var(--surface);border-radius:3px}
-.action-btn.draft-swap{background:rgba(255,152,0,.15);color:var(--orange);border-color:rgba(255,152,0,.3)}
-.action-btn.draft-swap:hover{background:rgba(255,152,0,.25)}
+.action-btn.draft-swap{background:rgba(180,83,9,.15);color:var(--orange);border-color:rgba(180,83,9,.3)}
+.action-btn.draft-swap:hover{background:rgba(180,83,9,.25)}
 
 /* Your Pick pulse */
-@keyframes pickPulse{0%{box-shadow:0 0 0 0 rgba(102,126,234,.5)}70%{box-shadow:0 0 0 12px rgba(102,126,234,0)}100%{box-shadow:0 0 0 0 rgba(102,126,234,0)}}
+@keyframes pickPulse{0%{box-shadow:0 0 0 0 rgba(59,130,246,.5)}70%{box-shadow:0 0 0 12px rgba(59,130,246,0)}100%{box-shadow:0 0 0 0 rgba(59,130,246,0)}}
 .your-pick-box{animation:pickPulse 1.5s ease-out 2}
 
 /* Trade Machine iframe overlay */
-.tm-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:250;background:rgba(0,0,0,.85);display:flex;flex-direction:column;backdrop-filter:blur(4px)}
-.tm-bar{display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
+.tm-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:250;background:rgba(0,0,0,.5);display:flex;flex-direction:column;backdrop-filter:blur(4px)}
+.tm-bar{display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
 .tm-bar h3{flex:1;font-size:.8rem;font-weight:600;color:var(--cyan)}
 .tm-bar .tm-close{background:none;border:1px solid var(--border);color:var(--text);font-size:.75rem;padding:.3rem .8rem;border-radius:6px;cursor:pointer;transition:all .15s}
 .tm-bar .tm-close:hover{border-color:var(--red);color:var(--red)}
@@ -312,7 +315,7 @@ a{color:var(--accent);text-decoration:none}
 
 /* Trade Confirm Dialog */
 .trade-confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-.trade-confirm{background:var(--card);border:1px solid var(--border);border-radius:12px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:tcSlideIn .3s ease}
+.trade-confirm{background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.15);animation:tcSlideIn .3s ease}
 @keyframes tcSlideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 .trade-confirm-hdr{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
 .trade-confirm-hdr h3{font-size:.95rem;flex:1}
@@ -329,19 +332,19 @@ a{color:var(--accent);text-decoration:none}
 .tc-actions button{flex:1;padding:.6rem;border-radius:8px;border:none;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .15s}
 .tc-btn-confirm{background:var(--green);color:white}
 .tc-btn-confirm:hover{filter:brightness(1.1)}
-.tc-btn-reject{background:rgba(239,83,80,.15);color:var(--red);border:1px solid rgba(239,83,80,.25)!important}
-.tc-btn-reject:hover{background:rgba(239,83,80,.25)}
+.tc-btn-reject{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,69,58,.25)!important}
+.tc-btn-reject:hover{background:var(--red);color:#fff}
 
 /* Trade modal (legacy — keep for manual record) */
 .trade-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-.trade-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:520px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.trade-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:520px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.15)}
 .trade-modal-hdr{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
 .trade-modal-hdr h3{flex:1;font-size:.85rem;font-weight:700;color:var(--cyan)}
 .trade-modal-hdr .close-btn{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:.2rem}
 .trade-modal-body{padding:1rem;overflow-y:auto;flex:1}
 .trade-link-row{display:flex;gap:.5rem;margin-bottom:1rem}
-.trade-link-btn{font-size:.7rem;padding:.4rem .8rem;border-radius:6px;border:1px solid var(--cyan);background:rgba(38,198,218,.1);color:var(--cyan);cursor:pointer;font-weight:600;transition:all .15s;flex:1;text-align:center}
-.trade-link-btn:hover{background:rgba(38,198,218,.2)}
+.trade-link-btn{font-size:.7rem;padding:.4rem .8rem;border-radius:6px;border:1px solid var(--cyan);background:rgba(14,165,233,.1);color:var(--cyan);cursor:pointer;font-weight:600;transition:all .15s;flex:1;text-align:center}
+.trade-link-btn:hover{background:rgba(14,165,233,.2)}
 .trade-record-section{margin-top:.5rem}
 .trade-record-section h4{font-size:.75rem;color:var(--muted);margin-bottom:.5rem;font-weight:600}
 .trade-input-row{display:flex;gap:.5rem;margin-bottom:.4rem;align-items:center}
@@ -349,21 +352,21 @@ a{color:var(--accent);text-decoration:none}
 .trade-input:focus{border-color:var(--accent)}
 .trade-input::placeholder{color:var(--muted)}
 .trade-add-btn{font-size:.65rem;padding:.3rem .6rem;border-radius:4px;border:1px solid var(--green);color:var(--green);background:transparent;cursor:pointer}
-.trade-add-btn:hover{background:rgba(76,175,80,.15)}
+.trade-add-btn:hover{background:rgba(52,199,89,.15)}
 .trade-player-tag{display:inline-flex;align-items:center;gap:.3rem;font-size:.65rem;padding:.2rem .5rem;border-radius:4px;background:var(--surface);border:1px solid var(--border);margin:.15rem .15rem}
 .trade-player-tag .remove{cursor:pointer;color:var(--red);font-weight:700}
-.trade-confirm-btn{width:100%;padding:.5rem;border-radius:6px;border:1px solid var(--green);background:rgba(76,175,80,.15);color:var(--green);cursor:pointer;font-weight:600;font-size:.75rem;margin-top:.75rem;transition:all .15s}
-.trade-confirm-btn:hover{background:rgba(76,175,80,.3)}
+.trade-confirm-btn{width:100%;padding:.5rem;border-radius:6px;border:1px solid var(--green);background:rgba(52,199,89,.15);color:var(--green);cursor:pointer;font-weight:600;font-size:.75rem;margin-top:.75rem;transition:all .15s}
+.trade-confirm-btn:hover{background:rgba(52,199,89,.3)}
 .trade-confirm-btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* Signing modal */
 .sign-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-.sign-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:420px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.sign-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:420px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.15)}
 .sign-modal-hdr{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
 .sign-modal-hdr h3{flex:1;font-size:.85rem;font-weight:700;color:var(--green)}
 .sign-modal-body{padding:1rem;overflow-y:auto;flex:1}
 .sign-exc-option{display:flex;flex-direction:column;gap:.2rem;padding:.6rem;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:.4rem;transition:all .15s}
-.sign-exc-option:hover{border-color:var(--accent);background:rgba(102,126,234,.06)}
+.sign-exc-option:hover{border-color:var(--accent);background:var(--accent-dim)}
 .sign-exc-option.unavailable{opacity:.35;cursor:not-allowed}
 .sign-exc-option .exc-name{font-size:.75rem;font-weight:600}
 .sign-exc-option .exc-detail{font-size:.65rem;color:var(--muted)}
@@ -371,16 +374,16 @@ a{color:var(--accent);text-decoration:none}
 .sign-salary-input label{font-size:.7rem;color:var(--muted);min-width:60px}
 
 /* Training camp warning */
-.camp-warning{background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem}
+.camp-warning{background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem}
 .camp-warning h4{font-size:.8rem;color:var(--red);margin-bottom:.3rem}
 .camp-warning p{font-size:.7rem;color:var(--muted)}
-.camp-ok{background:rgba(76,175,80,.1);border:1px solid rgba(76,175,80,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem}
+.camp-ok{background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem}
 .camp-ok h4{font-size:.8rem;color:var(--green);margin-bottom:.3rem}
 .camp-ok p{font-size:.7rem;color:var(--muted)}
 
 /* === TOAST NOTIFICATIONS === */
 .toast-container{position:fixed;top:70px;right:1rem;z-index:500;display:flex;flex-direction:column;gap:.4rem;pointer-events:none}
-.toast{padding:.6rem 1rem;border-radius:8px;font-size:.75rem;font-weight:500;color:white;pointer-events:auto;animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;box-shadow:0 4px 16px rgba(0,0,0,.4);max-width:320px}
+.toast{padding:.6rem 1rem;border-radius:8px;font-size:.75rem;font-weight:500;color:white;pointer-events:auto;animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;box-shadow:0 4px 12px rgba(0,0,0,.15);max-width:320px;font-family:inherit}
 .toast.success{background:linear-gradient(135deg,#4caf50,#388e3c)}
 .toast.info{background:linear-gradient(135deg,var(--team1),var(--team2))}
 .toast.warning{background:linear-gradient(135deg,#ff9800,#f57c00)}
@@ -421,26 +424,26 @@ a{color:var(--accent);text-decoration:none}
 
 /* === MOVE LOG === */
 .move-log{margin-top:.75rem}
-.move-item{display:flex;align-items:center;gap:.4rem;padding:.25rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.6rem}
+.move-item{display:flex;align-items:center;gap:.4rem;padding:.25rem 0;border-bottom:1px solid var(--border);font-size:.6rem}
 .move-item:last-child{border-bottom:none}
 .move-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.55rem;flex-shrink:0}
-.move-icon.trade{background:rgba(38,198,218,.15);color:var(--cyan)}
-.move-icon.waive{background:rgba(239,83,80,.15);color:var(--red)}
-.move-icon.sign{background:rgba(76,175,80,.15);color:var(--green)}
-.move-icon.draft{background:rgba(102,126,234,.15);color:var(--accent)}
-.move-icon.option{background:rgba(255,152,0,.15);color:var(--orange)}
-.move-icon.phase{background:rgba(100,116,139,.15);color:var(--muted)}
+.move-icon.trade{background:rgba(14,165,233,.15);color:var(--cyan)}
+.move-icon.waive{background:rgba(255,69,58,.15);color:var(--red)}
+.move-icon.sign{background:rgba(52,199,89,.15);color:var(--green)}
+.move-icon.draft{background:rgba(59,130,246,.15);color:var(--accent)}
+.move-icon.option{background:rgba(180,83,9,.15);color:var(--orange)}
+.move-icon.phase{background:rgba(110,110,115,.15);color:var(--muted)}
 
 /* Traded badge */
-.traded-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(38,198,218,.15);color:var(--cyan);border:1px solid rgba(38,198,218,.3);margin-left:.3rem;font-weight:600}
-.signed-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(76,175,80,.15);color:var(--green);border:1px solid rgba(76,175,80,.3);margin-left:.3rem;font-weight:600}
+.traded-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(14,165,233,.15);color:var(--cyan);border:1px solid rgba(14,165,233,.3);margin-left:.3rem;font-weight:600}
+.signed-badge{font-size:.55rem;padding:.1rem .35rem;border-radius:3px;background:rgba(52,199,89,.15);color:var(--green);border:1px solid rgba(52,199,89,.3);margin-left:.3rem;font-weight:600}
 
 /* Landing Page */
 .landing{position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:var(--bg);display:flex;flex-direction:column;overflow-y:auto}
-.landing-hdr{text-align:center;padding:2.5rem 1rem 1rem;background:linear-gradient(180deg,rgba(102,126,234,.12) 0%,transparent 100%)}
-.landing-hdr h1{font-size:2rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
+.landing-hdr{text-align:center;padding:2.5rem 1rem 1rem;background:linear-gradient(180deg,rgba(59,130,246,.06) 0%,transparent 100%)}
+.landing-hdr h1{font-size:2rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.02em}
 .landing-hdr .landing-sub{font-size:.85rem;color:var(--muted);margin-top:.4rem}
-.landing-hdr .landing-badge{display:inline-block;margin-top:.75rem;font-size:.65rem;padding:.3rem .8rem;border-radius:20px;background:rgba(102,126,234,.12);color:var(--accent);border:1px solid rgba(102,126,234,.2);font-weight:600;letter-spacing:.5px}
+.landing-hdr .landing-badge{display:inline-block;margin-top:.75rem;font-size:.65rem;padding:.3rem .8rem;border-radius:20px;background:var(--accent-dim);color:var(--accent);border:1px solid rgba(59,130,246,.2);font-weight:600;letter-spacing:.5px}
 .landing-body{max-width:900px;margin:0 auto;padding:1rem 1.5rem 3rem;width:100%}
 .conf-label{font-size:.7rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:1.5rem 0 .75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
 .conf-label::before{content:'';display:inline-block;width:3px;height:14px;border-radius:2px}
@@ -449,10 +452,10 @@ a{color:var(--accent);text-decoration:none}
 .team-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem}
 @media(max-width:700px){.team-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:420px){.team-grid{grid-template-columns:repeat(2,1fr)}}
-.team-card{display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:.8rem .5rem;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s;text-align:center}
-.team-card:hover{border-color:var(--accent);background:rgba(102,126,234,.08);transform:translateY(-2px)}
+.team-card{display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:.8rem .5rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all .15s;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.team-card:hover{border-color:var(--accent);background:var(--accent-dim);transform:translateY(-2px)}
 .team-card:active{transform:translateY(0)}
-.team-card img{width:48px;height:48px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+.team-card img{width:48px;height:48px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.1))}
 .team-card .tc-abbr{font-size:.75rem;font-weight:700;color:var(--text)}
 .team-card .tc-name{font-size:.6rem;color:var(--muted);line-height:1.2}
 </style>
@@ -467,7 +470,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.2.1 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.3 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -476,7 +479,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.2.1</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.3</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -1267,7 +1270,7 @@ function renderTeamDropdown() {
 
 function applyTeamTheme(team) {
   const abbr = TEAMS[team] || '';
-  const colors = TEAM_COLORS[abbr] || ['#667eea','#764ba2'];
+  const colors = TEAM_COLORS[abbr] || ['#3b82f6','#2563eb'];
   const root = document.documentElement.style;
   root.setProperty('--team1', colors[0]);
   root.setProperty('--team2', colors[1]);
@@ -1482,11 +1485,11 @@ function saveDepthOrder() {
 function dcBadge(p) {
   if (p.status === 'pending_to') return '<span class="dc-opt-badge to">TO</span>';
   if (p.status === 'pending_po') return '<span class="dc-opt-badge po">PO</span>';
-  if (p.status === 'picked_up') return '<span class="dc-opt-badge" style="background:rgba(76,175,80,.15);color:var(--green)">✓TO</span>';
-  if (p.status === 'exercised') return '<span class="dc-opt-badge" style="background:rgba(76,175,80,.15);color:var(--green)">✓PO</span>';
+  if (p.status === 'picked_up') return '<span class="dc-opt-badge" style="background:rgba(52,199,89,.15);color:var(--green)">✓TO</span>';
+  if (p.status === 'exercised') return '<span class="dc-opt-badge" style="background:rgba(52,199,89,.15);color:var(--green)">✓PO</span>';
   if (p._signed) return '<span class="dc-opt-badge signed">FA</span>';
   if (p.status === 'traded_in') return '<span class="dc-opt-badge traded">TRD</span>';
-  if (p.isTwoWay) return '<span class="dc-opt-badge" style="background:rgba(100,116,139,.15);color:#94a3b8">2W</span>';
+  if (p.isTwoWay) return '<span class="dc-opt-badge" style="background:rgba(110,110,115,.15);color:var(--muted)">2W</span>';
   if (p.category === 'non_guaranteed') return '<span class="dc-opt-badge ng">NG</span>';
   if (p.category === 'partial_guaranteed') return '<span class="dc-opt-badge pg">PG</span>';
   return '';
@@ -1653,7 +1656,7 @@ function renderLottery() {
       const lt = lotteryTeams[i];
       const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === lt.team)] || '';
       const isUser = lt.team === teamAbbrev;
-      const rowStyle = isUser ? ' style="background:rgba(102,126,234,.1)"' : '';
+      const rowStyle = isUser ? ' style="background:rgba(59,130,246,.1)"' : '';
       h += `<tr${rowStyle}><td style="font-weight:700;color:var(--orange)">#${i+1}</td>`;
       h += `<td><div style="display:flex;align-items:center;gap:.4rem">${logo ? `<img src="${logo}" style="width:20px;height:20px">` : ''}`;
       h += `<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${lt.team}</span></div></td>`;
@@ -1674,7 +1677,7 @@ function renderLottery() {
       const isUser = r.team === teamAbbrev;
       const diff = r.originalSlot - r.pick;
       const move = diff > 0 ? `<span style="color:var(--green);font-weight:700">▲ ${diff}</span>` : diff < 0 ? `<span style="color:var(--red);font-weight:700">▼ ${Math.abs(diff)}</span>` : `<span style="color:var(--muted)">—</span>`;
-      const rowStyle = isUser ? ' style="background:rgba(102,126,234,.1)"' : '';
+      const rowStyle = isUser ? ' style="background:rgba(59,130,246,.1)"' : '';
       const isTop4 = r.pick <= 4;
       h += `<tr${rowStyle}><td style="font-weight:700;color:${isTop4?'var(--orange)':'var(--text)'}">`;
       h += `${isTop4?'🏆 ':''}#${r.pick}</td>`;
@@ -1817,7 +1820,7 @@ function renderDraftBoard() {
       h += `<div style="font-size:.7rem;font-weight:700;color:var(--accent);margin-bottom:.5rem">YOUR PICKS</div>`;
       for (const p of userPicks) {
         const rd = p.draftRnk <= 30 ? '1st' : '2nd';
-        h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;background:rgba(102,126,234,.06);border-radius:4px;margin-bottom:.2rem;font-size:.75rem">`;
+        h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;background:rgba(59,130,246,.06);border-radius:4px;margin-bottom:.2rem;font-size:.75rem">`;
         h += `<span style="font-weight:700;color:var(--orange)">#${p.draftRnk}</span>`;
         h += `<span>${rd} Round</span>`;
         h += `<span style="color:var(--muted)">· proj. ${p.prospect}</span>`;
@@ -1835,13 +1838,13 @@ function renderDraftBoard() {
     h += `<th>Pick</th><th>Team</th><th>Prospect</th>`;
     h += `</tr></thead><tbody>`;
     for (let pick = 1; pick <= 60; pick++) {
-      if (pick === 1) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(255,152,0,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
-      if (pick === 31) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(102,126,234,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
+      if (pick === 1) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(180,83,9,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
+      if (pick === 31) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(59,130,246,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
       const pickTeam = getPickTeam(pick);
       if (!pickTeam) continue;
       const isUser = pickTeam === teamAbbrev;
       const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === pickTeam)] || '';
-      const rowStyle = isUser ? ' style="background:rgba(102,126,234,.1)"' : '';
+      const rowStyle = isUser ? ' style="background:rgba(59,130,246,.1)"' : '';
       h += `<tr${rowStyle}>`;
       h += `<td style="font-weight:700;color:var(--muted)">#${pick}</td>`;
       h += `<td><div style="display:flex;align-items:center;gap:.3rem">${logo?`<img src="${logo}" style="width:18px;height:18px">`:''}<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${pickTeam}</span></div></td>`;
@@ -1857,7 +1860,7 @@ function renderDraftBoard() {
 
   // User's pick selection (if it's their turn)
   if (!isDraftComplete && getPickTeam(current) === teamAbbrev) {
-    h += `<div id="yourPickBox" class="your-pick-box" style="background:rgba(102,126,234,.1);border:2px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem">`;
+    h += `<div id="yourPickBox" class="your-pick-box" style="background:rgba(59,130,246,.1);border:2px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem">`;
     h += `<h3 style="color:var(--accent);margin-bottom:.5rem;font-size:.9rem">🎯 Your Pick — #${current}</h3>`;
     h += `<input id="draftSearchInput" class="trade-input" style="width:100%;margin-bottom:.5rem" placeholder="Filter prospects..." oninput="filterDraftProspects(this.value)">`;
     h += `<div id="draftProspectList" style="max-height:250px;overflow-y:auto">`;
@@ -1872,8 +1875,8 @@ function renderDraftBoard() {
 
   for (let pick = 1; pick <= 60; pick++) {
     // Round dividers
-    if (pick === 1) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(255,152,0,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
-    if (pick === 31) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(102,126,234,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
+    if (pick === 1) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(180,83,9,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
+    if (pick === 31) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(59,130,246,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
     const pickTeam = getPickTeam(pick);
     if (!pickTeam) continue;
     const result = STATE.draftResults.find(r => r.pick === pick);
@@ -1882,8 +1885,8 @@ function renderDraftBoard() {
     const isPicked = !!result;
 
     let rowStyle = '';
-    if (isUser) rowStyle = ' style="background:rgba(102,126,234,.1)"';
-    else if (isCurrent) rowStyle = ' style="background:rgba(255,152,0,.08)"';
+    if (isUser) rowStyle = ' style="background:rgba(59,130,246,.1)"';
+    else if (isCurrent) rowStyle = ' style="background:rgba(180,83,9,.08)"';
 
     const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === pickTeam)] || '';
 
@@ -1922,7 +1925,7 @@ function renderDraftBoard() {
 
     const undrafted = allProspects.filter(n => !drafted.has(n));
     if (undrafted.length) {
-      h += `<div class="dc-section-label" style="margin-top:1rem">📋 Undrafted Prospects <span class="dc-badge" style="background:rgba(100,116,139,.12);color:#94a3b8">${undrafted.length}</span></div>`;
+      h += `<div class="dc-section-label" style="margin-top:1rem">📋 Undrafted Prospects <span class="dc-badge" style="background:rgba(110,110,115,.12);color:var(--muted)">${undrafted.length}</span></div>`;
       h += `<div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem">These players will be available as undrafted free agents.</div>`;
       h += `<div style="display:flex;flex-wrap:wrap;gap:.3rem">`;
       for (const n of undrafted.slice(0, 30)) {
@@ -2011,7 +2014,7 @@ function renderRoster(cap) {
   const byPos = buildDepthPositions(depthPlayers);
   const POS = ['PG','SG','SF','PF','C'];
   const rosterTotal = depthPlayers.reduce((s,p) => s + (p.sal27||0), 0);
-  h += `<div class="dc-section-label">🏀 Depth Chart <span class="dc-badge" style="background:rgba(102,126,234,.15);color:var(--accent)">${depthPlayers.length} players</span><span class="dc-badge" style="background:rgba(76,175,80,.12);color:var(--green)">${fmtMoney(rosterTotal)}</span></div>`;
+  h += `<div class="dc-section-label">🏀 Depth Chart <span class="dc-badge" style="background:rgba(59,130,246,.15);color:var(--accent)">${depthPlayers.length} players</span><span class="dc-badge" style="background:rgba(52,199,89,.12);color:var(--green)">${fmtMoney(rosterTotal)}</span></div>`;
   h += `<div style="font-size:.6rem;color:var(--muted);margin-bottom:.5rem">💡 Drag players to rearrange positions</div>`;
   h += `<div class="depth-chart" id="depthChartGrid">`;
   POS.forEach(pos => {
@@ -2026,7 +2029,7 @@ function renderRoster(cap) {
   const showPreFa = phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'lottery' || phase === 'draft' || phase === 'pre_fa';
   const visibleYears = CONTRACT_YEARS.filter(yr => !yr.preFaOnly || showPreFa);
   if (contractPlayers.length) {
-    h += `<div class="dc-section-label">📋 Contracts <span class="dc-badge" style="background:rgba(76,175,80,.12);color:var(--green)">${contractPlayers.length} players</span></div>`;
+    h += `<div class="dc-section-label">📋 Contracts <span class="dc-badge" style="background:rgba(52,199,89,.12);color:var(--green)">${contractPlayers.length} players</span></div>`;
     h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
     h += `<th style="min-width:150px">Player</th>`;
     visibleYears.forEach(yr => { h += `<th>${yr.label}</th>`; });
@@ -2067,7 +2070,7 @@ function renderRoster(cap) {
     const activeFas = fas.filter(p => p.status !== 'renounced');
     const renouncedFas = fas.filter(p => p.status === 'renounced');
     const totalHolds = activeFas.reduce((s,p) => s + (p.capHold||0), 0);
-    h += `<div class="dc-section-label">🔓 Free Agents <span class="dc-badge" style="background:rgba(102,126,234,.12);color:var(--accent)">${activeFas.length} held</span><span class="dc-badge" style="background:rgba(102,126,234,.12);color:var(--accent)">${fmtMoney(totalHolds)} cap holds</span></div>`;
+    h += `<div class="dc-section-label">🔓 Free Agents <span class="dc-badge" style="background:rgba(59,130,246,.12);color:var(--accent)">${activeFas.length} held</span><span class="dc-badge" style="background:rgba(59,130,246,.12);color:var(--accent)">${fmtMoney(totalHolds)} cap holds</span></div>`;
     h += `<div class="section"><div class="section-body">`;
     for (const p of [...activeFas, ...renouncedFas].sort((a,b) => {
       if (a.status === 'renounced' && b.status !== 'renounced') return 1;
@@ -2077,7 +2080,7 @@ function renderRoster(cap) {
       const acted = p.status === 'renounced';
       h += `<div class="player-row${acted ? ' acted' : ''}">`;
       h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
-      h += `<div class="info"><div class="pname">${p.name}${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(100,116,139,.15);color:#94a3b8">2W</span>' : ''}</div>`;
+      h += `<div class="info"><div class="pname">${p.name}${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(110,110,115,.15);color:var(--muted)">2W</span>' : ''}</div>`;
       h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}</div></div>`;
       if (acted) {
         h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
@@ -2098,7 +2101,7 @@ function renderRoster(cap) {
   const picks = cap.roster.draft_picks;
   if (picks.length) {
     const draftTotal = picks.reduce((s,p) => s + (p.capHold||0), 0);
-    h += `<div class="dc-section-label">🏀 Draft Picks <span class="dc-badge" style="background:rgba(255,152,0,.12);color:var(--orange)">${picks.length} picks</span><span class="dc-badge" style="background:rgba(255,152,0,.12);color:var(--orange)">${fmtMoney(draftTotal)} cap holds</span></div>`;
+    h += `<div class="dc-section-label">🏀 Draft Picks <span class="dc-badge" style="background:rgba(180,83,9,.12);color:var(--orange)">${picks.length} picks</span><span class="dc-badge" style="background:rgba(180,83,9,.12);color:var(--orange)">${fmtMoney(draftTotal)} cap holds</span></div>`;
     h += `<div class="section"><div class="section-body">`;
     for (const p of picks) {
       const isSwapped = p.selectedProspect !== p.prospect;
@@ -2123,7 +2126,7 @@ function renderRoster(cap) {
   // ======== WAIVED ========
   if (cap.roster.waived.length) {
     const totalDead = cap.roster.waived.reduce((s,p) => s + (p.deadAmount||0), 0);
-    h += `<div class="dc-section-label">🗑️ Waived <span class="dc-badge" style="background:rgba(239,83,80,.12);color:var(--red)">${cap.roster.waived.length}</span><span class="dc-badge" style="background:rgba(239,83,80,.12);color:var(--red)">${fmtMoney(totalDead)} dead</span></div>`;
+    h += `<div class="dc-section-label">🗑️ Waived <span class="dc-badge" style="background:rgba(255,69,58,.12);color:var(--red)">${cap.roster.waived.length}</span><span class="dc-badge" style="background:rgba(255,69,58,.12);color:var(--red)">${fmtMoney(totalDead)} dead</span></div>`;
     h += `<div class="section"><div class="section-body">`;
     for (const p of cap.roster.waived) {
       h += `<div class="player-row acted">`;
@@ -3437,7 +3440,7 @@ function renderLandingPage() {
     for (const full of teams) {
       const abbr = TEAMS[full] || full;
       const logo = teamLogos[full] || '';
-      const colors = TEAM_COLORS[abbr] || ['#667eea','#764ba2'];
+      const colors = TEAM_COLORS[abbr] || ['#3b82f6','#2563eb'];
       h += `<div class="team-card" onclick="pickTeamFromLanding('${full.replace(/'/g,"\\'")}')\" onmouseenter="this.style.borderColor='${colors[0]}';this.style.background='${colors[0]}12'" onmouseleave="this.style.borderColor='';this.style.background=''">`;
       if (logo) {
         h += `<img src="${logo}" alt="${abbr}">`;
