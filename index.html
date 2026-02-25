@@ -15,32 +15,29 @@
   --green:#4caf50;--red:#ef5350;--orange:#ff9800;--yellow:#ffd600;--cyan:#26c6da;
   --team1:#667eea;--team2:#764ba2;--team1-dim:#667eea18;--team2-dim:#764ba218;
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;max-width:100vw}
 a{color:var(--accent);text-decoration:none}
 
 /* Header */
 .header{background:linear-gradient(135deg,var(--team1),var(--team2));padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100;transition:background .4s}
 
-/* === MOBILE: LANDSCAPE + AUTO-FIT === */
+/* === MOBILE: FORCE LANDSCAPE + AUTO-FIT === */
 @media(max-width:1024px) and (orientation:portrait){
-  .header{position:relative} /* not sticky in portrait on mobile */
-  /* Landscape prompt overlay */
-  .landscape-hint{display:flex!important}
+  html{transform:rotate(90deg);transform-origin:top left;width:100vh;height:100vw;position:absolute;top:0;left:100vw;overflow:hidden}
 }
 @media(max-width:1024px) and (orientation:landscape){
   .header{position:relative;padding:.5rem 1rem;gap:.5rem}
   .header h1{font-size:.9rem}
   .header .subtitle{font-size:.6rem}
-  .main{padding:.5rem;gap:.5rem}
-  .depth-chart{grid-template-columns:repeat(5,1fr)!important;gap:.3rem;padding:.5rem}
-  .dc-card{padding:.3rem}
-  .dc-name{font-size:.55rem}
+  .main{padding:.5rem;gap:.5rem;max-width:100vw}
+  .roster-panel{min-width:0;overflow-x:hidden}
+  .depth-chart{grid-template-columns:repeat(5,1fr)!important;gap:.3rem;padding:.5rem;min-width:0}
+  .dc-card{padding:.3rem;min-width:0;overflow:hidden}
+  .dc-name{font-size:.55rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dc-sal{font-size:.45rem}
-  .landscape-hint{display:none!important}
+  .pos-col{min-width:0}
+  .cap-panel{min-width:0}
 }
-.landscape-hint{display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:1rem;text-align:center;padding:2rem}
-.landscape-hint .rotate-icon{font-size:3rem;animation:rotateHint 2s ease-in-out infinite}
-@keyframes rotateHint{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
 .header h1{font-size:1.2rem;font-weight:700;letter-spacing:.5px}
 .header .subtitle{font-size:.75rem;opacity:.8}
 .header .season-badge{background:rgba(0,0,0,.25);padding:.3rem .8rem;border-radius:20px;font-size:.8rem;font-weight:600}
@@ -152,6 +149,9 @@ a{color:var(--accent);text-decoration:none}
 .dc-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.5rem;cursor:grab;transition:all .15s;position:relative}
 .dc-card:hover{border-color:var(--accent);background:rgba(102,126,234,.06)}
 .dc-card.dragging{opacity:.4;cursor:grabbing}
+.dc-card.touch-dragging{opacity:.6;transform:scale(1.08);box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 0 2px var(--team1);z-index:50;transition:none}
+.dc-card.touch-held{animation:touchPulse .4s ease;box-shadow:0 0 0 2px var(--team1),0 4px 12px rgba(0,0,0,.4)}
+@keyframes touchPulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1.04)}}
 .dc-card .dc-top{display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem}
 .dc-card .dc-hs{width:40px;height:30px;border-radius:4px;object-fit:cover;background:var(--surface)}
 .dc-card .dc-ini{width:40px;height:30px;border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.5rem;color:var(--muted)}
@@ -460,20 +460,12 @@ a{color:var(--accent);text-decoration:none}
 <!-- Toast Notifications -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- Landscape Orientation Hint (mobile only) -->
-<div class="landscape-hint" id="landscapeHint">
-  <div class="rotate-icon">📱</div>
-  <div style="font-size:1.1rem;font-weight:700">Rotate Your Phone</div>
-  <div style="font-size:.8rem;color:var(--muted);max-width:280px">Roster Manager works best in landscape mode for the full depth chart view</div>
-  <button onclick="dismissLandscapeHint()" style="margin-top:.5rem;padding:.4rem 1.2rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.75rem;cursor:pointer">Continue in Portrait →</button>
-</div>
-
 <!-- Landing Page -->
 <div id="landingPage" class="landing">
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.2 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -482,7 +474,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.1</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.2</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -589,21 +581,8 @@ a{color:var(--accent);text-decoration:none}
 
 <script>
 // ======================== CONSTANTS ========================
-let _landscapeDismissed = false;
-function dismissLandscapeHint() {
-  _landscapeDismissed = true;
-  document.getElementById('landscapeHint').style.display = 'none';
-}
-// Re-show hint only if not dismissed and back in portrait
-window.addEventListener('orientationchange', () => {
-  if (_landscapeDismissed) return;
-  const hint = document.getElementById('landscapeHint');
-  if (!hint) return;
-  setTimeout(() => {
-    if (window.innerWidth < 1024 && window.innerHeight > window.innerWidth) hint.style.display = 'flex';
-    else hint.style.display = 'none';
-  }, 200);
-});
+// Force landscape on mobile via Screen Orientation API
+try { screen.orientation.lock('landscape').catch(()=>{}); } catch(e) {}
 const SEASON = '2026-27';
 const THRESHOLDS = {
   '2025-2026': {cap:154647000,tax:187895000,apron1:195945000,apron2:207824000,bae:5134000,ntmle:14104000,tmle:5685000,rmle:8781000},
@@ -2161,12 +2140,14 @@ function renderRoster(cap) {
 
 // =============== DRAG & DROP ===============
 let _draggedCard = null;
+let _touchDragState = null; // { card, startX, startY, clone, holdTimer, isDragging }
 
 function setupDragDrop() {
   const grid = document.getElementById('depthChartGrid');
   if (!grid) return;
 
   grid.querySelectorAll('.dc-card').forEach(card => {
+    // === MOUSE DRAG (desktop) ===
     card.addEventListener('dragstart', e => {
       _draggedCard = card;
       card.classList.add('dragging');
@@ -2179,8 +2160,128 @@ function setupDragDrop() {
       grid.querySelectorAll('.dc-drop-indicator').forEach(el => el.remove());
       grid.querySelectorAll('.pos-col.drag-over').forEach(el => el.classList.remove('drag-over'));
     });
+
+    // === TOUCH DRAG (mobile) ===
+    card.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      _touchDragState = {
+        card,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        clone: null,
+        holdTimer: null,
+        isDragging: false
+      };
+      // Long-press to activate drag (250ms)
+      _touchDragState.holdTimer = setTimeout(() => {
+        if (!_touchDragState) return;
+        _touchDragState.isDragging = true;
+        card.classList.add('touch-held');
+        // Haptic feedback
+        if (navigator.vibrate) navigator.vibrate(30);
+        // Create floating clone
+        const rect = card.getBoundingClientRect();
+        const clone = card.cloneNode(true);
+        clone.className = 'dc-card touch-dragging';
+        clone.style.position = 'fixed';
+        clone.style.width = rect.width + 'px';
+        clone.style.left = rect.left + 'px';
+        clone.style.top = rect.top + 'px';
+        clone.style.pointerEvents = 'none';
+        document.body.appendChild(clone);
+        _touchDragState.clone = clone;
+        card.style.opacity = '0.3';
+      }, 250);
+    }, { passive: false });
+
+    card.addEventListener('touchmove', e => {
+      if (!_touchDragState) return;
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - _touchDragState.startX);
+      const dy = Math.abs(touch.clientY - _touchDragState.startY);
+      // Cancel hold if finger moves too much before hold triggers
+      if (!_touchDragState.isDragging && (dx > 10 || dy > 10)) {
+        clearTimeout(_touchDragState.holdTimer);
+        _touchDragState = null;
+        return;
+      }
+      if (!_touchDragState.isDragging) return;
+      e.preventDefault();
+      // Move clone with finger
+      const clone = _touchDragState.clone;
+      if (clone) {
+        clone.style.left = (touch.clientX - clone.offsetWidth / 2) + 'px';
+        clone.style.top = (touch.clientY - clone.offsetHeight / 2) + 'px';
+      }
+      // Highlight target column
+      grid.querySelectorAll('.pos-col.drag-over').forEach(el => el.classList.remove('drag-over'));
+      grid.querySelectorAll('.dc-drop-indicator').forEach(el => el.remove());
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const col = target?.closest('.pos-col');
+      if (col) {
+        col.classList.add('drag-over');
+        const cards = [...col.querySelectorAll('.dc-card')].filter(c => c !== _touchDragState.card);
+        const afterCard = cards.reduce((closest, child) => {
+          const box = child.getBoundingClientRect();
+          const offset = touch.clientY - box.top - box.height / 2;
+          if (offset < 0 && offset > closest.offset) return { offset, el: child };
+          return closest;
+        }, { offset: -Infinity, el: null }).el;
+        const indicator = document.createElement('div');
+        indicator.className = 'dc-drop-indicator';
+        if (afterCard) col.insertBefore(indicator, afterCard);
+        else col.appendChild(indicator);
+      }
+    }, { passive: false });
+
+    card.addEventListener('touchend', e => {
+      if (!_touchDragState) return;
+      clearTimeout(_touchDragState.holdTimer);
+      const state = _touchDragState;
+      _touchDragState = null;
+      if (!state.isDragging) {
+        state.card.classList.remove('touch-held');
+        return;
+      }
+      // Find drop target
+      const touch = e.changedTouches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const col = target?.closest('.pos-col');
+      if (col) {
+        const cards = [...col.querySelectorAll('.dc-card')].filter(c => c !== state.card);
+        const afterCard = cards.reduce((closest, child) => {
+          const box = child.getBoundingClientRect();
+          const offset = touch.clientY - box.top - box.height / 2;
+          if (offset < 0 && offset > closest.offset) return { offset, el: child };
+          return closest;
+        }, { offset: -Infinity, el: null }).el;
+        if (afterCard) col.insertBefore(state.card, afterCard);
+        else col.appendChild(state.card);
+        saveDepthOrder();
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+      // Cleanup
+      state.card.style.opacity = '';
+      state.card.classList.remove('touch-held', 'touch-dragging');
+      if (state.clone) state.clone.remove();
+      grid.querySelectorAll('.dc-drop-indicator').forEach(el => el.remove());
+      grid.querySelectorAll('.pos-col.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+
+    card.addEventListener('touchcancel', () => {
+      if (!_touchDragState) return;
+      clearTimeout(_touchDragState.holdTimer);
+      _touchDragState.card.style.opacity = '';
+      _touchDragState.card.classList.remove('touch-held', 'touch-dragging');
+      if (_touchDragState.clone) _touchDragState.clone.remove();
+      _touchDragState = null;
+      grid.querySelectorAll('.dc-drop-indicator').forEach(el => el.remove());
+      grid.querySelectorAll('.pos-col.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
   });
 
+  // === Desktop column drop handlers (unchanged) ===
   grid.querySelectorAll('.pos-col').forEach(col => {
     col.addEventListener('dragover', e => {
       e.preventDefault();
