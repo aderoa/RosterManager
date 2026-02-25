@@ -33,8 +33,10 @@ a{color:var(--accent);text-decoration:none}
   .roster-panel{min-width:0;overflow-x:hidden}
   .depth-chart{grid-template-columns:repeat(5,1fr)!important;gap:.3rem;padding:.5rem;min-width:0}
   .dc-card{padding:.3rem;min-width:0;overflow:hidden}
-  .dc-name{font-size:.55rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .dc-sal{font-size:.45rem}
+  .dc-card .dc-top{flex-wrap:wrap;gap:.2rem}
+  .dc-card .dc-hs,.dc-card .dc-ini{width:26px;height:20px;font-size:.4rem;border-radius:3px}
+  .dc-card .dc-name{font-size:.55rem;flex:0 0 100%;order:3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:.1rem}
+  .dc-card .dc-sal{font-size:.5rem;margin-left:auto}
   .pos-col{min-width:0}
   .cap-panel{min-width:0}
 }
@@ -152,11 +154,11 @@ a{color:var(--accent);text-decoration:none}
 .dc-card.touch-dragging{opacity:.6;transform:scale(1.08);box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 0 2px var(--team1);z-index:50;transition:none}
 .dc-card.touch-held{animation:touchPulse .4s ease;box-shadow:0 0 0 2px var(--team1),0 4px 12px rgba(0,0,0,.4)}
 @keyframes touchPulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1.04)}}
-.dc-card .dc-top{display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem}
+.dc-card .dc-top{display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;flex-wrap:wrap}
 .dc-card .dc-hs{width:40px;height:30px;border-radius:4px;object-fit:cover;background:var(--surface)}
 .dc-card .dc-ini{width:40px;height:30px;border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.5rem;color:var(--muted)}
-.dc-card .dc-name{font-size:.7rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
-.dc-card .dc-sal{font-size:.6rem;font-weight:600;color:var(--green);white-space:nowrap}
+.dc-card .dc-name{font-size:.7rem;font-weight:600;flex:0 0 100%;order:3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dc-card .dc-sal{font-size:.6rem;font-weight:600;color:var(--green);white-space:nowrap;margin-left:auto}
 .dc-card .dc-actions{display:flex;gap:.2rem;flex-wrap:wrap}
 .dc-card .dc-btn{font-size:.5rem;padding:.15rem .35rem;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .1s}
 .dc-card .dc-btn:hover{border-color:var(--accent);color:var(--accent)}
@@ -465,7 +467,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.2 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.2.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -474,7 +476,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.2</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.2.1</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
