@@ -1172,8 +1172,9 @@ function calcCapSheet(team) {
     rosterCount++;
     roster.under_contract.push({
       name: tp.name, sal27: tp.salary, pos: tp.pos || '', headshot: tp.headshot || '',
-      exception: '', st27: 'GUARANTEED', status: 'traded_in', fromTeam: tp.fromTeam,
-      end: tp.end || 0, tradeKicker: 0, tv: tradeValueMap[tp.name.toLowerCase()] || 0
+      exception: tp.exception || '', st27: 'GUARANTEED', status: 'traded_in', fromTeam: tp.fromTeam,
+      end: tp.end || 0, tradeKicker: 0, tv: tradeValueMap[tp.name.toLowerCase()] || 0,
+      isSAT: tp.isSAT, years: tp.years, contractType: tp.contractType
     });
   }
 
@@ -1542,6 +1543,7 @@ function dcBadge(p) {
   if (p.status === 'picked_up') return '<span class="dc-opt-badge" style="background:rgba(52,199,89,.15);color:var(--green)">✓TO</span>';
   if (p.status === 'exercised') return '<span class="dc-opt-badge" style="background:rgba(52,199,89,.15);color:var(--green)">✓PO</span>';
   if (p._signed && p.isSignAndTrade) return '<span class="dc-opt-badge" style="background:rgba(0,199,190,.15);color:var(--cyan)">S&T</span>';
+  if (p.status === 'traded_in' && p.isSAT) return '<span class="dc-opt-badge" style="background:rgba(0,199,190,.15);color:var(--cyan)">S&T</span>';
   if (p._signed && p.contractType === 'exhibit-10') return '<span class="dc-opt-badge" style="background:rgba(110,110,115,.15);color:var(--muted)">E10</span>';
   if (p._signed) return '<span class="dc-opt-badge signed">FA</span>';
   if (p.status === 'traded_in') return '<span class="dc-opt-badge traded">TRD</span>';
@@ -2097,6 +2099,23 @@ function renderRoster(cap) {
     const totG = yrs.reduce((s, yr) => s + (yr && (yr.st === 'GUARANTEED' || yr.st === 'TWO-WAY') ? yr.sal : (yr?.ch || 0)), 0);
     synthContracts[sig.name] = { yrs, totG };
   }
+  // Also generate synthetic contracts for S&T traded-in players
+  for (const trade of (STATE.trades || [])) {
+    for (const tp of (trade.in || [])) {
+      if (!tp.isSAT || !tp.salary || !tp.years) continue;
+      if (STATE.waived.has(tp.name)) continue;
+      if (synthContracts[tp.name]) continue; // Don't overwrite existing
+      const stLabel = 'GUARANTEED';
+      const yrs2 = Array(6).fill(null);
+      for (let y = 0; y < tp.years; y++) {
+        const raise = Math.round(tp.salary * 0.05);
+        const sal = tp.salary + (raise * y);
+        yrs2[1 + y] = { sal, ch: sal, st: stLabel };
+      }
+      const totG2 = yrs2.reduce((s, yr) => s + (yr?.ch || 0), 0);
+      synthContracts[tp.name] = { yrs: yrs2, totG: totG2 };
+    }
+  }
   for (const ext of (STATE.extensions || [])) {
     const existing = contractsMap[ext.name] || synthContracts[ext.name];
     if (!existing) continue;
@@ -2131,7 +2150,7 @@ function renderRoster(cap) {
         ? `<img class="ct-hs" src="${p.headshot}" onerror="this.outerHTML='<div class=ct-ini>${ini}</div>'">`
         : `<div class="ct-ini">${ini}</div>`;
       h += `<tr><td><div class="player-cell">${hs}<div><div style="font-weight:600;font-size:.7rem">${p.name}</div><div style="font-size:.55rem;color:var(--muted)">${p.pos || ''} ${p.age ? '· ' + p.age : ''}</div></div></div></td>`;
-      const cd = contractsMap[p.name] || synthContracts[p.name];
+      const cd = synthContracts[p.name] || contractsMap[p.name];
       if (cd) {
         CONTRACT_YEARS.forEach((yr, i) => {
           if (yr.preFaOnly && !showPreFa) return;
@@ -2748,6 +2767,12 @@ function undoLast() {
     }
     if (last.undo.type === 'trade') {
       STATE.trades.pop();
+      // Restore any S&T signings that were removed when the trade was confirmed
+      if (last.undo.removedSATSignings) {
+        for (const sig of last.undo.removedSATSignings) {
+          STATE.signings.push(sig);
+        }
+      }
     }
     if (last.undo.type === 'signing') {
       STATE.signings.pop();
@@ -3045,6 +3070,26 @@ function showTradeConfirm(trade) {
 function confirmPendingTrade() {
   if (!_pendingTrade) return;
   
+  // For S&T trades: match incoming players with S&T signings, transfer metadata, remove signing
+  const removedSATSignings = [];
+  for (const incoming of (_pendingTrade.in || [])) {
+    const satIdx = (STATE.signings || []).findIndex(s => s.isSAT && s.name === incoming.name);
+    if (satIdx !== -1) {
+      const satSig = STATE.signings[satIdx];
+      // Transfer S&T signing metadata to the trade record
+      incoming.isSAT = true;
+      incoming.salary = satSig.salary; // Use the S&T salary from the signing
+      incoming.years = satSig.years;
+      incoming.end = satSig.end;
+      incoming.contractType = satSig.contractType || 'guaranteed';
+      incoming.guaranteedPct = satSig.guaranteedPct;
+      incoming.exception = satSig.exception;
+      // Save and remove the S&T signing to avoid duplication
+      removedSATSignings.push(satSig);
+      STATE.signings.splice(satIdx, 1);
+    }
+  }
+  
   STATE.trades.push(_pendingTrade);
   
   const outNames = _pendingTrade.out.map(p => p.name).join(', ') || 'none';
@@ -3052,7 +3097,7 @@ function confirmPendingTrade() {
   STATE.moves.push({
     action: 'Trade',
     detail: `Sent: ${outNames} → Received: ${inNames}`,
-    undo: { type: 'trade' }
+    undo: { type: 'trade', removedSATSignings }
   });
   
   saveState();
