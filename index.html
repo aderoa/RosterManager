@@ -372,6 +372,19 @@ a{color:var(--accent);text-decoration:none}
 .sign-exc-option .exc-detail{font-size:.65rem;color:var(--muted)}
 .sign-salary-input{display:flex;gap:.5rem;align-items:center;margin:.75rem 0}
 .sign-salary-input label{font-size:.7rem;color:var(--muted);min-width:60px}
+.sign-yr-table{width:100%;border-collapse:collapse;font-size:.65rem;margin:.5rem 0}
+.sign-yr-table th{text-align:left;padding:.35rem .3rem;color:var(--muted);font-weight:600;border-bottom:2px solid var(--border);font-size:.6rem;text-transform:uppercase}
+.sign-yr-table td{padding:.3rem;border-bottom:1px solid var(--border)}
+.sign-yr-table tr:last-child td{border-bottom:none}
+.sign-yr-table .yr-sal{font-weight:600;font-family:'DM Sans',system-ui;font-variant-numeric:tabular-nums}
+.sign-yr-table select{font-size:.6rem;padding:.15rem .2rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);cursor:pointer}
+.sign-yr-table .yr-total{font-weight:700;color:var(--accent);border-top:2px solid var(--border)}
+.sign-yr-sal-input{width:100%;border:1px solid var(--border);border-radius:4px;padding:.25rem .4rem;font-size:.65rem;font-family:'DM Sans',system-ui;background:var(--bg);color:var(--text);text-align:right;font-variant-numeric:tabular-nums}
+.sign-yr-sal-input:focus{outline:none;border-color:var(--accent)}
+.sign-config-row{display:flex;gap:.5rem;align-items:center;margin:.5rem 0}
+.sign-config-row label{font-size:.65rem;color:var(--muted);min-width:55px}
+.sign-config-row select,.sign-config-row input{font-size:.7rem;padding:.3rem .4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);flex:1}
+.sign-sat-note{font-size:.6rem;color:var(--orange);padding:.4rem .5rem;background:rgba(249,160,27,.08);border-radius:6px;margin:.5rem 0;line-height:1.3}
 
 /* Training camp warning */
 .camp-warning{background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem}
@@ -470,7 +483,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.4 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.5 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -479,7 +492,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.4</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.5</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -1602,12 +1615,13 @@ function dcCard(p) {
 // =============== CONTRACT TABLE ===============
 function contractSalCell(yr) {
   if (!yr || (!yr.sal && !yr.st)) return '<td><span style="color:var(--muted)">—</span></td>';
-  const cls = {'GUARANTEED':'sal-g','PARTIAL G':'sal-pg','NOT G':'sal-ng','TEAM OPT':'sal-to','PLAYER OPT':'sal-po','TWO-WAY':'sal-g'}[yr.st] || 'sal-g';
+  const cls = {'GUARANTEED':'sal-g','PARTIAL G':'sal-pg','NOT G':'sal-ng','TEAM OPT':'sal-to','PLAYER OPT':'sal-po','TWO-WAY':'sal-g','TO':'sal-to','PO':'sal-po','ETO':'sal-po'}[yr.st] || 'sal-g';
   let inner = `<span class="${cls}">${fmtMoney(yr.sal)}</span>`;
   if (yr.st === 'PARTIAL G' && yr.ch && yr.ch !== yr.sal) inner += `<div style="font-size:.55rem;color:var(--yellow)">G: ${fmtMoney(yr.ch)}</div>`;
   else if (yr.st === 'NOT G') inner += `<div style="font-size:.55rem;color:var(--red)">G: ${yr.ch ? fmtMoney(yr.ch) : '$0'}</div>`;
-  else if (yr.st === 'PLAYER OPT') inner += `<div style="font-size:.55rem;color:var(--cyan)">PO</div>`;
-  else if (yr.st === 'TEAM OPT') inner += `<div style="font-size:.55rem;color:var(--orange)">TO</div>`;
+  else if (yr.st === 'PLAYER OPT' || yr.st === 'PO') inner += `<div style="font-size:.55rem;color:var(--cyan)">PO</div>`;
+  else if (yr.st === 'TEAM OPT' || yr.st === 'TO') inner += `<div style="font-size:.55rem;color:var(--orange)">TO</div>`;
+  else if (yr.st === 'ETO') inner += `<div style="font-size:.55rem;color:var(--cyan)">ETO</div>`;
   return `<td>${inner}</td>`;
 }
 
@@ -2124,16 +2138,34 @@ function renderRoster(cap) {
   const synthContracts = {};
   for (const sig of (STATE.signings || [])) {
     if (STATE.waived.has(sig.name)) continue;
-    const stLabel = sig.contractType === 'two-way' ? 'TWO-WAY' : sig.contractType === 'non-guaranteed' ? 'NOT G' : sig.contractType === 'partial-guaranteed' ? 'PARTIAL G' : sig.contractType === 'exhibit-10' ? 'NOT G' : 'GUARANTEED';
     const yrs = Array(6).fill(null);
-    // Index 0 = '25-26 (preFaOnly), Index 1 = '26-27, etc.
-    for (let y = 0; y < sig.years; y++) {
-      const raise = Math.round(sig.salary * 0.05); // ~5% raises per year
-      const sal = sig.salary + (raise * y);
-      const guarAmt = sig.contractType === 'partial-guaranteed' ? Math.round(sal * (sig.guaranteedPct || 50) / 100) : (sig.contractType === 'non-guaranteed' || sig.contractType === 'exhibit-10' ? 0 : sal);
-      yrs[1 + y] = { sal, ch: guarAmt, st: stLabel };
+    
+    if (sig.yearStructure && sig.yearStructure.length) {
+      // Use detailed year structure
+      for (const yr of sig.yearStructure) {
+        const idx = yr.season - 2026; // 2027=1 ('26-27), 2028=2 ('27-28), etc.
+        if (idx < 0 || idx >= 6) continue;
+        let stLabel = 'GUARANTEED';
+        let guarAmt = yr.salary;
+        if (yr.status === 'non-guaranteed') { stLabel = 'NOT G'; guarAmt = 0; }
+        else if (yr.status === 'partial') { stLabel = 'PARTIAL G'; guarAmt = Math.round(yr.salary * 0.5); }
+        else if (yr.status === 'team_option') { stLabel = 'TO'; guarAmt = 0; }
+        else if (yr.status === 'player_option') { stLabel = 'PO'; guarAmt = 0; }
+        else if (yr.status === 'eto') { stLabel = 'ETO'; guarAmt = yr.salary; }
+        else if (sig.contractType === 'two-way') { stLabel = 'TWO-WAY'; }
+        yrs[idx] = { sal: yr.salary, ch: guarAmt, st: stLabel };
+      }
+    } else {
+      // Legacy: flat raise calculation
+      const stLabel = sig.contractType === 'two-way' ? 'TWO-WAY' : sig.contractType === 'non-guaranteed' ? 'NOT G' : sig.contractType === 'partial-guaranteed' ? 'PARTIAL G' : sig.contractType === 'exhibit-10' ? 'NOT G' : 'GUARANTEED';
+      for (let y = 0; y < sig.years; y++) {
+        const raise = Math.round(sig.salary * (sig.raiseRate || 0.05));
+        const sal = sig.salary + (raise * y);
+        const guarAmt = sig.contractType === 'partial-guaranteed' ? Math.round(sal * (sig.guaranteedPct || 50) / 100) : (sig.contractType === 'non-guaranteed' || sig.contractType === 'exhibit-10' ? 0 : sal);
+        yrs[1 + y] = { sal, ch: guarAmt, st: stLabel };
+      }
     }
-    const totG = yrs.reduce((s, yr) => s + (yr && (yr.st === 'GUARANTEED' || yr.st === 'TWO-WAY') ? yr.sal : (yr?.ch || 0)), 0);
+    const totG = yrs.reduce((s, yr) => s + (yr && (yr.st === 'GUARANTEED' || yr.st === 'TWO-WAY' || yr.st === 'ETO') ? yr.sal : (yr?.ch || 0)), 0);
     synthContracts[sig.name] = { yrs, totG };
   }
   // Also generate synthetic contracts for S&T traded-in players
@@ -3375,8 +3407,8 @@ function openSignModal(faName, isResign) {
     const tv = tradeValueMap[faName.toLowerCase()] || 0;
     h += `<div style="padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.75rem">`;
     h += `<span style="font-weight:600">${faName}</span>`;
-    if (p) h += ` · ${p.pos || ''} · was ${fmtMoney(p.sal26)} in 25-26`;
-    if (tv) h += ` · TV: ${fmtMoney(tv)}`;
+    if (p) h += ` · ${p.pos || ''} · was ${fmtMoneyFull(p.sal26)} in 25-26`;
+    if (tv) h += ` · TV: ${fmtMoneyFull(tv)}`;
     h += `</div>`;
     h += `<input type="hidden" id="signPlayerName" value="${faName}">`;
     h += `<div id="signExcSection">`;
@@ -3393,64 +3425,44 @@ function openSignModal(faName, isResign) {
     const cls = exc.available ? '' : 'unavailable';
     h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
     h += `<div class="exc-name">${exc.name}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
-    h += `<div class="exc-detail">${exc.available ? (exc.remaining !== undefined ? 'Remaining: ' + fmtMoney(exc.remaining) : 'Up to ' + fmtMoney(exc.amount)) : 'Not available'}${exc.used ? ` (used ${fmtMoney(exc.used)})` : ''}</div>`;
+    h += `<div class="exc-detail">${exc.available ? (exc.remaining !== undefined ? 'Remaining: ' + fmtMoneyFull(exc.remaining) : 'Up to ' + fmtMoneyFull(exc.amount)) : 'Not available'}${exc.used ? ` (used ${fmtMoneyFull(exc.used)})` : ''}</div>`;
     h += `</div>`;
   }
 
   if (!faName) h += `</div>`; // close signExcSection
   h += `<div id="signSalarySection" style="display:none">`;
-  h += `<div class="sign-salary-input">`;
-  h += `<label>Salary:</label>`;
-  h += `<input id="signSalaryInput" class="trade-input" type="number" placeholder="Annual salary" style="flex:1">`;
+  // Year 1 salary
+  h += `<div class="sign-config-row">`;
+  h += `<label>Year 1:</label>`;
+  h += `<input id="signSalaryInput" class="sign-yr-sal-input" type="text" placeholder="$0" style="flex:1" oninput="onSignSalaryInput(this)" onblur="formatSignSalaryField(this)">`;
   h += `</div>`;
-  h += `<div class="sign-salary-input">`;
+  // Years selector
+  h += `<div class="sign-config-row">`;
   h += `<label>Years:</label>`;
-  h += `<input id="signYearsInput" class="trade-input" type="number" placeholder="Contract length" value="1" min="1" max="5" style="flex:1">`;
-  h += `</div>`;
-  // Contract type selector
-  h += `<div class="sign-salary-input">`;
-  h += `<label>Type:</label>`;
-  h += `<select id="signContractType" class="trade-input" style="flex:1">`;
-  h += `<option value="guaranteed">Guaranteed</option>`;
-  h += `<option value="non-guaranteed">Non-Guaranteed</option>`;
-  h += `<option value="partial-guaranteed">Partially Guaranteed</option>`;
-  h += `<option value="two-way">Two-Way</option>`;
-  if (STATE.phase === 'training_camp') h += `<option value="exhibit-10">Exhibit 10</option>`;
+  h += `<select id="signYearsInput" onchange="updateSignPreview()">`;
+  for (let i = 1; i <= 5; i++) h += `<option value="${i}">${i}</option>`;
   h += `</select>`;
   h += `</div>`;
-  // Guaranteed % for partial
-  h += `<div id="signGuarPctRow" class="sign-salary-input" style="display:none">`;
-  h += `<label>Guaranteed %:</label>`;
-  h += `<input id="signGuarPct" class="trade-input" type="number" placeholder="e.g. 50" min="1" max="99" value="50" style="flex:1">`;
+  // Raise type
+  h += `<div class="sign-config-row">`;
+  h += `<label>Raises:</label>`;
+  h += `<select id="signRaiseType" onchange="updateSignPreview()">`;
+  h += `<option value="5">5% (Non-Bird)</option>`;
+  h += `<option value="8">8% (Bird Rights)</option>`;
+  h += `<option value="0">Flat (no raises)</option>`;
+  h += `</select>`;
   h += `</div>`;
-  // S&T note (shown when S&T exception selected)
-  h += `<div id="satNote" style="font-size:.6rem;color:var(--orange);padding:.3rem .5rem;background:rgba(249,160,27,.08);border-radius:6px;margin-bottom:.5rem;display:none">⚠️ Sign-and-Trade: max 4yr · Receiving team hard-capped at 1st apron · Trade Machine will open after signing to arrange the deal</div>`;
-  h += `<button class="trade-confirm-btn" onclick="confirmSigning()">✅ Sign Player</button>`;
+  // S&T note
+  h += `<div id="satNote" class="sign-sat-note" style="display:none">⚠️ Sign-and-Trade: min 3yr / max 4yr · Receiving team hard-capped at 1st apron · Trade Machine will open after signing</div>`;
+  // Year-by-year breakdown
+  h += `<div id="signYearBreakdown"></div>`;
+  h += `<button class="trade-confirm-btn" onclick="confirmSigning()" style="margin-top:.5rem">✅ Sign Player</button>`;
   h += `</div>`;
   h += `<button class="waive-cancel" onclick="closeSignModal()">Cancel</button>`;
 
   modal.innerHTML = h;
   document.getElementById('signOverlay').style.display = 'flex';
   window._signContext = { exception: null, maxAmount: 0 };
-
-  // Contract type change listener
-  setTimeout(() => {
-    const typeEl = document.getElementById('signContractType');
-    if (typeEl) typeEl.addEventListener('change', function() {
-      const guarRow = document.getElementById('signGuarPctRow');
-      if (guarRow) guarRow.style.display = this.value === 'partial-guaranteed' ? 'flex' : 'none';
-      // Two-way and Exhibit 10: force 1-2 years, min salary
-      if (this.value === 'two-way' || this.value === 'exhibit-10') {
-        const yrsInput = document.getElementById('signYearsInput');
-        if (yrsInput) { yrsInput.max = 2; if (parseInt(yrsInput.value) > 2) yrsInput.value = 1; }
-        const salInput = document.getElementById('signSalaryInput');
-        if (salInput) salInput.value = MIN_SALARY_0YOS;
-      } else if (window._signContext?.exception !== 'Sign-and-Trade') {
-        const yrsInput = document.getElementById('signYearsInput');
-        if (yrsInput) yrsInput.max = 5;
-      }
-    });
-  }, 50);
 }
 
 function buildFAListHTML(fas, undrafted) {
@@ -3467,7 +3479,7 @@ function buildFAListHTML(fas, undrafted) {
     h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(p.name)}')" style="display:flex;align-items:center;gap:.4rem">`;
     h += hs;
     h += `<span class="name" style="flex:1">${p.name}</span>`;
-    h += `<span class="assigned" style="font-size:.6rem">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoney(p.sal26)} · ${reason}</span>`;
+    h += `<span class="assigned" style="font-size:.6rem">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoneyFull(p.sal26)} · ${reason}</span>`;
     h += `</div>`;
   }
   // Undrafted prospects
@@ -3540,7 +3552,7 @@ function selectSignPlayer(name) {
   let infoHtml = `<div style="padding:.4rem;background:var(--surface);border-radius:4px;font-size:.75rem">`;
   infoHtml += `<strong>${name}</strong>`;
   if (p) infoHtml += ` · ${p.pos || ''} · ${TEAMS[p.team] || p.team}`;
-  infoHtml += ` · TV: ${fmtMoney(tv)}`;
+  infoHtml += ` · TV: ${fmtMoneyFull(tv)}`;
   if (needsSAT) infoHtml += ` <span style="color:var(--orange);font-weight:600">· Requires S&T</span>`;
   infoHtml += `</div>`;
   document.getElementById('signSearchResults').innerHTML = infoHtml;
@@ -3562,127 +3574,309 @@ function selectSignPlayer(name) {
 function selectSignException(excName, maxAmount) {
   window._signContext = { exception: excName, maxAmount };
   document.getElementById('signSalarySection').style.display = '';
-  document.getElementById('signSalaryInput').max = maxAmount;
-  document.getElementById('signSalaryInput').placeholder = `Up to ${fmtMoney(maxAmount)}`;
-  
+
   const ctx = window._signPlayerContext || {};
-  const typeEl = document.getElementById('signContractType');
+  const salInput = document.getElementById('signSalaryInput');
   const yrsInput = document.getElementById('signYearsInput');
-  const guarRow = document.getElementById('signGuarPctRow');
+  const raiseInput = document.getElementById('signRaiseType');
   const satNote = document.getElementById('satNote');
 
-  if (excName === 'Sign-and-Trade') {
-    const projSal = ctx.projSalary || maxAmount;
-    document.getElementById('signSalaryInput').value = projSal;
-    document.getElementById('signSalaryInput').max = maxAmount; // supermax ceiling
-    typeEl.value = 'guaranteed';
-    yrsInput.max = 4;
-    if (parseInt(yrsInput.value) > 4) yrsInput.value = 4;
-    if (satNote) satNote.style.display = '';
-  } else if (excName === 'Two-Way') {
-    document.getElementById('signSalaryInput').value = MIN_SALARY_0YOS;
-    typeEl.value = 'two-way';
-    yrsInput.max = 2;
-    if (satNote) satNote.style.display = 'none';
-  } else if (excName === 'Exhibit 10') {
-    document.getElementById('signSalaryInput').value = MIN_SALARY_0YOS;
-    typeEl.value = 'exhibit-10';
-    yrsInput.max = 2;
-    yrsInput.value = 1;
-    if (satNote) satNote.style.display = 'none';
+  // Determine raise rate: Bird rights (re-sign, S&T) = 8%, others = 5%
+  const isBirdRights = excName === 'Sign-and-Trade' || window._signIsResign;
+
+  // Configure years options
+  let minYrs = 1, maxYrs = 5;
+  if (excName === 'Sign-and-Trade') { minYrs = 3; maxYrs = 4; }
+  else if (excName === 'Two-Way' || excName === 'Exhibit 10') { minYrs = 1; maxYrs = 2; }
+  else if (excName === 'Minimum') { maxYrs = 3; }
+
+  // Rebuild years dropdown
+  let yrsHtml = '';
+  for (let i = minYrs; i <= maxYrs; i++) yrsHtml += `<option value="${i}">${i}</option>`;
+  yrsInput.innerHTML = yrsHtml;
+  yrsInput.value = excName === 'Sign-and-Trade' ? 3 : minYrs;
+
+  // Set raise type
+  if (excName === 'Minimum' || excName === 'Two-Way' || excName === 'Exhibit 10') {
+    raiseInput.value = '0';
+    raiseInput.disabled = true;
   } else {
-    const projSal = ctx.projSalary || 0;
-    if (excName === 'Minimum') {
-      document.getElementById('signSalaryInput').value = MIN_SALARY_0YOS;
-    } else if (projSal > 0 && projSal <= maxAmount) {
-      document.getElementById('signSalaryInput').value = projSal;
-    } else {
-      document.getElementById('signSalaryInput').value = maxAmount;
-    }
-    typeEl.value = 'guaranteed';
-    yrsInput.max = 5;
-    if (satNote) satNote.style.display = 'none';
+    raiseInput.value = isBirdRights ? '8' : '5';
+    raiseInput.disabled = false;
   }
-  if (guarRow) guarRow.style.display = 'none';
-  typeEl.dispatchEvent(new Event('change'));
+
+  // Set default salary
+  let defaultSal;
+  if (excName === 'Minimum' || excName === 'Two-Way' || excName === 'Exhibit 10') {
+    defaultSal = MIN_SALARY_0YOS;
+  } else if (excName === 'Sign-and-Trade') {
+    defaultSal = ctx.projSalary || maxAmount;
+  } else if (excName === 'Cap Space') {
+    defaultSal = ctx.projSalary || maxAmount;
+    if (defaultSal > maxAmount) defaultSal = maxAmount;
+  } else {
+    const proj = ctx.projSalary || 0;
+    defaultSal = (proj > 0 && proj <= maxAmount) ? proj : maxAmount;
+  }
+  salInput.value = fmtMoneyFull(defaultSal);
+  salInput.dataset.raw = defaultSal;
+
+  // S&T note
+  if (satNote) satNote.style.display = excName === 'Sign-and-Trade' ? '' : 'none';
+
+  // Highlight selected exception
+  document.querySelectorAll('.sign-exc-option').forEach(el => el.style.borderColor = '');
+  if (event && event.target) {
+    const opt = event.target.closest('.sign-exc-option');
+    if (opt) opt.style.borderColor = 'var(--accent)';
+  }
+
+  updateSignPreview();
 }
 
-function updateSATRules() {
-  // Legacy - S&T is now handled via exception selection
+// === Currency input helpers ===
+function parseRawSalary(str) {
+  if (!str) return 0;
+  return parseInt(str.toString().replace(/[$,\s]/g, '')) || 0;
+}
+
+function onSignSalaryInput(el) {
+  // Strip non-numeric, store raw
+  const raw = el.value.replace(/[^0-9]/g, '');
+  el.dataset.raw = raw;
+  // Don't reformat while typing — just let them type digits
+}
+
+function formatSignSalaryField(el) {
+  const raw = parseRawSalary(el.dataset.raw || el.value);
+  if (raw > 0) {
+    el.value = fmtMoneyFull(raw);
+    el.dataset.raw = raw;
+  }
+  updateSignPreview();
+}
+
+// === Year-by-year preview ===
+function getSignYearStructure() {
+  const salInput = document.getElementById('signSalaryInput');
+  const baseSal = parseRawSalary(salInput?.dataset?.raw || salInput?.value);
+  const years = parseInt(document.getElementById('signYearsInput')?.value) || 1;
+  const raiseRate = parseFloat(document.getElementById('signRaiseType')?.value) / 100 || 0;
+  const excName = window._signContext?.exception || '';
+  const isMin = excName === 'Minimum' || excName === 'Two-Way' || excName === 'Exhibit 10';
+
+  const structure = [];
+  for (let y = 0; y < years; y++) {
+    const season = 2027 + y; // End-year: 2027 = '26-27 season
+    const seasonLabel = `'${String(season - 1).slice(2)}-${String(season).slice(2)}`;
+    let sal;
+    if (isMin) {
+      sal = MIN_SALARY_0YOS; // Flat minimum each year
+    } else {
+      // Raises based on year 1 salary (NBA style: fixed raise amount each year)
+      const raiseAmt = Math.round(baseSal * raiseRate);
+      sal = baseSal + (raiseAmt * y);
+    }
+    // Default status: Year 1 always guaranteed, rest guaranteed too
+    structure.push({ year: y, season, seasonLabel, salary: sal, status: 'guaranteed' });
+  }
+  return structure;
+}
+
+function updateSignPreview() {
+  const container = document.getElementById('signYearBreakdown');
+  if (!container) return;
+
+  const structure = getSignYearStructure();
+  if (!structure.length) { container.innerHTML = ''; return; }
+
+  const excName = window._signContext?.exception || '';
+  const isSimple = excName === 'Two-Way' || excName === 'Exhibit 10';
+
+  let h = `<table class="sign-yr-table"><thead><tr>`;
+  h += `<th>Season</th><th style="text-align:right">Salary</th>`;
+  if (!isSimple) h += `<th>Status</th>`;
+  h += `</tr></thead><tbody>`;
+
+  let totalValue = 0;
+  let totalGuaranteed = 0;
+
+  for (const yr of structure) {
+    totalValue += yr.salary;
+    h += `<tr>`;
+    h += `<td style="font-weight:600">${yr.seasonLabel}</td>`;
+    h += `<td class="yr-sal" style="text-align:right">${fmtMoneyFull(yr.salary)}</td>`;
+    if (!isSimple) {
+      h += `<td><select class="sign-yr-status" data-yr="${yr.year}" onchange="onYearStatusChange()">`;
+      h += `<option value="guaranteed"${yr.year === 0 ? ' selected' : ''}>Guaranteed</option>`;
+      h += `<option value="non-guaranteed">Non-Guaranteed</option>`;
+      h += `<option value="partial">Partially Guar.</option>`;
+      if (yr.year > 0) {
+        h += `<option value="team_option">Team Option</option>`;
+        h += `<option value="player_option">Player Option</option>`;
+        h += `<option value="eto">Early Term. (ETO)</option>`;
+      }
+      h += `</select></td>`;
+    }
+    h += `</tr>`;
+  }
+
+  // Total row
+  h += `<tr><td class="yr-total">Total</td>`;
+  h += `<td class="yr-total" style="text-align:right">${fmtMoneyFull(totalValue)}</td>`;
+  if (!isSimple) h += `<td class="yr-total" id="signGuarTotal"></td>`;
+  h += `</tr>`;
+
+  h += `</tbody></table>`;
+  container.innerHTML = h;
+
+  onYearStatusChange(); // Calculate guaranteed total
+}
+
+function onYearStatusChange() {
+  const structure = getSignYearStructure();
+  const selects = document.querySelectorAll('.sign-yr-status');
+  let totalGuar = 0;
+
+  selects.forEach(sel => {
+    const yr = parseInt(sel.dataset.yr);
+    const yrData = structure[yr];
+    if (!yrData) return;
+    const status = sel.value;
+    if (status === 'guaranteed') totalGuar += yrData.salary;
+    else if (status === 'partial') totalGuar += Math.round(yrData.salary * 0.5);
+    // TO, PO, ETO, NG = 0 guaranteed
+  });
+
+  const totalEl = document.getElementById('signGuarTotal');
+  if (totalEl) {
+    totalEl.innerHTML = `<span style="font-size:.55rem;color:var(--green)">${fmtMoneyFull(totalGuar)} guar.</span>`;
+  }
 }
 
 function confirmSigning() {
   const nameEl = document.getElementById('signPlayerName');
   if (!nameEl || !nameEl.value) { alert('Select a player first'); return; }
   const name = nameEl.value;
-  const salary = parseInt(document.getElementById('signSalaryInput').value) || 0;
+  const salInput = document.getElementById('signSalaryInput');
+  const salary = parseRawSalary(salInput?.dataset?.raw || salInput?.value);
   const years = parseInt(document.getElementById('signYearsInput').value) || 1;
-  const contractType = document.getElementById('signContractType')?.value || 'guaranteed';
-  const guarPct = contractType === 'partial-guaranteed' ? (parseInt(document.getElementById('signGuarPct')?.value) || 50) : 100;
+  const raiseRate = parseFloat(document.getElementById('signRaiseType')?.value) / 100 || 0;
   const isSignAndTrade = (window._signContext.exception === 'Sign-and-Trade');
+  const excName = window._signContext.exception || '';
+
   if (!salary) { alert('Enter a salary amount'); return; }
-  // S&T bypasses exception amount (original team signs with Bird rights)
-  if (!isSignAndTrade && window._signContext.maxAmount && salary > window._signContext.maxAmount) {
-    alert(`Salary exceeds ${window._signContext.exception} limit of ${fmtMoney(window._signContext.maxAmount)}`);
+
+  // S&T validation: min 3 years, max 4 years
+  if (isSignAndTrade && years < 3) {
+    alert('Sign-and-trade deals require a minimum of 3 years under current CBA rules.');
     return;
   }
-  // S&T validation: max 4 years
   if (isSignAndTrade && years > 4) {
     alert('Sign-and-trade deals are limited to 4 years under current CBA rules.');
     return;
   }
-  // Hard-cap check: if using Non-Tax MLE, team is capped at 1st apron
-  if (window._signContext.exception === 'Non-Tax MLE' && contractType !== 'two-way') {
+
+  // Exception amount check (S&T bypasses — original team signs with Bird rights)
+  if (!isSignAndTrade && window._signContext.maxAmount && salary > window._signContext.maxAmount) {
+    alert(`Salary exceeds ${excName} limit of ${fmtMoneyFull(window._signContext.maxAmount)}`);
+    return;
+  }
+
+  // Hard-cap check for Non-Tax MLE
+  if (excName === 'Non-Tax MLE') {
     const cap = calcCapSheet(STATE.team);
     const newTotal = cap.teamSalary + salary;
     if (newTotal > T.apron1) {
-      alert(`Using the Non-Tax MLE hard-caps your team at the 1st apron (${fmtMoney(T.apron1)}). This signing would put you at ${fmtMoney(newTotal)}.`);
+      alert(`Using the Non-Tax MLE hard-caps your team at the 1st apron (${fmtMoneyFull(T.apron1)}). This signing would put you at ${fmtMoneyFull(newTotal)}.`);
       return;
     }
   }
+
+  // Build year structure from the preview table
+  const yearStructure = [];
+  const isMin = excName === 'Minimum' || excName === 'Two-Way' || excName === 'Exhibit 10';
+  const statusSelects = document.querySelectorAll('.sign-yr-status');
+
+  for (let y = 0; y < years; y++) {
+    const season = 2027 + y;
+    let yrSal;
+    if (isMin) {
+      yrSal = MIN_SALARY_0YOS;
+    } else {
+      const raiseAmt = Math.round(salary * raiseRate);
+      yrSal = salary + (raiseAmt * y);
+    }
+    let status = 'guaranteed';
+    if (statusSelects[y]) status = statusSelects[y].value;
+    yearStructure.push({ season, salary: yrSal, status });
+  }
+
+  // Determine overall contract type from year structure
+  const hasNG = yearStructure.some(y => y.status === 'non-guaranteed');
+  const hasPartial = yearStructure.some(y => y.status === 'partial');
+  const hasTO = yearStructure.some(y => y.status === 'team_option');
+  const hasPO = yearStructure.some(y => y.status === 'player_option');
+  const hasETO = yearStructure.some(y => y.status === 'eto');
+  let contractType = 'guaranteed';
+  if (excName === 'Two-Way') contractType = 'two-way';
+  else if (excName === 'Exhibit 10') contractType = 'exhibit-10';
+  else if (hasNG && !hasPartial && !hasTO && !hasPO) contractType = 'non-guaranteed';
+  else if (hasPartial) contractType = 'partial-guaranteed';
 
   const p = allPlayers.find(p => p.name === name);
   const signing = {
     name,
     salary,
     years,
-    exception: window._signContext.exception || 'FA',
+    raiseRate,
+    exception: excName || 'FA',
     pos: p?.pos || '',
     headshot: p?.headshot || '',
     end: 2027 + years - 1,
     contractType,
-    guaranteedPct: guarPct,
-    isSignAndTrade
+    guaranteedPct: 100,
+    isSignAndTrade,
+    yearStructure
   };
   if (isSignAndTrade) {
-    // S&T: record the original team so the trade can be arranged
     signing.fromTeam = window._signPlayerContext?.team || '';
     signing.isSAT = true;
   }
 
   STATE.signings.push(signing);
 
-  const typeLabel = contractType === 'two-way' ? ' (two-way)' : contractType === 'non-guaranteed' ? ' (non-guar)' : contractType === 'partial-guaranteed' ? ` (${guarPct}% guar)` : contractType === 'exhibit-10' ? ' (Exhibit 10)' : '';
+  // Build detail string
+  const totalValue = yearStructure.reduce((s, y) => s + y.salary, 0);
+  const totalGuar = yearStructure.reduce((s, y) => {
+    if (y.status === 'guaranteed') return s + y.salary;
+    if (y.status === 'partial') return s + Math.round(y.salary * 0.5);
+    return s;
+  }, 0);
+  const typeFlags = [];
+  if (hasTO) typeFlags.push('TO');
+  if (hasPO) typeFlags.push('PO');
+  if (hasETO) typeFlags.push('ETO');
+  if (hasNG) typeFlags.push('NG');
+  if (hasPartial) typeFlags.push('PG');
+  const flagStr = typeFlags.length ? ` [${typeFlags.join(',')}]` : '';
   const satLabel = isSignAndTrade ? ` [S&T from ${TEAMS[signing.fromTeam] || signing.fromTeam}]` : '';
 
   STATE.moves.push({
     action: 'Signed',
-    detail: `${name} for ${fmtMoney(salary)}/yr × ${years}yr via ${window._signContext.exception || 'FA'}${typeLabel}${satLabel}`,
+    detail: `${name} · ${fmtMoney(totalValue)}/${years}yr (${fmtMoney(salary)} yr1) via ${excName}${flagStr}${satLabel}`,
     undo: { type: 'signing' }
   });
   saveState();
   closeSignModal();
-  showToast(`Signed ${name} for ${fmtMoney(salary)}/yr${typeLabel}`, 'success');
+  showToast(`Signed ${name} · ${fmtMoney(totalValue)}/${years}yr via ${excName}`, 'success');
 
   if (isSignAndTrade) {
-    // Open Trade Machine with the player's original team as the trade partner
     render();
     const fromAbbrev = TEAMS[signing.fromTeam] || signing.fromTeam || '';
     const myAbbrev = TEAMS[STATE.team] || '';
     if (fromAbbrev) {
       setTimeout(() => {
-        // Custom TM URL: original team first (they trade player OUT), user's team second
-        // Include S&T player info so TM auto-loads them with correct salary
         const satName = encodeURIComponent(name.replace(/\s+/g, '-').toLowerCase());
         _tmUrl = `${TRADE_MACHINE_URL}/?rm=${myAbbrev}&t=${fromAbbrev},${myAbbrev}&sat=${satName}&sat_sal=${salary}&sat_from=${fromAbbrev}`;
         const overlay = document.getElementById('tmOverlay');
