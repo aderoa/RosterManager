@@ -470,7 +470,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.3 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.4 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -479,7 +479,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.3</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.4</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -1821,6 +1821,42 @@ function startDraft() {
   runDraftUntilUser();
 }
 
+function skipDraft() {
+  // Auto-draft all 60 picks using default prospect order
+  const teamAbbrev = TEAMS[STATE.team];
+  const drafted = getDraftedProspects();
+  for (let pick = 1; pick <= 60; pick++) {
+    const pickTeam = getPickTeam(pick);
+    if (!pickTeam) continue;
+    // Skip already-drafted picks
+    if (STATE.draftResults.some(r => r.pick === pick)) continue;
+    
+    // Find best available prospect
+    let prospect = null;
+    for (const name of allProspects) {
+      if (!drafted.has(name)) { prospect = name; break; }
+    }
+    if (!prospect) continue;
+    
+    STATE.draftResults.push({ pick, team: pickTeam, prospect });
+    drafted.add(prospect);
+    
+    // Record user's picks as moves for undo
+    if (pickTeam === teamAbbrev) {
+      STATE.draftSelections[pick] = prospect;
+      STATE.moves.push({
+        action: 'Draft',
+        detail: `Pick #${pick}: ${prospect} (auto)`,
+        undo: { type: 'draft_sim', pick }
+      });
+    }
+  }
+  STATE.draftCurrentPick = 61;
+  saveState();
+  showToast('Draft complete! All picks auto-selected.', 'success');
+  render();
+}
+
 function getDraftGrade(pick, prospect) {
   // Grade based on how close the pick is to the prospect's projected rank
   const projIdx = allProspects.indexOf(prospect);
@@ -1887,8 +1923,9 @@ function renderDraftBoard() {
       h += `</div>`;
     }
 
-    h += `<div style="text-align:center;margin-top:1rem">`;
+    h += `<div style="text-align:center;margin-top:1rem;display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">`;
     h += `<button class="phase-advance" onclick="startDraft()" style="font-size:1rem;padding:.75rem 2rem">🏀 Start Draft</button>`;
+    h += `<button class="phase-advance" onclick="skipDraft()" style="font-size:.85rem;padding:.65rem 1.5rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)">⏩ Skip Draft</button>`;
     h += `</div>`;
 
     // Show full draft board preview (empty)
