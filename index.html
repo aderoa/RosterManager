@@ -483,7 +483,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.6 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.6.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -492,7 +492,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.6</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.6.1</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -3030,6 +3030,8 @@ function getRandomTradePartner(excludeAbbrev) {
 }
 
 function openTradeModal(playerName) {
+  // Clear any stale S&T pending flag
+  window._pendingSATSigning = null;
   const abbrev = TEAMS[STATE.team];
   const partner = getRandomTradePartner(abbrev);
   
@@ -3085,9 +3087,35 @@ function tmFallbackNewTab() {
 
 function closeTradeMachine() {
   const overlay = document.getElementById('tmOverlay');
-  // Don't destroy the iframe — keep it loaded for next time
   overlay.style.display = 'none';
   document.body.style.overflow = '';
+  // If there's a pending S&T signing and no trade is being processed, roll it back
+  // (_pendingTrade is set when TM sends a trade, so don't roll back in that case)
+  if (window._pendingSATSigning && !_pendingTrade) {
+    rollbackPendingSAT();
+  }
+}
+
+function rollbackPendingSAT() {
+  const pendingName = window._pendingSATSigning;
+  if (!pendingName) return;
+  window._pendingSATSigning = null;
+  
+  // Remove the S&T signing
+  const sigIdx = (STATE.signings || []).findIndex(s => s.isSAT && s.name === pendingName);
+  if (sigIdx !== -1) {
+    STATE.signings.splice(sigIdx, 1);
+  }
+  // Remove the corresponding move (search from end)
+  for (let i = STATE.moves.length - 1; i >= 0; i--) {
+    if (STATE.moves[i].action === 'Signed' && STATE.moves[i].detail.includes(pendingName) && STATE.moves[i].detail.includes('S&T')) {
+      STATE.moves.splice(i, 1);
+      break;
+    }
+  }
+  saveState();
+  showToast(`S&T cancelled — ${pendingName} signing rolled back`, 'info');
+  render();
 }
 
 // Escape key closes Trade Machine overlay
@@ -3191,6 +3219,9 @@ function showTradeConfirm(trade) {
 function confirmPendingTrade() {
   if (!_pendingTrade) return;
   
+  // S&T trade completed — clear pending flag
+  window._pendingSATSigning = null;
+  
   // For S&T trades: match incoming players with S&T signings, transfer metadata, remove signing
   const removedSATSignings = [];
   for (const incoming of (_pendingTrade.in || [])) {
@@ -3234,6 +3265,8 @@ function rejectPendingTrade() {
   _pendingTrade = null;
   document.getElementById('tradeConfirmOverlay').style.display = 'none';
   document.body.style.overflow = '';
+  // Roll back S&T signing if this was an S&T trade that was rejected
+  rollbackPendingSAT();
   console.log('[RM] Trade rejected');
 }
 
@@ -3994,6 +4027,8 @@ function confirmSigning() {
     render();
     const fromAbbrev = TEAMS[signing.fromTeam] || signing.fromTeam || '';
     const myAbbrev = TEAMS[STATE.team] || '';
+    // Track this as pending — will be rolled back if TM closes without trade
+    window._pendingSATSigning = signing.name;
     if (fromAbbrev) {
       setTimeout(() => {
         const satName = encodeURIComponent(name.replace(/\s+/g, '-').toLowerCase());
