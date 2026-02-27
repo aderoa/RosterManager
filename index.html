@@ -1180,22 +1180,45 @@ function calcCapSheet(team) {
   // === SIGNINGS (Free Agency) ===
   for (const sig of (STATE.signings || [])) {
     if (STATE.waived.has(sig.name)) {
-      // Waived after signing — full salary as dead money
-      const dead = sig.salary;
-      deadMoney += dead;
+      // Waived after signing — dead cap depends on contract type
+      let dead = 0;
+      if (sig.contractType === 'two-way' || sig.contractType === 'exhibit-10' || sig.contractType === 'non-guaranteed') {
+        dead = 0; // No dead cap for two-way, Exhibit 10, or non-guaranteed
+      } else if (sig.contractType === 'partial-guaranteed') {
+        dead = Math.round(sig.salary * (sig.guaranteedPct || 0) / 100);
+      } else {
+        dead = sig.salary; // Guaranteed = full dead cap
+      }
+      if (dead > 0) deadMoney += dead;
       roster.waived.push({
         name: sig.name, sal27: sig.salary, sal26: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
-        exception: sig.exception, st27: 'GUARANTEED', status: 'waived',
-        deadAmount: dead, isStretched: false, tv: tradeValueMap[sig.name.toLowerCase()] || 0
+        exception: sig.exception, st27: sig.contractType === 'non-guaranteed' ? 'NOT G' : sig.contractType === 'two-way' ? 'TWO-WAY' : 'GUARANTEED',
+        status: 'waived', deadAmount: dead, isStretched: false, tv: tradeValueMap[sig.name.toLowerCase()] || 0,
+        contractType: sig.contractType
+      });
+      continue;
+    }
+    // Two-way players don't count against cap or roster limit (separate 3-slot roster)
+    if (sig.contractType === 'two-way') {
+      roster.signed.push({
+        name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
+        exception: sig.exception, st27: 'TWO-WAY', status: 'signed', isTwoWay: true,
+        end: sig.end || 2027, tradeKicker: 0, tv: tradeValueMap[sig.name.toLowerCase()] || 0,
+        contractType: sig.contractType, _signed: true
       });
       continue;
     }
     activeSalaries += sig.salary;
     rosterCount++;
+    const st27Label = sig.contractType === 'non-guaranteed' ? 'NOT G'
+      : sig.contractType === 'partial-guaranteed' ? 'PARTIAL G'
+      : sig.contractType === 'exhibit-10' ? 'NOT G'
+      : 'GUARANTEED';
     roster.signed.push({
       name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
-      exception: sig.exception, st27: 'GUARANTEED', status: 'signed',
-      end: sig.end || 2027, tradeKicker: 0, tv: tradeValueMap[sig.name.toLowerCase()] || 0
+      exception: sig.exception, st27: st27Label, status: 'signed',
+      end: sig.end || 2027, tradeKicker: 0, tv: tradeValueMap[sig.name.toLowerCase()] || 0,
+      contractType: sig.contractType, isSignAndTrade: sig.isSignAndTrade, _signed: true
     });
   }
 
@@ -1205,11 +1228,21 @@ function calcCapSheet(team) {
   const apron1Room = T.apron1 - teamSalary;
   const apron2Room = T.apron2 - teamSalary;
 
-  // Available exceptions — always activate BAE + applicable MLE
   const hasCapSpace = capSpace > 0;
   const belowTax = taxRoom > 0;
   const belowApron1 = apron1Room > 0;
   const belowApron2 = apron2Room > 0;
+
+  // Track exception usage from signings
+  const excUsage = {};
+  for (const sig of (STATE.signings || [])) {
+    const exc = sig.exception || 'Unknown';
+    excUsage[exc] = (excUsage[exc] || 0) + sig.salary;
+  }
+
+  // Determine if team is hard-capped (used Non-Tax MLE → capped at 1st apron)
+  const usedNTMLE = (excUsage['Non-Tax MLE'] || 0) > 0;
+  const isHardCapped = usedNTMLE;
 
   const exceptions = [];
   if (hasCapSpace) {
@@ -1218,27 +1251,41 @@ function calcCapSheet(team) {
   } else {
     exceptions.push({ name: 'Cap Space', amount: 0, available: false });
   }
-  // MLE: Non-Tax if below 1st apron, Tax MLE if between aprons, both shown as available
+  // MLE logic per 2023 CBA:
+  // Below 1st apron: Non-Tax MLE available (using it hard-caps at 1st apron)
+  // Between 1st and 2nd apron: Tax MLE available (no hard cap)
+  // Above 2nd apron: No MLE at all
   if (!hasCapSpace) {
     if (belowApron1) {
-      exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: true });
-    } else {
+      // Check if hard-capped and signing would breach apron
+      exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: true, hardCapNote: '⚠️ Hard-caps team at 1st apron' });
+    } else if (belowApron2) {
       exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false });
       exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: true });
+    } else {
+      // Above 2nd apron: no MLE
+      exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false });
+      exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: false });
     }
   }
-  // BAE: always available when team doesn't have cap space
+  // BAE: available when over cap and below 2nd apron
   if (!hasCapSpace) {
-    exceptions.push({ name: 'BAE', amount: T.bae, available: true });
+    if (belowApron2) {
+      exceptions.push({ name: 'BAE', amount: T.bae, available: true });
+    } else {
+      exceptions.push({ name: 'BAE', amount: T.bae, available: false });
+    }
   }
   exceptions.push({ name: 'Minimum', amount: MIN_SALARY_0YOS, available: true });
-
-  // Track exception usage from signings
-  const excUsage = {};
-  for (const sig of (STATE.signings || [])) {
-    const exc = sig.exception || 'Unknown';
-    excUsage[exc] = (excUsage[exc] || 0) + sig.salary;
+  // Two-Way: up to 3 two-way contracts per team (don't count against cap)
+  const twoWayCount = (STATE.signings || []).filter(s => s.contractType === 'two-way').length
+    + players.filter(p => p.isTwoWay && !STATE.waived.has(p.name) && !tradedOut.has(p.name)).length;
+  exceptions.push({ name: 'Two-Way', amount: MIN_SALARY_0YOS, available: twoWayCount < 3, note: `${twoWayCount}/3 used` });
+  // Exhibit 10 (training camp only)
+  if (STATE.phase === 'training_camp') {
+    exceptions.push({ name: 'Exhibit 10', amount: MIN_SALARY_0YOS, available: true, note: '$100K bonus' });
   }
+
   for (const exc of exceptions) {
     const used = excUsage[exc.name] || 0;
     if (used > 0) {
@@ -1247,10 +1294,14 @@ function calcCapSheet(team) {
     }
   }
 
+  // If hard-capped, check how much room left under apron1
+  const hardCapRoom = isHardCapped ? (T.apron1 - teamSalary) : Infinity;
+
   return {
     roster, activeSalaries, capHolds, deadMoney, incompleteCharge, draftCapHolds,
     teamSalary, capSpace, taxRoom, apron1Room, apron2Room,
-    rosterCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2
+    rosterCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2,
+    isHardCapped, hardCapRoom
   };
 }
 
@@ -1487,11 +1538,13 @@ function dcBadge(p) {
   if (p.status === 'pending_po') return '<span class="dc-opt-badge po">PO</span>';
   if (p.status === 'picked_up') return '<span class="dc-opt-badge" style="background:rgba(52,199,89,.15);color:var(--green)">✓TO</span>';
   if (p.status === 'exercised') return '<span class="dc-opt-badge" style="background:rgba(52,199,89,.15);color:var(--green)">✓PO</span>';
+  if (p._signed && p.isSignAndTrade) return '<span class="dc-opt-badge" style="background:rgba(0,199,190,.15);color:var(--cyan)">S&T</span>';
+  if (p._signed && p.contractType === 'exhibit-10') return '<span class="dc-opt-badge" style="background:rgba(110,110,115,.15);color:var(--muted)">E10</span>';
   if (p._signed) return '<span class="dc-opt-badge signed">FA</span>';
   if (p.status === 'traded_in') return '<span class="dc-opt-badge traded">TRD</span>';
-  if (p.isTwoWay) return '<span class="dc-opt-badge" style="background:rgba(110,110,115,.15);color:var(--muted)">2W</span>';
-  if (p.category === 'non_guaranteed') return '<span class="dc-opt-badge ng">NG</span>';
-  if (p.category === 'partial_guaranteed') return '<span class="dc-opt-badge pg">PG</span>';
+  if (p.isTwoWay || p.contractType === 'two-way') return '<span class="dc-opt-badge" style="background:rgba(110,110,115,.15);color:var(--muted)">2W</span>';
+  if (p.category === 'non_guaranteed' || p.contractType === 'non-guaranteed') return '<span class="dc-opt-badge ng">NG</span>';
+  if (p.category === 'partial_guaranteed' || p.contractType === 'partial-guaranteed') return '<span class="dc-opt-badge pg">PG</span>';
   return '';
 }
 
@@ -1514,7 +1567,7 @@ function dcActions(p) {
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();openWaiveModal('${esc(p.name)}')">Waive</button>`;
   }
   // Trade
-  if (phase !== 'training_camp' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in')) {
+  if (phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'signed')) {
     h += `<button class="dc-btn trade" onclick="event.stopPropagation();openTradeModal('${esc(p.name)}')">Trade</button>`;
   }
   // Extend
@@ -1989,11 +2042,11 @@ function renderRoster(cap) {
 
   // Action bar
   h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;align-items:center">`;
-  if (phase !== 'training_camp') {
+  if (phase !== 'draft') {
     const tradeBadge = STATE.trades?.length ? ` <span style="font-size:.55rem;background:var(--cyan);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.25rem">${STATE.trades.length}</span>` : '';
     h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Trade Machine${tradeBadge}</button>`;
   }
-  if (phase === 'free_agency') {
+  if (phase === 'free_agency' || phase === 'training_camp') {
     h += `<button class="action-btn pickup" style="font-size:.7rem;padding:.35rem .75rem" onclick="openSignModal()">✍️ Sign Free Agent</button>`;
   }
   // Roster count pill
@@ -2025,6 +2078,41 @@ function renderRoster(cap) {
   h += `</div>`;
 
   // ======== CONTRACT TABLE ========
+  // Build synthetic contract data for signings and extensions
+  const synthContracts = {};
+  for (const sig of (STATE.signings || [])) {
+    if (STATE.waived.has(sig.name)) continue;
+    const stLabel = sig.contractType === 'two-way' ? 'TWO-WAY' : sig.contractType === 'non-guaranteed' ? 'NOT G' : sig.contractType === 'partial-guaranteed' ? 'PARTIAL G' : sig.contractType === 'exhibit-10' ? 'NOT G' : 'GUARANTEED';
+    const yrs = Array(6).fill(null);
+    // Index 0 = '25-26 (preFaOnly), Index 1 = '26-27, etc.
+    for (let y = 0; y < sig.years; y++) {
+      const raise = Math.round(sig.salary * 0.05); // ~5% raises per year
+      const sal = sig.salary + (raise * y);
+      const guarAmt = sig.contractType === 'partial-guaranteed' ? Math.round(sal * (sig.guaranteedPct || 50) / 100) : (sig.contractType === 'non-guaranteed' || sig.contractType === 'exhibit-10' ? 0 : sal);
+      yrs[1 + y] = { sal, ch: guarAmt, st: stLabel };
+    }
+    const totG = yrs.reduce((s, yr) => s + (yr && (yr.st === 'GUARANTEED' || yr.st === 'TWO-WAY') ? yr.sal : (yr?.ch || 0)), 0);
+    synthContracts[sig.name] = { yrs, totG };
+  }
+  for (const ext of (STATE.extensions || [])) {
+    const existing = contractsMap[ext.name] || synthContracts[ext.name];
+    if (!existing) continue;
+    const yrs = existing.yrs ? [...existing.yrs] : Array(6).fill(null);
+    // Fill extension years starting from extStartYear
+    for (const bd of ext.breakdown) {
+      const idx = (ext.extStartYear + bd.year - 1) - 2025; // index in CONTRACT_YEARS
+      if (idx >= 0 && idx < 6) {
+        yrs[idx] = { sal: bd.salary, ch: bd.salary, st: 'GUARANTEED' };
+      }
+    }
+    const totG = yrs.reduce((s, yr) => s + (yr?.ch || 0), 0);
+    if (contractsMap[ext.name]) {
+      contractsMap[ext.name] = { ...contractsMap[ext.name], yrs, totG };
+    } else {
+      synthContracts[ext.name] = { yrs, totG };
+    }
+  }
+
   const contractPlayers = [...cap.roster.under_contract, ...cap.roster.non_guaranteed, ...cap.roster.partial_guaranteed, ...cap.roster.signed].sort((a,b) => (b.sal27||0) - (a.sal27||0));
   const showPreFa = phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'lottery' || phase === 'draft' || phase === 'pre_fa';
   const visibleYears = CONTRACT_YEARS.filter(yr => !yr.preFaOnly || showPreFa);
@@ -2040,7 +2128,7 @@ function renderRoster(cap) {
         ? `<img class="ct-hs" src="${p.headshot}" onerror="this.outerHTML='<div class=ct-ini>${ini}</div>'">`
         : `<div class="ct-ini">${ini}</div>`;
       h += `<tr><td><div class="player-cell">${hs}<div><div style="font-weight:600;font-size:.7rem">${p.name}</div><div style="font-size:.55rem;color:var(--muted)">${p.pos || ''} ${p.age ? '· ' + p.age : ''}</div></div></div></td>`;
-      const cd = contractsMap[p.name];
+      const cd = contractsMap[p.name] || synthContracts[p.name];
       if (cd) {
         CONTRACT_YEARS.forEach((yr, i) => {
           if (yr.preFaOnly && !showPreFa) return;
@@ -2090,7 +2178,7 @@ function renderRoster(cap) {
       h += `<div style="display:flex;gap:.3rem">`;
       if (!acted) {
         h += `<button class="action-btn renounce" onclick="doRenounce('${esc(p.name)}')">Renounce</button>`;
-        if (phase === 'free_agency') h += `<button class="action-btn pickup" onclick="openSignModal('${esc(p.name)}', true)">Re-sign</button>`;
+        if (phase === 'free_agency' || phase === 'training_camp') h += `<button class="action-btn pickup" onclick="openSignModal('${esc(p.name)}', true)">Re-sign</button>`;
       }
       h += `</div></div>`;
     }
@@ -2378,6 +2466,7 @@ function renderCapPanel(cap) {
   h += capRowDelta('Tax Room', cap.taxRoom);
   h += capRow('1st Apron', T.apron1);
   h += capRowDelta('1st Apron Room', cap.apron1Room);
+  if (cap.isHardCapped) h += `<div style="font-size:.6rem;color:var(--orange);margin:.2rem 0;font-weight:600">⚠️ HARD-CAPPED at 1st Apron (used Non-Tax MLE)</div>`;
   h += capRow('2nd Apron', T.apron2);
   h += capRowDelta('2nd Apron Room', cap.apron2Room);
   h += `</div>`;
@@ -2397,7 +2486,8 @@ function renderCapPanel(cap) {
   h += `<div class="exc-list">`;
   for (const exc of cap.exceptions) {
     const usedLabel = exc.used ? ` (used: ${fmtMoney(exc.used)})` : '';
-    h += `<div class="exc-chip ${exc.available ? 'available' : 'unavailable'}">${exc.name}: ${fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount)}${usedLabel}</div>`;
+    const noteLabel = exc.note ? ` · ${exc.note}` : '';
+    h += `<div class="exc-chip ${exc.available ? 'available' : 'unavailable'}">${exc.name}: ${fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount)}${usedLabel}${noteLabel}</div>`;
   }
   h += `</div></div>`;
 
@@ -2480,15 +2570,36 @@ function doWaive(name, stretch = false) {
   STATE.waived.add(name);
   if (stretch) STATE.stretched.add(name);
   const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
+  const sig = (STATE.signings || []).find(s => s.name === name);
   let dead = 0;
-  if (p?.category === 'under_contract' || p?.st27 === 'GUARANTEED') dead = p.sal27;
-  else if (p?.category === 'partial_guaranteed') dead = p.ch27;
+  if (sig) {
+    // Signed player — dead cap depends on contract type
+    if (sig.contractType === 'two-way' || sig.contractType === 'exhibit-10' || sig.contractType === 'non-guaranteed') {
+      dead = 0;
+    } else if (sig.contractType === 'partial-guaranteed') {
+      dead = Math.round(sig.salary * (sig.guaranteedPct || 0) / 100);
+    } else {
+      dead = sig.salary;
+    }
+  } else if (p) {
+    // Original roster player
+    if (p.isTwoWay || p.st27 === 'TWO-WAY') {
+      dead = 0;
+    } else if (p.category === 'under_contract' || p.st27 === 'GUARANTEED') {
+      dead = p.sal27;
+    } else if (p.category === 'partial_guaranteed') {
+      dead = p.ch27;
+    }
+    // non_guaranteed = 0 dead cap (already default)
+  }
   if (stretch && dead > 0) {
-    const rem = Math.max(1, (p.end || 2027) - 2026);
+    const endYr = sig ? (sig.end || 2027) : (p?.end || 2027);
+    const rem = Math.max(1, endYr - 2026);
     const period = 2 * rem + 1;
     dead = Math.round(dead / period);
   }
-  const detail = `${name} (${fmtMoney(p?.sal27 || 0)}${dead ? ', ' + fmtMoney(dead) + ' dead cap' + (stretch ? ' stretched' : '') : ''})`;
+  const sal = sig ? sig.salary : (p?.sal27 || 0);
+  const detail = `${name} (${fmtMoney(sal)}${dead ? ', ' + fmtMoney(dead) + ' dead cap' + (stretch ? ' stretched' : '') : ', no dead cap'})`;
   STATE.moves.push({ action: stretch ? 'Waived & Stretched' : 'Waived', detail, undo: { type: 'waive', name } });
   saveState();
   showToast(`${stretch ? 'Waived & stretched' : 'Waived'} ${name}`, 'error');
@@ -2497,40 +2608,73 @@ function doWaive(name, stretch = false) {
 
 function openWaiveModal(name) {
   const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
-  if (!p) return;
+  const sig = (STATE.signings || []).find(s => s.name === name);
+  if (!p && !sig) return;
   const modal = document.getElementById('waiveModal');
 
   // Calculate dead cap amounts
   let fullDead = 0;
-  const wasPickedUp = STATE.optionDecisions[p.name] === 'pickup' || STATE.optionDecisions[p.name] === 'exercise';
-  if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp) fullDead = p.sal27;
-  else if (p.category === 'partial_guaranteed') fullDead = p.ch27;
+  let playerSal = 0;
+  let playerSt = 'GUARANTEED';
+  let playerEnd = 2027;
+  let isNoDeadCap = false;
 
-  const remainingYrs = Math.max(1, (p.end || 2027) - 2026);
+  if (sig) {
+    playerSal = sig.salary;
+    playerEnd = sig.end || 2027;
+    if (sig.contractType === 'two-way' || sig.contractType === 'exhibit-10' || sig.contractType === 'non-guaranteed') {
+      fullDead = 0;
+      isNoDeadCap = true;
+      playerSt = sig.contractType === 'two-way' ? 'TWO-WAY' : sig.contractType === 'exhibit-10' ? 'EXHIBIT 10' : 'NOT G';
+    } else if (sig.contractType === 'partial-guaranteed') {
+      fullDead = Math.round(sig.salary * (sig.guaranteedPct || 0) / 100);
+      playerSt = 'PARTIAL G';
+    } else {
+      fullDead = sig.salary;
+    }
+  } else if (p) {
+    playerSal = p.sal27;
+    playerEnd = p.end || 2027;
+    playerSt = p.st27 || 'GUARANTEED';
+    const wasPickedUp = STATE.optionDecisions[p.name] === 'pickup' || STATE.optionDecisions[p.name] === 'exercise';
+    if (p.isTwoWay || p.st27 === 'TWO-WAY') {
+      fullDead = 0;
+      isNoDeadCap = true;
+    } else if (p.category === 'under_contract' || p.st27 === 'GUARANTEED' || wasPickedUp) {
+      fullDead = p.sal27;
+    } else if (p.category === 'partial_guaranteed') {
+      fullDead = p.ch27;
+    } else if (p.category === 'non_guaranteed') {
+      fullDead = 0;
+      isNoDeadCap = true;
+    }
+  }
+
+  const remainingYrs = Math.max(1, playerEnd - 2026);
   const stretchPeriod = 2 * remainingYrs + 1;
   const stretchedDead = fullDead > 0 ? Math.round(fullDead / stretchPeriod) : 0;
   const canStretch = fullDead > 0 && stretchPeriod > 1;
 
-  let h = `<h3>Waive ${p.name}?</h3>`;
-  h += `<div class="player-info"><div class="name">${p.name}</div>`;
-  h += `${p.pos || ''} · ${fmtMoney(p.sal27)} salary · ${p.st27 || 'GUARANTEED'}`;
-  if (p.end) h += ` · contract thru ${p.end}`;
+  let h = `<h3>Waive ${name}?</h3>`;
+  h += `<div class="player-info"><div class="name">${name}</div>`;
+  h += `${(p?.pos || sig?.pos || '')} · ${fmtMoney(playerSal)} salary · ${playerSt}`;
+  if (playerEnd > 2027) h += ` · contract thru ${playerEnd}`;
   h += `</div>`;
 
-  if (p.category === 'non_guaranteed') {
-    h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}')">`;
+  if (isNoDeadCap) {
+    h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(name)}')">`;
     h += `<div class="opt-title">Waive — No dead cap</div>`;
-    h += `<div class="opt-desc">Non-guaranteed contract, team owes nothing</div>`;
+    h += `<div class="opt-desc">${playerSt === 'TWO-WAY' ? 'Two-way contract' : playerSt === 'EXHIBIT 10' ? 'Exhibit 10 deal' : 'Non-guaranteed contract'}, team owes nothing</div>`;
     h += `<div class="opt-amount" style="color:var(--green)">$0 dead cap</div>`;
     h += `</div>`;
   } else {
-    h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}')">`;
+    h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(name)}')">`;
     h += `<div class="opt-title">Waive</div>`;
-    h += `<div class="opt-desc">Full guaranteed amount hits cap immediately</div>`;
+    h += `<div class="opt-desc">${fullDead < playerSal ? 'Guaranteed portion' : 'Full guaranteed amount'} hits cap immediately</div>`;
     h += `<div class="opt-amount">${fmtMoney(fullDead)} dead cap in 2026-27</div>`;
     h += `</div>`;
     if (canStretch) {
-      h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(p.name)}', true)">`;
+      h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(name)}', true)">`;
       h += `<div class="opt-title">Waive & Stretch</div>`;
       h += `<div class="opt-desc">Spread dead cap over ${stretchPeriod} years (${remainingYrs} remaining × 2 + 1)</div>`;
       h += `<div class="opt-amount">${fmtMoney(stretchedDead)}/yr for ${stretchPeriod} years</div>`;
@@ -3154,9 +3298,9 @@ function openSignModal(faName, isResign) {
   h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
   for (const exc of cap.exceptions) {
     const cls = exc.available ? '' : 'unavailable';
-    h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.amount})"` : ''}>`;
-    h += `<div class="exc-name">${exc.name}</div>`;
-    h += `<div class="exc-detail">${exc.available ? 'Up to ' + fmtMoney(exc.amount) : 'Not available'}</div>`;
+    h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
+    h += `<div class="exc-name">${exc.name}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
+    h += `<div class="exc-detail">${exc.available ? (exc.remaining !== undefined ? 'Remaining: ' + fmtMoney(exc.remaining) : 'Up to ' + fmtMoney(exc.amount)) : 'Not available'}${exc.used ? ` (used ${fmtMoney(exc.used)})` : ''}</div>`;
     h += `</div>`;
   }
 
@@ -3170,6 +3314,27 @@ function openSignModal(faName, isResign) {
   h += `<label>Years:</label>`;
   h += `<input id="signYearsInput" class="trade-input" type="number" placeholder="Contract length" value="1" min="1" max="5" style="flex:1">`;
   h += `</div>`;
+  // Contract type selector
+  h += `<div class="sign-salary-input">`;
+  h += `<label>Type:</label>`;
+  h += `<select id="signContractType" class="trade-input" style="flex:1">`;
+  h += `<option value="guaranteed">Guaranteed</option>`;
+  h += `<option value="non-guaranteed">Non-Guaranteed</option>`;
+  h += `<option value="partial-guaranteed">Partially Guaranteed</option>`;
+  h += `<option value="two-way">Two-Way</option>`;
+  if (STATE.phase === 'training_camp') h += `<option value="exhibit-10">Exhibit 10</option>`;
+  h += `</select>`;
+  h += `</div>`;
+  // Guaranteed % for partial
+  h += `<div id="signGuarPctRow" class="sign-salary-input" style="display:none">`;
+  h += `<label>Guaranteed %:</label>`;
+  h += `<input id="signGuarPct" class="trade-input" type="number" placeholder="e.g. 50" min="1" max="99" value="50" style="flex:1">`;
+  h += `</div>`;
+  // Sign-and-trade checkbox
+  h += `<div class="sign-salary-input" id="signAndTradeRow">`;
+  h += `<label style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" id="signAndTradeCheck" onchange="updateSATRules()"> <span style="font-size:.7rem">Sign-and-Trade</span></label>`;
+  h += `<span id="satNote" style="font-size:.55rem;color:var(--orange);display:none">Max 4yr · Receiving team hard-capped at 1st apron</span>`;
+  h += `</div>`;
   h += `<button class="trade-confirm-btn" onclick="confirmSigning()">✅ Sign Player</button>`;
   h += `</div>`;
   h += `<button class="waive-cancel" onclick="closeSignModal()">Cancel</button>`;
@@ -3177,6 +3342,25 @@ function openSignModal(faName, isResign) {
   modal.innerHTML = h;
   document.getElementById('signOverlay').style.display = 'flex';
   window._signContext = { exception: null, maxAmount: 0 };
+
+  // Contract type change listener
+  setTimeout(() => {
+    const typeEl = document.getElementById('signContractType');
+    if (typeEl) typeEl.addEventListener('change', function() {
+      const guarRow = document.getElementById('signGuarPctRow');
+      if (guarRow) guarRow.style.display = this.value === 'partial-guaranteed' ? 'flex' : 'none';
+      // Two-way and Exhibit 10: force 1-2 years, min salary
+      if (this.value === 'two-way' || this.value === 'exhibit-10') {
+        const yrsInput = document.getElementById('signYearsInput');
+        if (yrsInput) { yrsInput.max = 2; if (parseInt(yrsInput.value) > 2) yrsInput.value = 1; }
+        const salInput = document.getElementById('signSalaryInput');
+        if (salInput) salInput.value = MIN_SALARY_0YOS;
+      } else {
+        const yrsInput = document.getElementById('signYearsInput');
+        if (yrsInput) yrsInput.max = 5;
+      }
+    });
+  }, 50);
 }
 
 function buildFAListHTML(fas, undrafted) {
@@ -3265,6 +3449,46 @@ function selectSignException(excName, maxAmount) {
   document.getElementById('signSalaryInput').placeholder = `Up to ${fmtMoney(maxAmount)}`;
   // Pre-fill with full exception amount (user can lower it)
   document.getElementById('signSalaryInput').value = excName === 'Minimum' ? MIN_SALARY_0YOS : maxAmount;
+  // Auto-set contract type for Two-Way and Exhibit 10
+  const typeEl = document.getElementById('signContractType');
+  if (excName === 'Two-Way') {
+    typeEl.value = 'two-way';
+    document.getElementById('signSalaryInput').value = MIN_SALARY_0YOS;
+    document.getElementById('signYearsInput').max = 2;
+    document.getElementById('signAndTradeRow').style.display = 'none';
+  } else if (excName === 'Exhibit 10') {
+    typeEl.value = 'exhibit-10';
+    document.getElementById('signSalaryInput').value = MIN_SALARY_0YOS;
+    document.getElementById('signYearsInput').max = 2;
+    document.getElementById('signYearsInput').value = 1;
+    document.getElementById('signAndTradeRow').style.display = 'none';
+  } else {
+    typeEl.value = 'guaranteed';
+    document.getElementById('signYearsInput').max = 5;
+    document.getElementById('signAndTradeRow').style.display = '';
+  }
+  document.getElementById('signGuarPctRow').style.display = 'none';
+  typeEl.dispatchEvent(new Event('change'));
+}
+
+function updateSATRules() {
+  const sat = document.getElementById('signAndTradeCheck');
+  const note = document.getElementById('satNote');
+  if (sat && sat.checked) {
+    note.style.display = '';
+    const yrsInput = document.getElementById('signYearsInput');
+    if (yrsInput && parseInt(yrsInput.value) > 4) yrsInput.value = 4;
+    if (yrsInput) yrsInput.max = 4;
+  } else {
+    if (note) note.style.display = 'none';
+    const yrsInput = document.getElementById('signYearsInput');
+    const typeEl = document.getElementById('signContractType');
+    if (typeEl && (typeEl.value === 'two-way' || typeEl.value === 'exhibit-10')) {
+      if (yrsInput) yrsInput.max = 2;
+    } else {
+      if (yrsInput) yrsInput.max = 5;
+    }
+  }
 }
 
 function confirmSigning() {
@@ -3273,10 +3497,27 @@ function confirmSigning() {
   const name = nameEl.value;
   const salary = parseInt(document.getElementById('signSalaryInput').value) || 0;
   const years = parseInt(document.getElementById('signYearsInput').value) || 1;
+  const contractType = document.getElementById('signContractType')?.value || 'guaranteed';
+  const guarPct = contractType === 'partial-guaranteed' ? (parseInt(document.getElementById('signGuarPct')?.value) || 50) : 100;
+  const isSignAndTrade = document.getElementById('signAndTradeCheck')?.checked || false;
   if (!salary) { alert('Enter a salary amount'); return; }
   if (window._signContext.maxAmount && salary > window._signContext.maxAmount) {
     alert(`Salary exceeds ${window._signContext.exception} limit of ${fmtMoney(window._signContext.maxAmount)}`);
     return;
+  }
+  // S&T validation: max 4 years
+  if (isSignAndTrade && years > 4) {
+    alert('Sign-and-trade deals are limited to 4 years under current CBA rules.');
+    return;
+  }
+  // Hard-cap check: if using Non-Tax MLE, team is capped at 1st apron
+  if (window._signContext.exception === 'Non-Tax MLE' && contractType !== 'two-way') {
+    const cap = calcCapSheet(STATE.team);
+    const newTotal = cap.teamSalary + salary;
+    if (newTotal > T.apron1) {
+      alert(`Using the Non-Tax MLE hard-caps your team at the 1st apron (${fmtMoney(T.apron1)}). This signing would put you at ${fmtMoney(newTotal)}.`);
+      return;
+    }
   }
 
   const p = allPlayers.find(p => p.name === name);
@@ -3287,24 +3528,31 @@ function confirmSigning() {
     exception: window._signContext.exception || 'FA',
     pos: p?.pos || '',
     headshot: p?.headshot || '',
-    end: 2027 + years - 1
+    end: 2027 + years - 1,
+    contractType,
+    guaranteedPct: guarPct,
+    isSignAndTrade
   };
   STATE.signings.push(signing);
 
-  // Remove cap hold if this was an own FA
-  if (STATE.renounced.has(name)) {
-    // Already renounced, no hold to remove
-  }
+  const typeLabel = contractType === 'two-way' ? ' (two-way)' : contractType === 'non-guaranteed' ? ' (non-guar)' : contractType === 'partial-guaranteed' ? ` (${guarPct}% guar)` : contractType === 'exhibit-10' ? ' (Exhibit 10)' : '';
+  const satLabel = isSignAndTrade ? ' [S&T]' : '';
 
   STATE.moves.push({
     action: 'Signed',
-    detail: `${name} for ${fmtMoney(salary)}/yr × ${years}yr via ${window._signContext.exception || 'FA'}`,
+    detail: `${name} for ${fmtMoney(salary)}/yr × ${years}yr via ${window._signContext.exception || 'FA'}${typeLabel}${satLabel}`,
     undo: { type: 'signing' }
   });
   saveState();
   closeSignModal();
-  showToast(`Signed ${name} for ${fmtMoney(salary)}/yr`, 'success');
-  render();
+  showToast(`Signed ${name} for ${fmtMoney(salary)}/yr${typeLabel}`, 'success');
+
+  if (isSignAndTrade) {
+    render();
+    setTimeout(() => openTradeModal(name), 300);
+  } else {
+    render();
+  }
 }
 
 // ======================== DRAFT PICKER ========================
