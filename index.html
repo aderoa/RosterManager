@@ -517,7 +517,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.8 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.9 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -526,7 +526,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.8</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.9</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -1008,7 +1008,12 @@ async function fetchTradeValues() {
         if (p.age!==null && p.age<25 && p.draftPick && p.draftPick>=1 && p.draftPick<=60) { bonus = Math.round(7e6 * Math.exp(-0.05*(p.draftPick-1)) * Math.exp(-0.5*Math.max(0,p.age-18.82))); }
         tradeValueMap[p.player.toLowerCase()] = baseTV+bonus;
       }
-      console.log(`[TV] Loaded ${Object.keys(tradeValueMap).length} trade values`);
+      // Scale trade values for salary cap growth (2025-26 → 2026-27)
+      const CAP_GROWTH = THRESHOLDS['2026-2027'].cap / THRESHOLDS['2025-2026'].cap;
+      for (const key of Object.keys(tradeValueMap)) {
+        tradeValueMap[key] = Math.round(tradeValueMap[key] * CAP_GROWTH);
+      }
+      console.log(`[TV] Loaded ${Object.keys(tradeValueMap).length} trade values (scaled ${(CAP_GROWTH * 100).toFixed(1)}% for cap growth)`);
       return;
     } catch(e) { console.warn('[TV] Failed:', e); continue; }
   }
@@ -1684,11 +1689,19 @@ function dcActions(p) {
   let h = '';
   // Option decisions
   if (p.status === 'pending_to' && (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa')) {
+    const tv = tradeValueMap[p.name.toLowerCase()] || 0;
+    const sal = p.sal27 || 0;
+    const proj = tv >= sal ? 'pick up' : 'decline';
+    h += `<div style="font-size:.45rem;color:var(--muted);margin-bottom:.15rem">TV ${fmtMoney(tv)} vs ${fmtMoney(sal)} → proj. ${proj}</div>`;
     h += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
     return h;
   }
   if (p.status === 'pending_po' && (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa')) {
+    const tv = tradeValueMap[p.name.toLowerCase()] || 0;
+    const sal = p.sal27 || 0;
+    const proj = tv > sal ? 'opts out' : 'opts in';
+    h += `<div style="font-size:.45rem;color:var(--muted);margin-bottom:.15rem">TV ${fmtMoney(tv)} vs ${fmtMoney(sal)} → proj. ${proj}</div>`;
     h += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','exercise')">Exercise</button>`;
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
     return h;
@@ -2638,6 +2651,54 @@ function renderRoster(cap) {
     else h += `<div class="camp-ok"><h4>✅ Roster Compliant</h4><p>${total}/18 contracts</p></div>`;
   }
 
+  // Pending options reminder
+  if (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa') {
+    const tradedOutNames = new Set();
+    for (const trade of (STATE.trades || [])) {
+      for (const p of (trade.out || [])) tradedOutNames.add(p.name);
+    }
+    const teamPlayers = allPlayers.filter(p => p.team === TEAMS[STATE.team]);
+    const pendingTOs = teamPlayers.filter(p => p.category === 'team_option' && !STATE.optionDecisions[p.name] && !STATE.waived.has(p.name) && !tradedOutNames.has(p.name));
+    const pendingPOs = teamPlayers.filter(p => p.category === 'player_option' && !STATE.optionDecisions[p.name] && !STATE.waived.has(p.name) && !tradedOutNames.has(p.name));
+    if (pendingTOs.length || pendingPOs.length) {
+      h += `<div style="background:rgba(180,83,9,.06);border:1px solid rgba(180,83,9,.25);border-radius:8px;padding:.6rem .75rem;margin-bottom:.75rem">`;
+      h += `<div style="font-size:.75rem;font-weight:700;color:var(--orange);margin-bottom:.35rem">⚠️ Pending Option Decisions</div>`;
+      if (pendingTOs.length) {
+        h += `<div style="font-size:.65rem;font-weight:600;color:var(--text);margin-bottom:.2rem">Team Options (${pendingTOs.length})</div>`;
+        for (const p of pendingTOs) {
+          const tv = tradeValueMap[p.name.toLowerCase()] || 0;
+          const sal = p.sal27 || 0;
+          const projDecision = tv >= sal ? 'Pick up' : 'Decline';
+          const projColor = tv >= sal ? 'var(--green)' : 'var(--red)';
+          h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.65rem">`;
+          h += `<span style="font-weight:600;min-width:90px">${p.name}</span>`;
+          h += `<span style="color:var(--muted)">Sal: ${fmtMoney(sal)}</span>`;
+          h += `<span style="color:var(--muted)">TV: ${fmtMoney(tv)}</span>`;
+          h += `<span style="color:${projColor};font-weight:700">→ Proj: ${projDecision}</span>`;
+          h += `</div>`;
+        }
+      }
+      if (pendingPOs.length) {
+        h += `<div style="font-size:.65rem;font-weight:600;color:var(--text);margin:${pendingTOs.length ? '.3rem' : '0'} 0 .2rem">Player Options (${pendingPOs.length})</div>`;
+        for (const p of pendingPOs) {
+          const tv = tradeValueMap[p.name.toLowerCase()] || 0;
+          const sal = p.sal27 || 0;
+          // Player opts out if TV > salary (can get more on market), opts in if TV < salary
+          const projDecision = tv > sal ? 'Opts out (FA)' : 'Opts in (stays)';
+          const projColor = tv > sal ? 'var(--orange)' : 'var(--green)';
+          h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.65rem">`;
+          h += `<span style="font-weight:600;min-width:90px">${p.name}</span>`;
+          h += `<span style="color:var(--muted)">Sal: ${fmtMoney(sal)}</span>`;
+          h += `<span style="color:var(--muted)">TV: ${fmtMoney(tv)}</span>`;
+          h += `<span style="color:${projColor};font-weight:700">→ Proj: ${projDecision}</span>`;
+          h += `</div>`;
+        }
+      }
+      h += `<div style="font-size:.55rem;color:var(--muted);margin-top:.3rem">Projections based on trade value vs. option salary. You decide the final outcome.</div>`;
+      h += `</div>`;
+    }
+  }
+
   // ======== DEPTH CHART ========
   const depthPlayers = getDepthPlayers(cap);
   const byPos = buildDepthPositions(depthPlayers);
@@ -3441,6 +3502,19 @@ function advancePhase() {
     if (STATE.phase === 'lottery' && !STATE.lotteryResults) {
       alert('Run the lottery first!');
       return;
+    }
+    // Can't leave pre-FA without deciding all options
+    if (STATE.phase === 'pre_fa') {
+      const tradedOutNames = new Set();
+      for (const trade of (STATE.trades || [])) {
+        for (const p of (trade.out || [])) tradedOutNames.add(p.name);
+      }
+      const teamPlayers = allPlayers.filter(p => p.team === TEAMS[STATE.team]);
+      const pending = teamPlayers.filter(p => (p.category === 'team_option' || p.category === 'player_option') && !STATE.optionDecisions[p.name] && !STATE.waived.has(p.name) && !tradedOutNames.has(p.name));
+      if (pending.length) {
+        alert(`You have ${pending.length} pending option decision(s): ${pending.map(p => p.name).join(', ')}. Decide on all options before entering Free Agency.`);
+        return;
+      }
     }
     // Can't leave free agency with more than 21 players
     if (STATE.phase === 'free_agency') {
