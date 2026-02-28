@@ -517,7 +517,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.7.4 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.8 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -526,7 +526,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.7.4</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.8</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -750,7 +750,8 @@ const PHASES = [
   { id: 'draft', label: 'Draft Night', icon: '🎯' },
   { id: 'pre_fa', label: 'Pre-Free Agency', icon: '📝' },
   { id: 'free_agency', label: 'Free Agency', icon: '✍️' },
-  { id: 'training_camp', label: 'Training Camp', icon: '⛺' }
+  { id: 'training_camp', label: 'Training Camp', icon: '⛺' },
+  { id: 'season_ready', label: 'Season Ready', icon: '🏆' }
 ];
 
 // Trade Machine base URL
@@ -1474,8 +1475,9 @@ function getPhaseIntro(phase) {
     pre_draft: "We're now in business. The NBA Finals are over and it's time to take action. All the options besides (legally) reaching deals with free agents are now on the table. It may not be the best time to make bold moves until the draft clears things out, but if you have a clear vision of what to do, it can never be too soon.",
     draft: "Whether you're looking for your next franchise player, someone to improve your rotation, or a diamond in the rough, here's the moment to test your scouting skills. Use your draft picks to select the best players you can get.",
     pre_fa: "Time to focus on the market. Before July arrives, make sure to decide on every team option and get your strategy ready for free agency.",
-    free_agency: "All bets are off. Re-sign your favorite players and snap up the best free agents on the market if your salary situation allows. Sign-and-trades could be an option if you're strapped for cap space. Use your salary exceptions wisely, and always remember — getting into the apron zone is rarely a good situation for GMs.",
-    training_camp: "Time to finish your roster, from your superstar to your two-way players. 18 spots are up for grabs to build the best realistic team you can."
+    free_agency: "All bets are off. Re-sign your favorite players and snap up the best free agents on the market if your salary situation allows. Sign-and-trades could be an option if you're strapped for cap space. Use your salary exceptions wisely, and always remember — getting into the apron zone is rarely a good situation for GMs. Teams can carry up to 21 players under contract during this period.",
+    training_camp: "Time to finish your roster, from your superstar to your two-way players. You can't carry more than 18 players (including two-way contracts) to be able to start the season. Build the best realistic team you can.",
+    season_ready: "Your 2026-27 roster is set. Here's how your team looks heading into the season."
   };
   return notes[phase] || '';
 }
@@ -1497,6 +1499,11 @@ function render() {
     updateHeaderCapBar(cap);
   } else if (STATE.phase === 'draft') {
     renderDraftBoard();
+    const cap = calcCapSheet(STATE.team);
+    renderCapPanel(cap);
+    updateHeaderCapBar(cap);
+  } else if (STATE.phase === 'season_ready') {
+    renderSeasonReady();
     const cap = calcCapSheet(STATE.team);
     renderCapPanel(cap);
     updateHeaderCapBar(cap);
@@ -1531,7 +1538,8 @@ function renderPhaseBar() {
   });
   if (currentIdx < PHASES.length - 1) {
     const next = PHASES[currentIdx + 1];
-    h += `<button class="phase-advance" onclick="advancePhase()">Proceed to ${next.label} →</button>`;
+    const label = STATE.phase === 'training_camp' ? '🏆 Finalize Roster' : `Proceed to ${next.label} →`;
+    h += `<button class="phase-advance" onclick="advancePhase()">${label}</button>`;
   }
   bar.innerHTML = h;
 }
@@ -2618,12 +2626,16 @@ function renderRoster(cap) {
   h += `<span style="margin-left:auto;font-size:.6rem;padding:.2rem .6rem;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--muted)">${rCount} players</span>`;
   h += `</div>`;
 
-  // Training camp compliance
+  // Roster compliance warnings
+  if (phase === 'free_agency') {
+    const total = cap.rosterCount;
+    if (total > 21) h += `<div class="camp-warning"><h4>⚠️ Roster Over Limit</h4><p>You have ${total} contracts — must cut ${total - 21} player(s) to reach the 21-player offseason limit.</p></div>`;
+  }
   if (phase === 'training_camp') {
     const total = cap.rosterCount;
-    if (total > 15) h += `<div class="camp-warning"><h4>⚠️ Roster Over Limit</h4><p>You have ${total} contracts — must cut ${total - 15} player(s) to reach the 15-player limit.</p></div>`;
+    if (total > 18) h += `<div class="camp-warning"><h4>⚠️ Roster Over Limit</h4><p>You have ${total} contracts — must cut ${total - 18} player(s) to reach the 18-player limit (including two-way).</p></div>`;
     else if (total < 14) h += `<div class="camp-warning"><h4>⚠️ Roster Under Minimum</h4><p>You have ${total} contracts — need at least 14 for opening night.</p></div>`;
-    else h += `<div class="camp-ok"><h4>✅ Roster Compliant</h4><p>${total} contracts (limit: 15)</p></div>`;
+    else h += `<div class="camp-ok"><h4>✅ Roster Compliant</h4><p>${total}/18 contracts</p></div>`;
   }
 
   // ======== DEPTH CHART ========
@@ -3026,6 +3038,128 @@ function setupDragDrop() {
   });
 }
 
+function renderSeasonReady() {
+  const panel = document.getElementById('rosterPanel');
+  const cap = calcCapSheet(STATE.team);
+  const teamAbbrev = TEAMS[STATE.team];
+  const teamName = STATE.team;
+  const logo = teamLogos[teamName] || '';
+  let h = '';
+
+  // Header
+  h += `<div style="text-align:center;padding:1.25rem 0 1rem">`;
+  h += `<div style="font-size:2rem;margin-bottom:.25rem">🏆</div>`;
+  if (logo) h += `<img src="${logo}" style="width:56px;height:56px;margin-bottom:.5rem">`;
+  h += `<div style="font-size:1.1rem;font-weight:800;color:var(--text)">Your 2026-27 ${teamAbbrev} Roster</div>`;
+  h += `<div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">Offseason complete — ready for opening night</div>`;
+  h += `</div>`;
+
+  h += phaseIntroHtml('season_ready');
+
+  // Key stats bar
+  const depthPlayers = getDepthPlayers(cap);
+  const rosterTotal = depthPlayers.reduce((s, p) => s + (p.sal27 || 0), 0);
+  const overCap = cap.teamSalary > T.cap;
+  const overTax = cap.teamSalary > T.tax;
+  const overApron1 = cap.teamSalary > T.apron1;
+  h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-bottom:1rem">`;
+  h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid var(--border)"><div style="color:var(--muted)">Players</div><div style="font-weight:800;font-size:.85rem">${depthPlayers.length}</div></div>`;
+  h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid var(--border)"><div style="color:var(--muted)">Team Salary</div><div style="font-weight:800;font-size:.85rem">${fmtMoney(cap.teamSalary)}</div></div>`;
+  h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid ${overTax ? 'var(--orange)' : 'var(--border)'}"><div style="color:var(--muted)">Tax</div><div style="font-weight:800;font-size:.85rem;color:${overTax ? 'var(--orange)' : 'var(--green)'}">${overTax ? 'Yes' : 'No'}</div></div>`;
+  h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid ${overApron1 ? 'var(--red)' : 'var(--border)'}"><div style="color:var(--muted)">Apron</div><div style="font-weight:800;font-size:.85rem;color:${overApron1 ? 'var(--red)' : 'var(--green)'}">${overApron1 ? '1st+' : 'Clear'}</div></div>`;
+  h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid var(--border)"><div style="color:var(--muted)">Moves</div><div style="font-weight:800;font-size:.85rem">${STATE.moves.filter(m => m.action !== 'Phase').length}</div></div>`;
+  h += `</div>`;
+
+  // Final depth chart (read-only)
+  const byPos = buildDepthPositions(depthPlayers);
+  const POS = ['PG', 'SG', 'SF', 'PF', 'C'];
+  h += `<div class="dc-section-label">🏀 Final Depth Chart</div>`;
+  h += `<div class="depth-chart" id="depthChartGrid">`;
+  POS.forEach(pos => {
+    h += `<div class="pos-col" data-position="${pos}"><div class="pos-hdr">${pos}</div>`;
+    byPos[pos].forEach(p => { h += dcCard(p); });
+    h += `</div>`;
+  });
+  h += `</div>`;
+
+  // Offseason recap
+  const signings = STATE.signings || [];
+  const trades = STATE.trades || [];
+  const draftPicks = STATE.draftResults || [];
+  const extensions = STATE.extensions || [];
+  const waived = [...(STATE.waived || [])];
+  const userDraftPicks = draftPicks.filter(d => d.team === teamAbbrev);
+
+  if (signings.length || trades.length || userDraftPicks.length || extensions.length || waived.length) {
+    h += `<div class="dc-section-label" style="margin-top:1rem">📋 Offseason Recap</div>`;
+
+    if (trades.length) {
+      h += `<div style="margin-bottom:.5rem">`;
+      h += `<div style="font-size:.65rem;font-weight:700;color:var(--cyan);margin-bottom:.3rem">🔄 TRADES (${trades.length})</div>`;
+      for (const t of trades) {
+        const outNames = (t.out || []).map(p => p.name).join(', ') || '—';
+        const inNames = (t.in || []).map(p => p.name).join(', ') || '—';
+        h += `<div style="font-size:.65rem;padding:.25rem .5rem;background:var(--surface);border-radius:4px;margin-bottom:.2rem;border-left:2px solid var(--cyan)">`;
+        h += `<span style="color:var(--red)">Out:</span> ${outNames} · <span style="color:var(--green)">In:</span> ${inNames}`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+    }
+
+    if (userDraftPicks.length) {
+      h += `<div style="margin-bottom:.5rem">`;
+      h += `<div style="font-size:.65rem;font-weight:700;color:var(--orange);margin-bottom:.3rem">🎯 DRAFT PICKS (${userDraftPicks.length})</div>`;
+      for (const d of userDraftPicks) {
+        h += `<div style="font-size:.65rem;padding:.25rem .5rem;background:var(--surface);border-radius:4px;margin-bottom:.2rem;border-left:2px solid var(--orange)">`;
+        h += `#${d.pick}: ${d.prospect}`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+    }
+
+    if (signings.length) {
+      h += `<div style="margin-bottom:.5rem">`;
+      h += `<div style="font-size:.65rem;font-weight:700;color:var(--green);margin-bottom:.3rem">✍️ SIGNINGS (${signings.length})</div>`;
+      for (const s of signings) {
+        if (STATE.waived.has(s.name)) continue;
+        h += `<div style="font-size:.65rem;padding:.25rem .5rem;background:var(--surface);border-radius:4px;margin-bottom:.2rem;border-left:2px solid var(--green)">`;
+        h += `${s.name} — ${s.years}yr / ${fmtMoney(s.salary)} (${s.exception})`;
+        if (s.isSAT) h += ` <span style="color:var(--cyan)">[S&T]</span>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+    }
+
+    if (extensions.length) {
+      h += `<div style="margin-bottom:.5rem">`;
+      h += `<div style="font-size:.65rem;font-weight:700;color:var(--accent);margin-bottom:.3rem">📄 EXTENSIONS (${extensions.length})</div>`;
+      for (const e of extensions) {
+        h += `<div style="font-size:.65rem;padding:.25rem .5rem;background:var(--surface);border-radius:4px;margin-bottom:.2rem;border-left:2px solid var(--accent)">`;
+        h += `${e.name} — ${e.years}yr / ${fmtMoney(e.salary)}`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+    }
+
+    if (waived.length) {
+      h += `<div style="margin-bottom:.5rem">`;
+      h += `<div style="font-size:.65rem;font-weight:700;color:var(--red);margin-bottom:.3rem">🚫 WAIVED (${waived.length})</div>`;
+      for (const w of waived) {
+        h += `<div style="font-size:.65rem;padding:.25rem .5rem;background:var(--surface);border-radius:4px;margin-bottom:.2rem;border-left:2px solid var(--red)">${w}</div>`;
+      }
+      h += `</div>`;
+    }
+  }
+
+  // Back to training camp button
+  h += `<div style="text-align:center;margin-top:1.25rem">`;
+  h += `<button class="waive-cancel" onclick="setPhase('training_camp')" style="font-size:.75rem;padding:.5rem 1.5rem;border:1px solid var(--border);color:var(--muted)">← Back to Training Camp</button>`;
+  h += `</div>`;
+
+  panel.innerHTML = h;
+  initDragAndDrop();
+}
+
 function renderCapPanel(cap) {
   const panel = document.getElementById('capPanel');
   let h = '';
@@ -3307,6 +3441,26 @@ function advancePhase() {
     if (STATE.phase === 'lottery' && !STATE.lotteryResults) {
       alert('Run the lottery first!');
       return;
+    }
+    // Can't leave free agency with more than 21 players
+    if (STATE.phase === 'free_agency') {
+      const cap = calcCapSheet(STATE.team);
+      if (cap.rosterCount > 21) {
+        alert(`Roster has ${cap.rosterCount} players — must cut to 21 or fewer before moving to Training Camp.`);
+        return;
+      }
+    }
+    // Can't leave training camp without compliant roster
+    if (STATE.phase === 'training_camp') {
+      const cap = calcCapSheet(STATE.team);
+      if (cap.rosterCount > 18) {
+        alert(`Roster has ${cap.rosterCount} players — must cut to 18 or fewer (including two-way) to start the season.`);
+        return;
+      }
+      if (cap.rosterCount < 14) {
+        alert(`Roster has ${cap.rosterCount} players — need at least 14 to start the season.`);
+        return;
+      }
     }
     STATE.phase = PHASES[currentIdx + 1].id;
     STATE.moves.push({ action: 'Phase', detail: `Advanced to ${PHASES[currentIdx + 1].label}`, undo: { type: 'phase', prev: PHASES[currentIdx].id } });
