@@ -1969,6 +1969,19 @@ function renderLotteryRoom() {
     h += `<div class="lot-pick-header">Ready to draw</div>`;
   }
 
+  // Action button (above team list so no scrolling needed)
+  h += `<div style="text-align:center;margin:.5rem 0">`;
+  if (lot.phase === 'winner') {
+    if (lot.currentPick < 4) {
+      h += `<button class="phase-advance" onclick="lotRoomNextPick()" style="font-size:.85rem;padding:.5rem 1.5rem">Next Pick (#${lot.currentPick + 1}) →</button>`;
+    } else {
+      h += `<button class="phase-advance" onclick="finalizeLotteryFromRoom()" style="font-size:.85rem;padding:.5rem 1.5rem">Finalize Lottery →</button>`;
+    }
+  } else if (lot.phase !== 'mixing' && lot.phase !== 'redraw') {
+    h += `<button class="phase-advance" onclick="drawNextBallInRoom()" style="font-size:.9rem;padding:.6rem 2rem">🎱 Draw Ball</button>`;
+  }
+  h += `</div>`;
+
   // Team combinations remaining
   const showCombos = lot.drawnBalls.length >= 2 && lot.drawnBalls.length < 4 && lot.phase !== 'mixing';
   h += `<div style="margin-top:.5rem">`;
@@ -2001,19 +2014,6 @@ function renderLotteryRoom() {
       h += `</div>`;
     }
     h += `</div>`;
-  }
-  h += `</div>`;
-
-  // Action button
-  h += `<div style="text-align:center;margin-top:.75rem">`;
-  if (lot.phase === 'winner') {
-    if (lot.currentPick < 4) {
-      h += `<button class="phase-advance" onclick="lotRoomNextPick()" style="font-size:.85rem;padding:.5rem 1.5rem">Next Pick (#${lot.currentPick + 1}) →</button>`;
-    } else {
-      h += `<button class="phase-advance" onclick="finalizeLotteryFromRoom()" style="font-size:.85rem;padding:.5rem 1.5rem">Finalize Lottery →</button>`;
-    }
-  } else if (lot.phase !== 'mixing' && lot.phase !== 'redraw') {
-    h += `<button class="phase-advance" onclick="drawNextBallInRoom()" style="font-size:.9rem;padding:.6rem 2rem">🎱 Draw Ball</button>`;
   }
   h += `</div>`;
 
