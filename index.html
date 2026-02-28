@@ -386,6 +386,40 @@ a{color:var(--accent);text-decoration:none}
 .sign-config-row select,.sign-config-row input{font-size:.7rem;padding:.3rem .4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);flex:1}
 .sign-sat-note{font-size:.6rem;color:var(--orange);padding:.4rem .5rem;background:rgba(249,160,27,.08);border-radius:6px;margin:.5rem 0;line-height:1.3}
 
+/* === LOTTERY DRAW ROOM === */
+.lot-mode-btn{padding:.6rem 1.2rem;border:2px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;text-align:center;transition:all .2s;flex:1;min-width:140px}
+.lot-mode-btn:hover{border-color:var(--accent);background:var(--accent-dim)}
+.lot-mode-btn .icon{font-size:1.5rem;display:block;margin-bottom:.25rem}
+.lot-mode-btn .title{font-size:.75rem;font-weight:700;color:var(--text)}
+.lot-mode-btn .desc{font-size:.55rem;color:var(--muted);margin-top:.15rem}
+.lot-balls{display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin:.75rem 0}
+.lot-ball{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--surface);border:2px solid var(--border);color:var(--muted);transition:all .4s;font-family:'DM Sans',system-ui}
+.lot-ball.drawn{background:var(--orange);border-color:var(--orange);color:white;transform:scale(1.15);box-shadow:0 0 12px rgba(180,83,9,.4)}
+.lot-ball.drawing{animation:ballPulse .6s ease infinite;border-color:var(--orange)}
+@keyframes ballPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.2);opacity:.7}}
+.lot-pick-header{text-align:center;font-size:.85rem;font-weight:700;color:var(--orange);margin:.75rem 0 .5rem;padding:.4rem;background:rgba(180,83,9,.06);border-radius:8px}
+.lot-team-row{display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;border-radius:6px;margin-bottom:.2rem;font-size:.7rem;transition:all .3s}
+.lot-team-row.eliminated{opacity:.25}
+.lot-team-row.winner{background:rgba(52,199,89,.12);border:1px solid rgba(52,199,89,.3)}
+.lot-team-row .team-name{flex:1;font-weight:600;display:flex;align-items:center;gap:.3rem}
+.lot-team-row .team-name img{width:18px;height:18px}
+.lot-team-row .combos{font-size:.6rem;color:var(--muted);min-width:55px;text-align:right}
+.lot-team-row .bar-wrap{width:80px;height:6px;background:var(--surface);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.lot-team-row .bar-fill{height:100%;background:var(--orange);border-radius:3px;transition:width .4s}
+.lot-drawn-balls{display:flex;gap:.3rem;justify-content:center;margin:.5rem 0}
+.lot-drawn-balls .mini-ball{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;background:var(--orange);color:white;font-family:'DM Sans',system-ui}
+.lot-drawn-balls .mini-ball.pending{background:var(--surface);border:2px dashed var(--border);color:var(--muted)}
+.lot-envelope{display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;border-radius:8px;margin-bottom:.3rem;font-size:.75rem;border:1px solid var(--border);transition:all .4s}
+.lot-envelope.revealed{background:var(--surface)}
+.lot-envelope.hidden-env{background:repeating-linear-gradient(45deg,var(--surface),var(--surface) 4px,var(--bg) 4px,var(--bg) 8px);opacity:.4}
+.lot-envelope.revealing{animation:envelopeFlash .5s ease;background:rgba(180,83,9,.08);border-color:var(--orange)}
+.lot-envelope.top4{border-color:var(--orange);background:rgba(180,83,9,.06)}
+@keyframes envelopeFlash{0%{transform:scale(1)}50%{transform:scale(1.03);background:rgba(180,83,9,.15)}100%{transform:scale(1)}}
+.lot-envelope .pick-num{font-weight:800;min-width:35px;color:var(--orange)}
+.lot-envelope .team-info{flex:1;display:flex;align-items:center;gap:.3rem;font-weight:600}
+.lot-envelope .team-info img{width:20px;height:20px}
+.lot-envelope .movement{font-size:.65rem;font-weight:700}
+
 /* Training camp warning */
 .camp-warning{background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem}
 .camp-warning h4{font-size:.8rem;color:var(--red);margin-bottom:.3rem}
@@ -483,7 +517,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.6.1 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.7 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -492,7 +526,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.6.1</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.7</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -1681,11 +1715,9 @@ function contractSalCell(yr) {
 const LOTTERY_ODDS = [140, 140, 140, 125, 105, 90, 75, 60, 45, 30, 20, 15, 10, 5]; // per 1000
 
 function getLotteryTeams() {
-  // Use pre-lottery standings order if available (worst record = index 0)
   if (preLotteryOrder.length >= 14) {
     return preLotteryOrder.slice(0, 14).map((team, i) => ({ team, originalSlot: i + 1 }));
   }
-  // Fallback: picks 1-14 from allPickSlots
   const teams = [];
   for (let i = 1; i <= 14; i++) {
     const slot = allPickSlots[i];
@@ -1694,45 +1726,75 @@ function getLotteryTeams() {
   return teams;
 }
 
+// Generate all C(14,4) = 1001 combinations
+function generateAllCombinations() {
+  const combos = [];
+  for (let a = 1; a <= 11; a++)
+    for (let b = a+1; b <= 12; b++)
+      for (let c = b+1; c <= 13; c++)
+        for (let d = c+1; d <= 14; d++)
+          combos.push([a, b, c, d]);
+  return combos; // 1001 combos
+}
+
+// Assign 1000 combinations to 14 teams (one combo unassigned)
+function assignCombinations(teams) {
+  const allCombos = generateAllCombinations();
+  // Shuffle combinations randomly
+  for (let i = allCombos.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allCombos[i], allCombos[j]] = [allCombos[j], allCombos[i]];
+  }
+  const assignments = new Map(); // combo key → team index
+  const teamCombos = teams.map(() => []);
+  let idx = 0;
+  for (let t = 0; t < teams.length; t++) {
+    const count = LOTTERY_ODDS[t];
+    for (let c = 0; c < count && idx < allCombos.length; c++, idx++) {
+      const key = allCombos[idx].join('-');
+      assignments.set(key, t);
+      teamCombos[t].push(allCombos[idx]);
+    }
+  }
+  // The 1001st combo (idx=1000) is unassigned
+  return { assignments, teamCombos, allCombos };
+}
+
+// Filter combinations still possible given drawn balls
+function filterCombos(combos, drawnBalls) {
+  if (!drawnBalls.length) return combos;
+  return combos.filter(c => drawnBalls.every(b => c.includes(b)));
+}
+
+// ===== LOTTERY SIMULATION (weighted random, used by both modes) =====
 function runLotterySimulation() {
   const lotteryTeams = getLotteryTeams();
   if (lotteryTeams.length < 14) return null;
-
   const remaining = lotteryTeams.map((t, i) => ({ ...t, weight: LOTTERY_ODDS[i] }));
   const results = [];
-
-  // Draw top 4 picks by weighted random
   for (let pick = 1; pick <= 4; pick++) {
     const totalW = remaining.reduce((s, t) => s + t.weight, 0);
     let rand = Math.random() * totalW;
     let winner;
-    for (const t of remaining) {
-      rand -= t.weight;
-      if (rand <= 0) { winner = t; break; }
-    }
+    for (const t of remaining) { rand -= t.weight; if (rand <= 0) { winner = t; break; } }
     if (!winner) winner = remaining[remaining.length - 1];
     results.push({ pick, team: winner.team, originalSlot: winner.originalSlot });
     remaining.splice(remaining.indexOf(winner), 1);
   }
-
-  // Remaining 10 fill in original standings order (worst to best)
   remaining.sort((a, b) => a.originalSlot - b.originalSlot);
   for (let i = 0; i < remaining.length; i++) {
     results.push({ pick: 5 + i, team: remaining[i].team, originalSlot: remaining[i].originalSlot });
   }
-
   return results;
 }
 
 function applyLotteryResults(results) {
   if (!results) return;
-  // Remap allPickSlots for picks 1-14: team changes, prospect stays with pick number
   for (const r of results) {
     if (allPickSlots[r.pick]) {
       allPickSlots[r.pick] = { ...allPickSlots[r.pick], team: r.team };
     }
   }
-  // Rebuild teamDraftPicks from updated allPickSlots
   const picks = {};
   for (const [slot, info] of Object.entries(allPickSlots)) {
     const s = parseInt(slot);
@@ -1753,6 +1815,271 @@ function doRunLottery() {
   render();
 }
 
+// ===== LOTTERY ROOM STATE =====
+let _lotRoom = null; // { teams, assignments, teamCombos, drawnBalls, currentPick, picksResolved, results, timer, phase }
+
+function startLotteryRoom() {
+  const teams = getLotteryTeams();
+  if (teams.length < 14) return;
+  const { assignments, teamCombos, allCombos } = assignCombinations(teams);
+  _lotRoom = {
+    teams, assignments, teamCombos, allCombos,
+    drawnBalls: [], currentPick: 1, picksResolved: [],
+    results: [], timer: null, phase: 'ready', // ready, mixing, drawn, winner
+    wonTeamIdxs: new Set()
+  };
+  renderLotteryRoom();
+}
+
+function drawNextBallInRoom() {
+  if (!_lotRoom || _lotRoom.phase === 'mixing') return;
+  const drawn = _lotRoom.drawnBalls;
+  // Available balls: 1-14, not yet drawn in this pick's round
+  const available = [];
+  for (let i = 1; i <= 14; i++) { if (!drawn.includes(i)) available.push(i); }
+  if (drawn.length >= 4 || !available.length) return;
+
+  _lotRoom.phase = 'mixing';
+  renderLotteryRoom();
+
+  const mixTime = drawn.length === 0 ? 2000 : 1000; // 20s→2s, 10s→1s (scaled for UX)
+  _lotRoom.timer = setTimeout(() => {
+    // Draw random ball
+    const ball = available[Math.floor(Math.random() * available.length)];
+    drawn.push(ball);
+    _lotRoom.phase = 'drawn';
+
+    if (drawn.length === 4) {
+      // Check which team this combination belongs to
+      const sorted = [...drawn].sort((a,b) => a - b);
+      const key = sorted.join('-');
+      const teamIdx = _lotRoom.assignments.get(key);
+
+      if (teamIdx === undefined || _lotRoom.wonTeamIdxs.has(teamIdx)) {
+        // Unassigned combo or team already won — discard, redraw
+        _lotRoom.phase = 'redraw';
+        renderLotteryRoom();
+        setTimeout(() => {
+          _lotRoom.drawnBalls = [];
+          _lotRoom.phase = 'ready';
+          renderLotteryRoom();
+        }, 1500);
+        return;
+      }
+
+      // Winner found
+      const winner = _lotRoom.teams[teamIdx];
+      _lotRoom.wonTeamIdxs.add(teamIdx);
+      _lotRoom.picksResolved.push({ pick: _lotRoom.currentPick, team: winner.team, originalSlot: winner.originalSlot, combo: sorted });
+      _lotRoom.phase = 'winner';
+      renderLotteryRoom();
+    } else {
+      renderLotteryRoom();
+    }
+  }, mixTime);
+}
+
+function lotRoomNextPick() {
+  if (!_lotRoom) return;
+  if (_lotRoom.currentPick >= 4) {
+    // Top 4 done — fill remaining
+    finalizeLotteryFromRoom();
+    return;
+  }
+  _lotRoom.currentPick++;
+  _lotRoom.drawnBalls = [];
+  _lotRoom.phase = 'ready';
+  renderLotteryRoom();
+}
+
+function finalizeLotteryFromRoom() {
+  if (!_lotRoom) return;
+  const results = [..._lotRoom.picksResolved];
+  // Fill picks 5-14 with remaining teams in original order
+  const wonTeams = new Set(results.map(r => r.team));
+  const remaining = _lotRoom.teams.filter(t => !wonTeams.has(t.team)).sort((a, b) => a.originalSlot - b.originalSlot);
+  for (let i = 0; i < remaining.length; i++) {
+    results.push({ pick: 5 + i, team: remaining[i].team, originalSlot: remaining[i].originalSlot });
+  }
+  STATE.lotteryResults = results;
+  applyLotteryResults(results);
+  saveState();
+  _lotRoom = null;
+  render();
+}
+
+function renderLotteryRoom() {
+  const panel = document.getElementById('rosterPanel');
+  const lot = _lotRoom;
+  const teamAbbrev = TEAMS[STATE.team];
+  let h = '';
+
+  h += `<div class="dc-section-label">🎱 Lottery Room — Drawing for Pick #${lot.currentPick}</div>`;
+
+  // Previous picks resolved
+  if (lot.picksResolved.length) {
+    h += `<div style="margin-bottom:.75rem">`;
+    for (const p of lot.picksResolved) {
+      const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === p.team)] || '';
+      const isUser = p.team === teamAbbrev;
+      h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.25rem .5rem;font-size:.7rem;color:var(--green)">`;
+      h += `<span style="font-weight:800;color:var(--orange)">#${p.pick}</span>`;
+      h += logo ? `<img src="${logo}" style="width:16px;height:16px">` : '';
+      h += `<span style="font-weight:${isUser?'800':'600'};color:${isUser?'var(--accent)':'var(--text)'}"> ${p.team}</span>`;
+      h += `<span style="color:var(--muted);font-size:.6rem">[${p.combo.join('-')}]</span>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+
+  // Ping-pong balls
+  h += `<div class="lot-balls">`;
+  for (let i = 1; i <= 14; i++) {
+    const isDrawn = lot.drawnBalls.includes(i);
+    const cls = isDrawn ? 'drawn' : (lot.phase === 'mixing' ? '' : '');
+    h += `<div class="lot-ball ${cls}">${i}</div>`;
+  }
+  h += `</div>`;
+
+  // Drawn balls for this pick
+  h += `<div class="lot-drawn-balls">`;
+  for (let i = 0; i < 4; i++) {
+    if (i < lot.drawnBalls.length) {
+      h += `<div class="mini-ball">${lot.drawnBalls[i]}</div>`;
+    } else if (i === lot.drawnBalls.length && lot.phase === 'mixing') {
+      h += `<div class="mini-ball pending" style="animation:ballPulse .6s ease infinite">?</div>`;
+    } else {
+      h += `<div class="mini-ball pending">?</div>`;
+    }
+  }
+  h += `</div>`;
+
+  // Status
+  if (lot.phase === 'mixing') {
+    h += `<div class="lot-pick-header" style="color:var(--muted)">🔄 Mixing balls...</div>`;
+  } else if (lot.phase === 'redraw') {
+    h += `<div class="lot-pick-header" style="color:var(--red)">❌ Invalid combination — redrawing...</div>`;
+  } else if (lot.phase === 'winner') {
+    const w = lot.picksResolved[lot.picksResolved.length - 1];
+    const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === w.team)] || '';
+    h += `<div class="lot-pick-header" style="color:var(--green)">🎉 Pick #${w.pick}: ${logo ? `<img src="${logo}" style="width:22px;height:22px;vertical-align:middle">` : ''} ${w.team}!</div>`;
+  } else if (lot.drawnBalls.length > 0 && lot.drawnBalls.length < 4) {
+    h += `<div class="lot-pick-header">${lot.drawnBalls.length}/4 balls drawn</div>`;
+  } else {
+    h += `<div class="lot-pick-header">Ready to draw</div>`;
+  }
+
+  // Team combinations remaining
+  h += `<div style="margin-top:.5rem">`;
+  for (let t = 0; t < lot.teams.length; t++) {
+    const team = lot.teams[t];
+    const isUser = team.team === teamAbbrev;
+    const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === team.team)] || '';
+    const alreadyWon = lot.wonTeamIdxs.has(t);
+    const originalCount = lot.teamCombos[t].length;
+    const remaining = alreadyWon ? 0 : filterCombos(lot.teamCombos[t], lot.drawnBalls).length;
+    const pct = originalCount > 0 ? (remaining / 1000 * 100) : 0;
+    const isWinner = lot.phase === 'winner' && lot.picksResolved[lot.picksResolved.length - 1]?.team === team.team;
+    const cls = alreadyWon ? 'lot-team-row eliminated' : isWinner ? 'lot-team-row winner' : remaining === 0 ? 'lot-team-row eliminated' : 'lot-team-row';
+    h += `<div class="${cls}" ${isUser ? 'style="background:rgba(59,130,246,.06)"' : ''}>`;
+    h += `<div class="team-name">${logo ? `<img src="${logo}">` : ''}<span style="${isUser?'font-weight:800;color:var(--accent)':''}">${team.team}</span></div>`;
+    h += `<div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(100, remaining / originalCount * 100)}%"></div></div>`;
+    h += `<div class="combos">${alreadyWon ? '✓ Won' : remaining + '/' + originalCount}</div>`;
+    h += `</div>`;
+  }
+  h += `</div>`;
+
+  // Action button
+  h += `<div style="text-align:center;margin-top:.75rem">`;
+  if (lot.phase === 'winner') {
+    if (lot.currentPick < 4) {
+      h += `<button class="phase-advance" onclick="lotRoomNextPick()" style="font-size:.85rem;padding:.5rem 1.5rem">Next Pick (#${lot.currentPick + 1}) →</button>`;
+    } else {
+      h += `<button class="phase-advance" onclick="finalizeLotteryFromRoom()" style="font-size:.85rem;padding:.5rem 1.5rem">Finalize Lottery →</button>`;
+    }
+  } else if (lot.phase !== 'mixing' && lot.phase !== 'redraw') {
+    h += `<button class="phase-advance" onclick="drawNextBallInRoom()" style="font-size:.9rem;padding:.6rem 2rem">🎱 Draw Ball</button>`;
+  }
+  h += `</div>`;
+
+  panel.innerHTML = h;
+}
+
+// ===== ENVELOPE MODE =====
+let _envState = null; // { results, currentReveal, timer }
+
+function startLotteryEnvelope() {
+  const results = runLotterySimulation();
+  if (!results) return;
+  _envState = { results, currentReveal: 14, timer: null }; // start from pick 14
+  renderLotteryEnvelope();
+  // Auto-reveal with 500ms intervals
+  _envState.timer = setInterval(() => {
+    if (!_envState) return;
+    _envState.currentReveal--;
+    renderLotteryEnvelope();
+    if (_envState.currentReveal <= 0) {
+      clearInterval(_envState.timer);
+      _envState.timer = null;
+    }
+  }, 700);
+}
+
+function finalizeLotteryEnvelope() {
+  if (!_envState) return;
+  if (_envState.timer) clearInterval(_envState.timer);
+  STATE.lotteryResults = _envState.results;
+  applyLotteryResults(_envState.results);
+  saveState();
+  _envState = null;
+  render();
+}
+
+function renderLotteryEnvelope() {
+  const panel = document.getElementById('rosterPanel');
+  const env = _envState;
+  const teamAbbrev = TEAMS[STATE.team];
+  let h = '';
+
+  h += `<div class="dc-section-label">📺 2026 NBA Draft Lottery — Live Broadcast</div>`;
+  h += `<div style="font-size:.7rem;color:var(--muted);margin-bottom:.75rem;text-align:center">Deputy Commissioner reveals picks in reverse order...</div>`;
+
+  // Envelopes: 14 down to 1
+  for (let pick = 14; pick >= 1; pick--) {
+    const r = env.results.find(r => r.pick === pick);
+    const isRevealed = pick >= env.currentReveal;
+    const isCurrentReveal = pick === env.currentReveal;
+    const isTop4 = pick <= 4;
+    const isUser = r && r.team === teamAbbrev;
+    const logo = r ? (teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === r.team)] || '') : '';
+
+    if (isRevealed) {
+      const diff = r.originalSlot - r.pick;
+      const moveHtml = diff > 0 ? `<span class="movement" style="color:var(--green)">▲${diff}</span>` : diff < 0 ? `<span class="movement" style="color:var(--red)">▼${Math.abs(diff)}</span>` : `<span class="movement" style="color:var(--muted)">—</span>`;
+      h += `<div class="lot-envelope ${isCurrentReveal ? 'revealing' : 'revealed'} ${isTop4 ? 'top4' : ''}" ${isUser ? 'style="background:rgba(59,130,246,.08);border-color:var(--accent)"' : ''}>`;
+      h += `<span class="pick-num">${isTop4 ? '🏆' : ''} #${pick}</span>`;
+      h += `<span class="team-info">${logo ? `<img src="${logo}">` : ''}<span style="${isUser ? 'color:var(--accent)' : ''}">${r.team}</span></span>`;
+      h += `<span style="font-size:.6rem;color:var(--muted)">was #${r.originalSlot}</span>`;
+      h += moveHtml;
+      h += `</div>`;
+    } else {
+      h += `<div class="lot-envelope hidden-env">`;
+      h += `<span class="pick-num">#${pick}</span>`;
+      h += `<span class="team-info" style="color:var(--muted)">???</span>`;
+      h += `</div>`;
+    }
+  }
+
+  // Finalize button (when all revealed)
+  if (env.currentReveal <= 0) {
+    h += `<div style="text-align:center;margin-top:1rem">`;
+    h += `<button class="phase-advance" onclick="finalizeLotteryEnvelope()" style="font-size:.9rem;padding:.6rem 2rem">✅ Confirm Lottery Results</button>`;
+    h += `</div>`;
+  }
+
+  panel.innerHTML = h;
+}
+
 function renderLottery() {
   const panel = document.getElementById('rosterPanel');
   const teamAbbrev = TEAMS[STATE.team];
@@ -1762,19 +2089,30 @@ function renderLottery() {
   h += `<div class="dc-section-label">🎱 2026 NBA Draft Lottery</div>`;
 
   if (!results) {
-    // Show odds table
+    // Show odds table + mode selection
     const lotteryTeams = getLotteryTeams();
-    h += `<div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">14 lottery teams compete for the top 4 picks. Remaining teams fill picks 5-14 in original order.</div>`;
-    h += `<div style="text-align:center;margin-bottom:1.25rem">`;
-    h += `<button class="phase-advance" onclick="doRunLottery()" style="font-size:1rem;padding:.75rem 2rem">🎱 Run Draft Lottery</button>`;
+    h += `<div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">14 lottery teams compete for the top 4 picks. Choose how to experience the lottery.</div>`;
+
+    // Mode selection buttons
+    h += `<div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.25rem">`;
+    h += `<div class="lot-mode-btn" onclick="startLotteryRoom()">`;
+    h += `<span class="icon">🎱</span><span class="title">Lottery Room</span>`;
+    h += `<div class="desc">Watch ping-pong balls drawn live.<br>See combinations narrow in real-time.</div>`;
     h += `</div>`;
+    h += `<div class="lot-mode-btn" onclick="startLotteryEnvelope()">`;
+    h += `<span class="icon">📺</span><span class="title">TV Broadcast</span>`;
+    h += `<div class="desc">Envelopes revealed in reverse order,<br>just like the live telecast.</div>`;
+    h += `</div>`;
+    h += `<div class="lot-mode-btn" onclick="doRunLottery()">`;
+    h += `<span class="icon">⚡</span><span class="title">Instant</span>`;
+    h += `<div class="desc">Skip the drama.<br>See results immediately.</div>`;
+    h += `</div>`;
+    h += `</div>`;
+
+    // Odds table
     h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
-    h += `<th>Slot</th><th>Team</th><th>Odds (#1)</th><th>Top 4</th>`;
+    h += `<th>Slot</th><th>Team</th><th>Odds (#1)</th><th>Combos</th><th>Top 4</th>`;
     h += `</tr></thead><tbody>`;
-    const top4Odds = [
-      [140,0,0,0],[140,0,0,0],[140,0,0,0],[125,0,0,0],[105,0,0,0],[90,0,0,0],[75,0,0,0],[60,0,0,0],[45,0,0,0],[30,0,0,0],[20,0,0,0],[15,0,0,0],[10,0,0,0],[5,0,0,0]
-    ];
-    // Approximate top-4 odds (simplified)
     const top4Approx = [52.1,52.1,52.1,48.1,42.1,37.2,31.9,26.3,20.8,14.5,10.1,7.6,5.2,2.4];
     for (let i = 0; i < lotteryTeams.length; i++) {
       const lt = lotteryTeams[i];
@@ -1785,6 +2123,7 @@ function renderLottery() {
       h += `<td><div style="display:flex;align-items:center;gap:.4rem">${logo ? `<img src="${logo}" style="width:20px;height:20px">` : ''}`;
       h += `<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${lt.team}</span></div></td>`;
       h += `<td style="font-weight:600">${(LOTTERY_ODDS[i]/10).toFixed(1)}%</td>`;
+      h += `<td style="font-size:.65rem;color:var(--muted)">${LOTTERY_ODDS[i]}/1000</td>`;
       h += `<td>${top4Approx[i].toFixed(1)}%</td>`;
       h += `</tr>`;
     }
