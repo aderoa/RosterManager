@@ -517,7 +517,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.7.1 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.7.2 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -526,7 +526,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.7.1</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.7.2</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -1983,33 +1983,45 @@ function renderLotteryRoom() {
   h += `</div>`;
 
   // Team combinations remaining
-  const showCombos = lot.drawnBalls.length >= 2 && lot.drawnBalls.length < 4 && lot.phase !== 'mixing';
+  const showCombos = lot.drawnBalls.length >= 2 && lot.phase !== 'mixing';
+
+  // Pre-compute team data and sort: alive teams first, eliminated below
+  const teamData = lot.teams.map((team, t) => {
+    const alreadyWon = lot.wonTeamIdxs.has(t);
+    const remainingCombos = alreadyWon ? [] : filterCombos(lot.teamCombos[t], lot.drawnBalls);
+    const isWinner = lot.phase === 'winner' && lot.picksResolved[lot.picksResolved.length - 1]?.team === team.team;
+    return { team, t, alreadyWon, remainingCombos, remaining: remainingCombos.length, originalCount: lot.teamCombos[t].length, isWinner };
+  });
+  // Winner on top, then alive (remaining > 0) sorted by remaining desc, then eliminated
+  teamData.sort((a, b) => {
+    if (a.isWinner !== b.isWinner) return a.isWinner ? -1 : 1;
+    const aAlive = !a.alreadyWon && a.remaining > 0;
+    const bAlive = !b.alreadyWon && b.remaining > 0;
+    if (aAlive !== bAlive) return aAlive ? -1 : 1;
+    if (aAlive && bAlive) return b.remaining - a.remaining;
+    return a.t - b.t;
+  });
+
   h += `<div style="margin-top:.5rem">`;
-  for (let t = 0; t < lot.teams.length; t++) {
-    const team = lot.teams[t];
+  for (const td of teamData) {
+    const { team, t, alreadyWon, remainingCombos, remaining, originalCount, isWinner } = td;
     const isUser = team.team === teamAbbrev;
     const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === team.team)] || '';
-    const alreadyWon = lot.wonTeamIdxs.has(t);
-    const originalCount = lot.teamCombos[t].length;
-    const remainingCombos = alreadyWon ? [] : filterCombos(lot.teamCombos[t], lot.drawnBalls);
-    const remaining = remainingCombos.length;
-    const pct = originalCount > 0 ? (remaining / 1000 * 100) : 0;
-    const isWinner = lot.phase === 'winner' && lot.picksResolved[lot.picksResolved.length - 1]?.team === team.team;
     const cls = alreadyWon ? 'lot-team-row eliminated' : isWinner ? 'lot-team-row winner' : remaining === 0 ? 'lot-team-row eliminated' : 'lot-team-row';
     h += `<div class="${cls}" ${isUser ? 'style="background:rgba(59,130,246,.06)"' : ''}>`;
     h += `<div class="team-name">${logo ? `<img src="${logo}">` : ''}<span style="${isUser?'font-weight:800;color:var(--accent)':''}">${team.team}</span></div>`;
     h += `<div class="bar-wrap"><div class="bar-fill" style="width:${originalCount > 0 ? Math.min(100, remaining / originalCount * 100) : 0}%"></div></div>`;
-    h += `<div class="combos">${alreadyWon ? '✓ Won' : remaining + '/' + originalCount}</div>`;
+    h += `<div class="combos">${alreadyWon ? '✓ Won' : isWinner ? '🎉 Winner' : remaining + '/' + originalCount}</div>`;
     // Show actual remaining combos when 2+ balls drawn
     if (showCombos && remaining > 0 && remaining <= 40) {
       h += `<div style="width:100%;margin-top:.15rem;display:flex;flex-wrap:wrap;gap:.2rem;padding-left:1.5rem">`;
       for (const c of remainingCombos) {
-        // Highlight already-drawn balls vs needed balls
+        const isWinningCombo = isWinner && lot.drawnBalls.length === 4 && c.every(b => lot.drawnBalls.includes(b));
         const label = c.map(b => {
           const isDrawn = lot.drawnBalls.includes(b);
           return isDrawn ? `<span style="color:var(--orange);font-weight:800">${b}</span>` : `<span style="font-weight:700">${b}</span>`;
         }).join('-');
-        h += `<span style="font-size:.5rem;padding:.1rem .3rem;background:${isUser?'rgba(59,130,246,.1)':'var(--surface)'};border:1px solid var(--border);border-radius:3px;font-family:'DM Sans',system-ui">${label}</span>`;
+        h += `<span style="font-size:.5rem;padding:.1rem .3rem;background:${isWinningCombo?'rgba(52,199,89,.15)':isUser?'rgba(59,130,246,.1)':'var(--surface)'};border:1px solid ${isWinningCombo?'var(--green)':'var(--border)'};border-radius:3px;font-family:'DM Sans',system-ui">${label}</span>`;
       }
       h += `</div>`;
     }
