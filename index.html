@@ -517,7 +517,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.9 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.9.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -526,7 +526,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.9</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.9.1</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -1692,7 +1692,7 @@ function dcActions(p) {
     const tv = tradeValueMap[p.name.toLowerCase()] || 0;
     const sal = p.sal27 || 0;
     const proj = tv >= sal ? 'pick up' : 'decline';
-    h += `<div style="font-size:.45rem;color:var(--muted);margin-bottom:.15rem">TV ${fmtMoney(tv)} vs ${fmtMoney(sal)} → proj. ${proj}</div>`;
+    h += `<div style="font-size:.45rem;color:var(--muted);margin-bottom:.15rem">Worth ~${fmtMoney(tv)} on ${fmtMoney(sal)} sal → proj. ${proj}</div>`;
     h += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
     return h;
@@ -1701,7 +1701,7 @@ function dcActions(p) {
     const tv = tradeValueMap[p.name.toLowerCase()] || 0;
     const sal = p.sal27 || 0;
     const proj = tv > sal ? 'opts out' : 'opts in';
-    h += `<div style="font-size:.45rem;color:var(--muted);margin-bottom:.15rem">TV ${fmtMoney(tv)} vs ${fmtMoney(sal)} → proj. ${proj}</div>`;
+    h += `<div style="font-size:.45rem;color:var(--muted);margin-bottom:.15rem">Worth ~${fmtMoney(tv)} on ${fmtMoney(sal)} sal → proj. ${proj}</div>`;
     h += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','exercise')">Exercise</button>`;
     h += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
     return h;
@@ -2673,7 +2673,7 @@ function renderRoster(cap) {
           h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.65rem">`;
           h += `<span style="font-weight:600;min-width:90px">${p.name}</span>`;
           h += `<span style="color:var(--muted)">Sal: ${fmtMoney(sal)}</span>`;
-          h += `<span style="color:var(--muted)">TV: ${fmtMoney(tv)}</span>`;
+          h += `<span style="color:var(--muted)">Worth ~${fmtMoney(tv)}</span>`;
           h += `<span style="color:${projColor};font-weight:700">→ Proj: ${projDecision}</span>`;
           h += `</div>`;
         }
@@ -2683,18 +2683,17 @@ function renderRoster(cap) {
         for (const p of pendingPOs) {
           const tv = tradeValueMap[p.name.toLowerCase()] || 0;
           const sal = p.sal27 || 0;
-          // Player opts out if TV > salary (can get more on market), opts in if TV < salary
           const projDecision = tv > sal ? 'Opts out (FA)' : 'Opts in (stays)';
           const projColor = tv > sal ? 'var(--orange)' : 'var(--green)';
           h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.65rem">`;
           h += `<span style="font-weight:600;min-width:90px">${p.name}</span>`;
           h += `<span style="color:var(--muted)">Sal: ${fmtMoney(sal)}</span>`;
-          h += `<span style="color:var(--muted)">TV: ${fmtMoney(tv)}</span>`;
+          h += `<span style="color:var(--muted)">Worth ~${fmtMoney(tv)}</span>`;
           h += `<span style="color:${projColor};font-weight:700">→ Proj: ${projDecision}</span>`;
           h += `</div>`;
         }
       }
-      h += `<div style="font-size:.55rem;color:var(--muted);margin-top:.3rem">Projections based on trade value vs. option salary. You decide the final outcome.</div>`;
+      h += `<div style="font-size:.55rem;color:var(--muted);margin-top:.3rem">Projections based on estimated market value vs. option salary. You decide the final outcome.</div>`;
       h += `</div>`;
     }
   }
@@ -3626,7 +3625,7 @@ function showPlayerCard(event, playerName) {
     h += `<div><div class="phc-name">${playerName}</div><div class="phc-sub">${p.pos || ''} · ${p.age ? p.age + ' yrs' : ''} · ${TEAMS[STATE.team]}</div></div></div>`;
     h += `<div class="phc-stats">`;
     h += `<div class="phc-stat"><span class="phc-stat-label">Salary</span><span class="phc-stat-val">${fmtMoney(p.sal27 || 0)}</span></div>`;
-    h += `<div class="phc-stat"><span class="phc-stat-label">Trade Value</span><span class="phc-stat-val">${tv ? fmtMoney(tv) : '—'}</span></div>`;
+    h += `<div class="phc-stat"><span class="phc-stat-label">Est. Value</span><span class="phc-stat-val">${tv ? fmtMoney(tv) : '—'}</span></div>`;
     if (cd) {
       const yrsLeft = cd.yrs.filter(y => y && y.sal > 0).length;
       h += `<div class="phc-stat"><span class="phc-stat-label">Yrs Left</span><span class="phc-stat-val">${yrsLeft}</span></div>`;
@@ -4182,7 +4181,7 @@ function openSignModal(faName, isResign) {
     h += `<div style="font-weight:700;font-size:.8rem">${faName}</div>`;
     if (p) h += `<div>${p.pos || ''} · was ${fmtMoneyFull(p.sal26)} in 25-26 · ~${yos} YOS</div>`;
     h += `<div style="display:flex;gap:.75rem;flex-wrap:wrap">`;
-    if (tv) h += `<span>TV: <strong>${fmtMoneyFull(tv)}</strong></span>`;
+    if (tv) h += `<span>Est. Value: <strong>${fmtMoneyFull(tv)}</strong></span>`;
     h += `<span>Min: <strong style="color:var(--green)">${fmtMoneyFull(playerMin)}</strong></span>`;
     h += `<span>Max (${maxPctLabel}): <strong style="color:var(--orange)">${fmtMoneyFull(playerMax)}</strong></span>`;
     h += `</div>`;
@@ -4343,7 +4342,7 @@ function selectSignPlayer(name) {
   infoHtml += `<div style="font-weight:700;font-size:.8rem;margin-bottom:.15rem">${name}</div>`;
   if (p) infoHtml += `<div>${p.pos || ''} · ${TEAMS[p.team] || p.team} · Age ${p.age || '?'} · ~${yos} YOS</div>`;
   infoHtml += `<div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.2rem">`;
-  infoHtml += `<span>TV: <strong>${fmtMoneyFull(tv)}</strong></span>`;
+  infoHtml += `<span>Est. Value: <strong>${fmtMoneyFull(tv)}</strong></span>`;
   infoHtml += `<span>Min: <strong style="color:var(--green)">${fmtMoneyFull(playerMin)}</strong></span>`;
   infoHtml += `<span>Max (${maxPctLabel}): <strong style="color:var(--orange)">${fmtMoneyFull(playerMax)}</strong></span>`;
   infoHtml += `</div>`;
@@ -4433,7 +4432,7 @@ function selectSignException(excName, maxAmount) {
       let qh = `<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin:.35rem 0">`;
       qh += `<button type="button" onclick="setSignSalary(${playerMin})" style="font-size:.6rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--green);cursor:pointer">Min ${fmtMoney(playerMin)}</button>`;
       if (ctx.tv && ctx.tv > playerMin && ctx.tv <= effectiveMax) {
-        qh += `<button type="button" onclick="setSignSalary(${ctx.tv})" style="font-size:.6rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--accent);cursor:pointer">TV ${fmtMoney(ctx.tv)}</button>`;
+        qh += `<button type="button" onclick="setSignSalary(${ctx.tv})" style="font-size:.6rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--accent);cursor:pointer">Value ${fmtMoney(ctx.tv)}</button>`;
       }
       qh += `<button type="button" onclick="setSignSalary(${effectiveMax})" style="font-size:.6rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--orange);cursor:pointer">Max ${fmtMoney(effectiveMax)}</button>`;
       qh += `</div>`;
