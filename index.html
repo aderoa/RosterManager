@@ -398,7 +398,7 @@ a{color:var(--accent);text-decoration:none}
 .lot-ball.drawing{animation:ballPulse .6s ease infinite;border-color:var(--orange)}
 @keyframes ballPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.2);opacity:.7}}
 .lot-pick-header{text-align:center;font-size:.85rem;font-weight:700;color:var(--orange);margin:.75rem 0 .5rem;padding:.4rem;background:rgba(180,83,9,.06);border-radius:8px}
-.lot-team-row{display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;border-radius:6px;margin-bottom:.2rem;font-size:.7rem;transition:all .3s}
+.lot-team-row{display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;border-radius:6px;margin-bottom:.2rem;font-size:.7rem;transition:all .3s;flex-wrap:wrap}
 .lot-team-row.eliminated{opacity:.25}
 .lot-team-row.winner{background:rgba(52,199,89,.12);border:1px solid rgba(52,199,89,.3)}
 .lot-team-row .team-name{flex:1;font-weight:600;display:flex;align-items:center;gap:.3rem}
@@ -517,7 +517,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.7 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.7.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -526,7 +526,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.7</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.7.1</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -1970,6 +1970,7 @@ function renderLotteryRoom() {
   }
 
   // Team combinations remaining
+  const showCombos = lot.drawnBalls.length >= 2 && lot.drawnBalls.length < 4 && lot.phase !== 'mixing';
   h += `<div style="margin-top:.5rem">`;
   for (let t = 0; t < lot.teams.length; t++) {
     const team = lot.teams[t];
@@ -1977,14 +1978,28 @@ function renderLotteryRoom() {
     const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === team.team)] || '';
     const alreadyWon = lot.wonTeamIdxs.has(t);
     const originalCount = lot.teamCombos[t].length;
-    const remaining = alreadyWon ? 0 : filterCombos(lot.teamCombos[t], lot.drawnBalls).length;
+    const remainingCombos = alreadyWon ? [] : filterCombos(lot.teamCombos[t], lot.drawnBalls);
+    const remaining = remainingCombos.length;
     const pct = originalCount > 0 ? (remaining / 1000 * 100) : 0;
     const isWinner = lot.phase === 'winner' && lot.picksResolved[lot.picksResolved.length - 1]?.team === team.team;
     const cls = alreadyWon ? 'lot-team-row eliminated' : isWinner ? 'lot-team-row winner' : remaining === 0 ? 'lot-team-row eliminated' : 'lot-team-row';
     h += `<div class="${cls}" ${isUser ? 'style="background:rgba(59,130,246,.06)"' : ''}>`;
     h += `<div class="team-name">${logo ? `<img src="${logo}">` : ''}<span style="${isUser?'font-weight:800;color:var(--accent)':''}">${team.team}</span></div>`;
-    h += `<div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(100, remaining / originalCount * 100)}%"></div></div>`;
+    h += `<div class="bar-wrap"><div class="bar-fill" style="width:${originalCount > 0 ? Math.min(100, remaining / originalCount * 100) : 0}%"></div></div>`;
     h += `<div class="combos">${alreadyWon ? '✓ Won' : remaining + '/' + originalCount}</div>`;
+    // Show actual remaining combos when 2+ balls drawn
+    if (showCombos && remaining > 0 && remaining <= 40) {
+      h += `<div style="width:100%;margin-top:.15rem;display:flex;flex-wrap:wrap;gap:.2rem;padding-left:1.5rem">`;
+      for (const c of remainingCombos) {
+        // Highlight already-drawn balls vs needed balls
+        const label = c.map(b => {
+          const isDrawn = lot.drawnBalls.includes(b);
+          return isDrawn ? `<span style="color:var(--orange);font-weight:800">${b}</span>` : `<span style="font-weight:700">${b}</span>`;
+        }).join('-');
+        h += `<span style="font-size:.5rem;padding:.1rem .3rem;background:${isUser?'rgba(59,130,246,.1)':'var(--surface)'};border:1px solid var(--border);border-radius:3px;font-family:'DM Sans',system-ui">${label}</span>`;
+      }
+      h += `</div>`;
+    }
     h += `</div>`;
   }
   h += `</div>`;
@@ -2011,9 +2026,32 @@ let _envState = null; // { results, currentReveal, timer }
 function startLotteryEnvelope() {
   const results = runLotterySimulation();
   if (!results) return;
-  _envState = { results, currentReveal: 14, timer: null }; // start from pick 14
+  _envState = { results, currentReveal: 14, timer: null, paused: false }; // start from pick 14
   renderLotteryEnvelope();
-  // Auto-reveal with 500ms intervals
+  // Auto-reveal with 700ms intervals, pause before top 4
+  _envState.timer = setInterval(() => {
+    if (!_envState || _envState.paused) return;
+    _envState.currentReveal--;
+    renderLotteryEnvelope();
+    // Pause after revealing pick #5 (before top 4)
+    if (_envState.currentReveal === 5) {
+      _envState.paused = true;
+      clearInterval(_envState.timer);
+      _envState.timer = null;
+      renderLotteryEnvelope();
+      return;
+    }
+    if (_envState.currentReveal <= 0) {
+      clearInterval(_envState.timer);
+      _envState.timer = null;
+    }
+  }, 700);
+}
+
+function resumeEnvelopeTop4() {
+  if (!_envState) return;
+  _envState.paused = false;
+  // Reveal top 4 with slightly longer intervals for drama
   _envState.timer = setInterval(() => {
     if (!_envState) return;
     _envState.currentReveal--;
@@ -2022,7 +2060,7 @@ function startLotteryEnvelope() {
       clearInterval(_envState.timer);
       _envState.timer = null;
     }
-  }, 700);
+  }, 1200);
 }
 
 function finalizeLotteryEnvelope() {
@@ -2045,6 +2083,15 @@ function renderLotteryEnvelope() {
   h += `<div style="font-size:.7rem;color:var(--muted);margin-bottom:.75rem;text-align:center">Deputy Commissioner reveals picks in reverse order...</div>`;
 
   // Envelopes: 14 down to 1
+  // Determine which teams are still in play for top 4
+  const revealedTeams = new Set();
+  for (let p = 14; p >= 5; p--) {
+    if (p >= env.currentReveal) {
+      const r = env.results.find(r => r.pick === p);
+      if (r) revealedTeams.add(r.team);
+    }
+  }
+
   for (let pick = 14; pick >= 1; pick--) {
     const r = env.results.find(r => r.pick === pick);
     const isRevealed = pick >= env.currentReveal;
@@ -2052,6 +2099,31 @@ function renderLotteryEnvelope() {
     const isTop4 = pick <= 4;
     const isUser = r && r.team === teamAbbrev;
     const logo = r ? (teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === r.team)] || '') : '';
+
+    // Insert commercial break before top 4
+    if (pick === 4 && env.paused) {
+      h += `<div style="text-align:center;padding:1rem;margin:.75rem 0;background:linear-gradient(135deg,rgba(180,83,9,.08),rgba(180,83,9,.02));border:2px dashed var(--orange);border-radius:10px">`;
+      h += `<div style="font-size:1.2rem;margin-bottom:.3rem">📺</div>`;
+      h += `<div style="font-size:.8rem;font-weight:700;color:var(--orange);margin-bottom:.15rem">Commercial Break</div>`;
+      h += `<div style="font-size:.65rem;color:var(--muted);margin-bottom:.6rem">The top 4 picks are about to be revealed...</div>`;
+      // Show remaining teams
+      h += `<div style="display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin-bottom:.6rem">`;
+      const lotteryTeams = getLotteryTeams();
+      for (const lt of lotteryTeams) {
+        if (revealedTeams.has(lt.team)) continue;
+        const ltLogo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === lt.team)] || '';
+        const ltIsUser = lt.team === teamAbbrev;
+        h += `<div style="display:flex;align-items:center;gap:.25rem;padding:.25rem .5rem;background:var(--surface);border:1px solid ${ltIsUser?'var(--accent)':'var(--border)'};border-radius:6px;font-size:.65rem;font-weight:${ltIsUser?'800':'600'}">`;
+        h += ltLogo ? `<img src="${ltLogo}" style="width:16px;height:16px">` : '';
+        h += `<span style="${ltIsUser?'color:var(--accent)':''}">${lt.team}</span>`;
+        h += `<span style="color:var(--muted);font-size:.55rem">#${lt.originalSlot}</span>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+      h += `<button class="phase-advance" onclick="resumeEnvelopeTop4()" style="font-size:.85rem;padding:.5rem 1.5rem">🏆 Reveal Top 4</button>`;
+      h += `</div>`;
+      break; // Don't render picks 4-1 yet
+    }
 
     if (isRevealed) {
       const diff = r.originalSlot - r.pick;
