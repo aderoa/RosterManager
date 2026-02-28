@@ -517,7 +517,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.7.3 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.7.4 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -526,7 +526,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.7.3</span></h1>
+    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v1.7.4</span></h1>
     <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator</div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -1467,6 +1467,25 @@ function updateBreadcrumb() {
   el.innerHTML = `${STATE.team} <span style="opacity:.5">›</span> ${phaseLabel}`;
 }
 
+function getPhaseIntro(phase) {
+  const notes = {
+    pre_lottery: "To start the offseason, you can technically waive players, extend them, exercise Team Options, renounce Bird Rights and, if your team is out of contention, trade players. But at this point, we recommend you take your time to explore your roster outlook. Usually, nothing big happens here on the market.",
+    lottery: "The most stressful night of the year for some teams and, at least for one of them, the happiest of them all. You can live the draft lottery from the perspective of the executives locked in the actual drawing room, enjoy it as if you were watching on TV, or just get the immediate results.",
+    pre_draft: "We're now in business. The NBA Finals are over and it's time to take action. All the options besides (legally) reaching deals with free agents are now on the table. It may not be the best time to make bold moves until the draft clears things out, but if you have a clear vision of what to do, it can never be too soon.",
+    draft: "Whether you're looking for your next franchise player, someone to improve your rotation, or a diamond in the rough, here's the moment to test your scouting skills. Use your draft picks to select the best players you can get.",
+    pre_fa: "Time to focus on the market. Before July arrives, make sure to decide on every team option and get your strategy ready for free agency.",
+    free_agency: "All bets are off. Re-sign your favorite players and snap up the best free agents on the market if your salary situation allows. Sign-and-trades could be an option if you're strapped for cap space. Use your salary exceptions wisely, and always remember — getting into the apron zone is rarely a good situation for GMs.",
+    training_camp: "Time to finish your roster, from your superstar to your two-way players. 18 spots are up for grabs to build the best realistic team you can."
+  };
+  return notes[phase] || '';
+}
+
+function phaseIntroHtml(phase) {
+  const note = getPhaseIntro(phase);
+  if (!note) return '';
+  return `<div style="font-size:.7rem;color:var(--muted);line-height:1.5;margin-bottom:1rem;padding:.6rem .75rem;background:var(--surface);border-radius:8px;border-left:3px solid var(--team1)">${note}</div>`;
+}
+
 function render() {
   if (!STATE) return;
   updateBreadcrumb();
@@ -2184,9 +2203,9 @@ function renderLottery() {
   h += `<div class="dc-section-label">🎱 2026 NBA Draft Lottery</div>`;
 
   if (!results) {
-    // Show odds table + mode selection
+    // Phase intro + mode selection
+    h += phaseIntroHtml('lottery');
     const lotteryTeams = getLotteryTeams();
-    h += `<div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">14 lottery teams compete for the top 4 picks. Choose how to experience the lottery.</div>`;
 
     // Mode selection buttons
     h += `<div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.25rem">`;
@@ -2405,7 +2424,7 @@ function renderDraftBoard() {
 
   if (draftNotStarted) {
     h += `<div class="dc-section-label">🎯 2026 NBA Draft</div>`;
-    h += `<div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">60 picks across 2 rounds. The draft will simulate automatically, pausing when it's your turn to pick.</div>`;
+    h += phaseIntroHtml('draft');
 
     // Show user's picks
     const userPicks = (teamDraftPicks[teamAbbrev] || []).slice().sort((a,b) => a.draftRnk - b.draftRnk);
@@ -2581,6 +2600,9 @@ function renderRoster(cap) {
   const panel = document.getElementById('rosterPanel');
   const phase = STATE.phase;
   let h = '';
+
+  // Phase intro note
+  h += phaseIntroHtml(phase);
 
   // Action bar
   h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;align-items:center">`;
