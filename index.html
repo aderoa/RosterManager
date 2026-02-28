@@ -737,6 +737,19 @@ let allPickSlots = {}; // pickSlot# -> {team (abbrev), defaultProspect}
 let contractsMap = {}; // playerName -> { yrs: [{sal, ch, st},...], totG }
 let tradeValueMap = {}; // playerName (lowercase) -> trade value ($)
 let preLotteryOrder = []; // team abbrevs in standings order (worst to best)
+let prospectBioMap = {}; // name → { birthDate, country, position }
+
+function calcProspectAge(birthDate) {
+  if (!birthDate) return null;
+  try {
+    const d = new Date(birthDate);
+    if (isNaN(d)) return null;
+    const now = new Date();
+    let age = now.getFullYear() - d.getFullYear();
+    if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--;
+    return age > 0 && age < 50 ? age : null;
+  } catch { return null; }
+}
 let STATE = null; // current GM state
 
 // Reverse team map: abbreviation -> full name
@@ -864,6 +877,15 @@ async function fetchDraftPicks() {
 
         if (!prospect) continue;
         prospects.push(prospect);
+
+        // Bio data: AA(26)=PLAYER, AB(27)=BIRTH DATE, AE(30)=COUNTRY, AK(36)=POSITION
+        const bioName = (row[26] || '').trim();
+        const birthDate = (row[27] || '').trim();
+        const country = (row[30] || '').trim();
+        const position = (row[36] || '').trim();
+        if (birthDate || country || position) {
+          prospectBioMap[prospect] = { birthDate, country, position };
+        }
 
         // First-round picks (1-30) get rookie scale cap holds
         // Second-round picks (31-60) get minimum salary cap hold
@@ -2485,11 +2507,11 @@ function renderDraftBoard() {
 
     // Show full draft board preview (empty)
     h += `<div class="contract-wrap" style="margin-top:1.5rem"><table class="contract-table"><thead><tr>`;
-    h += `<th>Pick</th><th>Team</th><th>Prospect</th>`;
+    h += `<th>Pick</th><th>Team</th><th>Prospect</th><th>Info</th>`;
     h += `</tr></thead><tbody>`;
     for (let pick = 1; pick <= 60; pick++) {
-      if (pick === 1) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(180,83,9,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
-      if (pick === 31) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(59,130,246,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
+      if (pick === 1) h += `<tr><td colspan="4" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(180,83,9,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
+      if (pick === 31) h += `<tr><td colspan="4" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(59,130,246,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
       const pickTeam = getPickTeam(pick);
       if (!pickTeam) continue;
       const isUser = pickTeam === teamAbbrev;
@@ -2499,6 +2521,7 @@ function renderDraftBoard() {
       h += `<td style="font-weight:700;color:var(--muted)">#${pick}</td>`;
       h += `<td><div style="display:flex;align-items:center;gap:.3rem">${logo?`<img src="${logo}" style="width:18px;height:18px">`:''}<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${pickTeam}</span></div></td>`;
       h += `<td style="color:var(--muted)">—</td>`;
+      h += `<td></td>`;
       h += `</tr>`;
     }
     h += `</tbody></table></div>`;
@@ -2520,13 +2543,13 @@ function renderDraftBoard() {
 
   // Draft board
   h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
-  h += `<th>Pick</th><th>Team</th><th>Prospect</th>`;
+  h += `<th>Pick</th><th>Team</th><th>Prospect</th><th>Info</th>`;
   h += `</tr></thead><tbody>`;
 
   for (let pick = 1; pick <= 60; pick++) {
     // Round dividers
-    if (pick === 1) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(180,83,9,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
-    if (pick === 31) h += `<tr><td colspan="3" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(59,130,246,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
+    if (pick === 1) h += `<tr><td colspan="4" style="font-weight:700;font-size:.7rem;color:var(--orange);padding:.6rem .5rem;background:rgba(180,83,9,.06);border-bottom:2px solid var(--orange)">ROUND 1</td></tr>`;
+    if (pick === 31) h += `<tr><td colspan="4" style="font-weight:700;font-size:.7rem;color:var(--accent);padding:.6rem .5rem;background:rgba(59,130,246,.06);border-bottom:2px solid var(--accent)">ROUND 2</td></tr>`;
     const pickTeam = getPickTeam(pick);
     if (!pickTeam) continue;
     const result = STATE.draftResults.find(r => r.pick === pick);
@@ -2544,11 +2567,16 @@ function renderDraftBoard() {
     h += `<td style="font-weight:700;color:${isCurrent?'var(--orange)':isPicked?'var(--green)':'var(--muted)'}">${isCurrent?'➡️ ':''}#${pick}</td>`;
     h += `<td><div style="display:flex;align-items:center;gap:.3rem">${logo?`<img src="${logo}" style="width:18px;height:18px">`:''}<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${pickTeam}</span></div></td>`;
     if (isPicked) {
+      const bio = prospectBioMap[result.prospect];
+      const bioStr = bio ? [bio.position, bio.country && bio.country !== 'USA' ? `🌍 ${bio.country}` : '', bio.birthDate ? (calcProspectAge(bio.birthDate) ? calcProspectAge(bio.birthDate) + ' yrs' : '') : ''].filter(Boolean).join(' · ') : '';
       h += `<td style="font-weight:600">${result.prospect}</td>`;
+      h += `<td style="font-size:.6rem;color:var(--muted)">${bioStr}</td>`;
     } else if (isCurrent) {
       h += `<td style="color:var(--orange);font-style:italic">On the clock...</td>`;
+      h += `<td></td>`;
     } else {
       h += `<td style="color:var(--muted)">—</td>`;
+      h += `<td></td>`;
     }
     h += `</tr>`;
   }
@@ -2619,6 +2647,14 @@ function buildDraftProspectList(filter) {
     h += `<div class="draft-pick-option" onclick="userDraftPick('${esc(name)}')">`;
     h += `<span class="rank">${rank}</span>`;
     h += `<span class="name">${name}</span>`;
+    const bio = prospectBioMap[name];
+    if (bio) {
+      const parts = [];
+      if (bio.position) parts.push(bio.position);
+      if (bio.country && bio.country !== 'USA') parts.push(`🌍 ${bio.country}`);
+      if (bio.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) parts.push(`${age} yrs`); }
+      if (parts.length) h += `<span style="font-size:.55rem;color:var(--muted);margin-left:.25rem">${parts.join(' · ')}</span>`;
+    }
     if (proj) h += `<span class="assigned">${proj}</span>`;
     h += `</div>`;
   }
@@ -2724,6 +2760,33 @@ function renderRoster(cap) {
         }
       }
       h += `<div style="font-size:.55rem;color:var(--muted);margin-top:.3rem">Projections based on estimated market value vs. option salary. You decide the final outcome.</div>`;
+      h += `</div>`;
+    }
+  }
+
+  // ======== UNSIGNED DRAFT PICKS ========
+  if ((phase === 'free_agency' || phase === 'training_camp') && STATE.draftResults && STATE.draftResults.length) {
+    const teamAbbrev = TEAMS[STATE.team];
+    const alreadySigned = new Set((STATE.signings || []).map(s => s.name));
+    const unsignedPicks = STATE.draftResults.filter(r => r.team === teamAbbrev && !alreadySigned.has(r.prospect));
+    if (unsignedPicks.length) {
+      h += `<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:.6rem .75rem;margin:.75rem 0">`;
+      h += `<div style="font-size:.75rem;font-weight:700;color:var(--accent);margin-bottom:.35rem">🎯 Unsigned Draft Picks (${unsignedPicks.length})</div>`;
+      for (const r of unsignedPicks) {
+        const rd = r.pick <= 30 ? '1st Rd' : '2nd Rd';
+        const bio = prospectBioMap[r.prospect];
+        const bioParts = [];
+        if (bio?.position) bioParts.push(bio.position);
+        if (bio?.country && bio.country !== 'USA') bioParts.push(`🌍 ${bio.country}`);
+        if (bio?.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) bioParts.push(`${age} yrs`); }
+        const bioStr = bioParts.length ? ` · ${bioParts.join(' · ')}` : '';
+        h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;font-size:.65rem">`;
+        h += `<span style="font-weight:700;color:var(--orange);min-width:35px">#${r.pick}</span>`;
+        h += `<span style="font-weight:600;flex:1">${r.prospect} <span style="color:var(--muted);font-weight:400">${rd}${bioStr}</span></span>`;
+        h += `<button class="dc-btn opt" onclick="openDraftPickSignModal('${esc(r.prospect)}',${r.pick})" style="font-size:.55rem;padding:.2rem .5rem">✍️ Sign</button>`;
+        h += `</div>`;
+      }
+      h += `<div style="font-size:.55rem;color:var(--muted);margin-top:.3rem">First-rounders sign rookie scale contracts. Second-rounders can sign via any available exception or the Second Round Exception.</div>`;
       h += `</div>`;
     }
   }
@@ -4163,8 +4226,14 @@ function confirmExtension() {
 
 // ======================== FREE AGENCY SIGNING ========================
 function openSignModal(faName, isResign) {
+  // Clear draft pick flag unless set just before this call
+  if (!window._isDraftPickSign) {
+    window._isDraftPickSign = false;
+    window._draftPickNum = 0;
+  }
   const modal = document.getElementById('signModalBody');
-  document.getElementById('signModalTitle').textContent = isResign ? `Re-sign ${faName}` : 'Sign Free Agent';
+  const title = window._isDraftPickSign ? `Sign #${window._draftPickNum} Pick — ${faName}` : (isResign ? `Re-sign ${faName}` : 'Sign Free Agent');
+  document.getElementById('signModalTitle').textContent = title;
   window._signIsResign = !!isResign;
 
   const cap = calcCapSheet(STATE.team);
@@ -4195,6 +4264,14 @@ function openSignModal(faName, isResign) {
     h += `<div style="padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.7rem;line-height:1.5">`;
     h += `<div style="font-weight:700;font-size:.8rem">${faName}</div>`;
     if (p) h += `<div>${p.pos || ''} · was ${fmtMoneyFull(p.sal26)} in 25-26 · ~${yos} YOS</div>`;
+    else if (window._isDraftPickSign) {
+      const bio = prospectBioMap[faName];
+      const bioParts = [];
+      if (bio?.position) bioParts.push(bio.position);
+      if (bio?.country && bio.country !== 'USA') bioParts.push(`🌍 ${bio.country}`);
+      if (bio?.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) bioParts.push(`${age} yrs`); }
+      if (bioParts.length) h += `<div>${bioParts.join(' · ')} · 2nd Round Pick #${window._draftPickNum}</div>`;
+    }
     h += `<div style="display:flex;gap:.75rem;flex-wrap:wrap">`;
     if (tv) h += `<span>Est. Value: <strong>${fmtMoneyFull(tv)}</strong></span>`;
     h += `<span>Min: <strong style="color:var(--green)">${fmtMoneyFull(playerMin)}</strong></span>`;
@@ -4212,6 +4289,24 @@ function openSignModal(faName, isResign) {
 
   // Exception options
   h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
+
+  // Second Round Exception (only for 2nd-round draft picks)
+  if (window._isDraftPickSign && window._draftPickNum > 30) {
+    const sre3Total = SRE_3YR.salaries.reduce((s,v) => s + v, 0);
+    const sre4Total = SRE_4YR.salaries.reduce((s,v) => s + v, 0);
+    const dpName = faName || (document.getElementById('signPlayerName')?.value);
+    h += `<div style="border:2px solid var(--orange);border-radius:8px;padding:.6rem;margin-bottom:.75rem;background:rgba(180,83,9,.04)">`;
+    h += `<div style="font-size:.7rem;font-weight:700;color:var(--orange);margin-bottom:.4rem">🏀 Second Round Exception</div>`;
+    h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap">`;
+    h += `<button class="phase-advance" onclick="confirmSREsigning('${esc(dpName || '')}',${window._draftPickNum},'3yr')" style="font-size:.7rem;padding:.4rem .8rem;flex:1">`;
+    h += `3yr deal<br><span style="font-size:.55rem;font-weight:400">${fmtMoney(SRE_3YR.salaries[0])}/yr · Y3 TO · ${fmtMoney(sre3Total)} total</span></button>`;
+    h += `<button class="phase-advance" onclick="confirmSREsigning('${esc(dpName || '')}',${window._draftPickNum},'4yr')" style="font-size:.7rem;padding:.4rem .8rem;flex:1">`;
+    h += `4yr deal<br><span style="font-size:.55rem;font-weight:400">${fmtMoney(SRE_4YR.salaries[0])}/yr · Y4 TO · ${fmtMoney(sre4Total)} total</span></button>`;
+    h += `</div>`;
+    h += `<div style="font-size:.5rem;color:var(--muted);margin-top:.3rem">Or choose a standard exception below:</div>`;
+    h += `</div>`;
+  }
+
   for (const exc of cap.exceptions) {
     // Hide S&T for re-signing own FAs
     if (exc.isSAT && window._signIsResign) continue;
@@ -4747,6 +4842,155 @@ function confirmSigning() {
   } else {
     render();
   }
+}
+
+// ======================== DRAFT PICK SIGNING ========================
+
+// Second Round Exception salary structures (2026-27)
+const SRE_3YR = {
+  years: 3,
+  salaries: [
+    MIN_SALARY_BY_YOS[1],
+    Math.round(MIN_SALARY_BY_YOS[1] * 1.05),
+    Math.round(MIN_SALARY_BY_YOS[1] * 1.05 * 1.05)
+  ],
+  toYear: 3, // year 3 is team option
+  label: '3yr (Y3 team option)'
+};
+const SRE_4YR = {
+  years: 4,
+  salaries: [
+    MIN_SALARY_BY_YOS[2],
+    Math.round(MIN_SALARY_BY_YOS[2] * 1.05),
+    Math.round(MIN_SALARY_BY_YOS[2] * 1.05 * 1.05),
+    Math.round(MIN_SALARY_BY_YOS[2] * 1.05 * 1.05 * 1.05)
+  ],
+  toYear: 4, // year 4 is team option
+  label: '4yr (Y4 team option)'
+};
+
+function openDraftPickSignModal(prospect, pickNum) {
+  const isFirstRound = pickNum <= 30;
+  const bio = prospectBioMap[prospect];
+
+  if (isFirstRound) {
+    // Rookie Scale — show confirmation modal
+    const rookieSal = ROOKIE_SCALE[pickNum - 1] || MIN_SALARY_0YOS;
+    const raise5 = 0.05;
+    const yrs = [];
+    for (let y = 0; y < 4; y++) {
+      const sal = Math.round(rookieSal * (1 + raise5 * y));
+      yrs.push(sal);
+    }
+    const total = yrs.reduce((s, v) => s + v, 0);
+    const bioStr = bio ? [bio.position, bio.country && bio.country !== 'USA' ? bio.country : '', bio.birthDate ? (calcProspectAge(bio.birthDate) ? calcProspectAge(bio.birthDate) + ' yrs' : '') : ''].filter(Boolean).join(' · ') : '';
+
+    const modal = document.getElementById('signModalBody');
+    document.getElementById('signModalTitle').textContent = `Sign #${pickNum} Pick — ${prospect}`;
+    let h = '';
+    h += `<div style="padding:.6rem;background:var(--surface);border-radius:8px;margin-bottom:.75rem">`;
+    h += `<div style="font-weight:700;font-size:.85rem">${prospect}</div>`;
+    if (bioStr) h += `<div style="font-size:.65rem;color:var(--muted);margin-top:.15rem">${bioStr}</div>`;
+    h += `<div style="margin-top:.4rem;font-size:.7rem;color:var(--orange);font-weight:600">🏀 Rookie Scale Contract — 4 years</div>`;
+    h += `</div>`;
+    h += `<table class="contract-table" style="margin-bottom:.75rem"><thead><tr><th>Year</th><th>Salary</th><th>Status</th></tr></thead><tbody>`;
+    for (let y = 0; y < 4; y++) {
+      const status = y < 2 ? 'Guaranteed' : y === 2 ? 'Guaranteed' : 'Team Option';
+      const stColor = status === 'Team Option' ? 'var(--orange)' : 'var(--green)';
+      h += `<tr><td>${2027 + y}-${28 + y}</td><td>${fmtMoneyFull(yrs[y])}</td><td style="color:${stColor}">${status}</td></tr>`;
+    }
+    h += `<tr><td style="font-weight:700">Total</td><td style="font-weight:700">${fmtMoneyFull(total)}</td><td></td></tr>`;
+    h += `</tbody></table>`;
+    h += `<div style="text-align:center"><button class="phase-advance" onclick="confirmRookieScaleSigning('${esc(prospect)}',${pickNum})">✍️ Sign Rookie Scale Contract</button></div>`;
+    modal.innerHTML = h;
+    document.getElementById('signOverlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  } else {
+    // Second-rounder — open sign modal with all exceptions + Second Round Exception
+    window._isDraftPickSign = true;
+    window._draftPickNum = pickNum;
+    openSignModal(prospect, false);
+  }
+}
+
+function confirmRookieScaleSigning(prospect, pickNum) {
+  const rookieSal = ROOKIE_SCALE[pickNum - 1] || MIN_SALARY_0YOS;
+  const raise5 = 0.05;
+  const yearStructure = [];
+  for (let y = 0; y < 4; y++) {
+    const sal = Math.round(rookieSal * (1 + raise5 * y));
+    const status = y < 3 ? 'guaranteed' : 'team_option';
+    yearStructure.push({ season: 2027 + y, salary: sal, status });
+  }
+  const total = yearStructure.reduce((s, y) => s + y.salary, 0);
+  const bio = prospectBioMap[prospect];
+
+  const signing = {
+    name: prospect,
+    salary: rookieSal,
+    years: 4,
+    raiseRate: 0.05,
+    exception: 'Rookie Scale',
+    pos: bio?.position || '',
+    headshot: '',
+    end: 2030,
+    contractType: 'guaranteed',
+    guaranteedPct: 100,
+    isSignAndTrade: false,
+    yearStructure,
+    isDraftPick: true,
+    draftPick: pickNum
+  };
+
+  STATE.signings.push(signing);
+  STATE.moves.push({
+    action: 'Signed',
+    detail: `${prospect} · ${fmtMoney(total)}/4yr (Rookie Scale #${pickNum})`,
+    undo: { type: 'signing' }
+  });
+  saveState();
+  closeSignModal();
+  showToast(`Signed ${prospect} — 4yr / ${fmtMoney(total)} (Rookie Scale)`, 'success');
+  render();
+}
+
+function confirmSREsigning(prospect, pickNum, sreType) {
+  const sre = sreType === '3yr' ? SRE_3YR : SRE_4YR;
+  const yearStructure = [];
+  for (let y = 0; y < sre.years; y++) {
+    const status = (y + 1) === sre.toYear ? 'team_option' : 'guaranteed';
+    yearStructure.push({ season: 2027 + y, salary: sre.salaries[y], status });
+  }
+  const total = yearStructure.reduce((s, y) => s + y.salary, 0);
+  const bio = prospectBioMap[prospect];
+
+  const signing = {
+    name: prospect,
+    salary: sre.salaries[0],
+    years: sre.years,
+    raiseRate: 0.05,
+    exception: 'Second Round Exception',
+    pos: bio?.position || '',
+    headshot: '',
+    end: 2027 + sre.years - 1,
+    contractType: 'guaranteed',
+    guaranteedPct: 100,
+    isSignAndTrade: false,
+    yearStructure,
+    isDraftPick: true,
+    draftPick: pickNum
+  };
+
+  STATE.signings.push(signing);
+  STATE.moves.push({
+    action: 'Signed',
+    detail: `${prospect} · ${fmtMoney(total)}/${sre.years}yr (2nd Rd Exc #${pickNum})`,
+    undo: { type: 'signing' }
+  });
+  saveState();
+  closeSignModal();
+  showToast(`Signed ${prospect} — ${sre.years}yr / ${fmtMoney(total)} (Second Round Exception)`, 'success');
+  render();
 }
 
 // ======================== DRAFT PICKER ========================
