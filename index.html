@@ -599,7 +599,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v2.5 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v2.6 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -609,7 +609,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.5</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.6</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1452,9 +1452,11 @@ function calcCapSheet(team) {
   // === DRAFT PICKS ===
   const teamAbbrev = TEAMS[team];
   const picks = teamDraftPicks[teamAbbrev] || [];
+  const signedDraftPicks = new Set((STATE.signings || []).filter(s => s.isDraftPick).map(s => s.draftPick));
   let draftCapHolds = 0;
   for (const pick of picks) {
     if (STATE.renounced.has('PICK_' + pick.draftRnk)) continue;
+    if (signedDraftPicks.has(pick.draftRnk)) continue; // already signed
     draftCapHolds += pick.capHold;
     const selectedProspect = (STATE.draftSelections && STATE.draftSelections[pick.draftRnk]) || pick.prospect;
     roster.draft_picks.push({ ...pick, selectedProspect });
@@ -1580,7 +1582,7 @@ function calcCapSheet(team) {
   exceptions.push({ name: 'Two-Way', amount: TWO_WAY_SALARY, available: twoWayCount < 3, note: `${twoWayCount}/3 used · Max 3 YOS`, isTwoWay: true });
   // Exhibit 10 (training camp only)
   if (STATE.phase === 'training_camp') {
-    exceptions.push({ name: 'Exhibit 10', amount: MIN_SALARY_0YOS, available: true, note: '$100K bonus' });
+    exceptions.push({ name: 'Exhibit 10', amount: MIN_SALARY_0YOS, available: true });
   }
   // Bird Rights exceptions — always available for re-signing own FAs (go over cap/apron)
   const maxBirdSalary = Math.round(T.cap * 0.35); // approximate 35% max
@@ -3664,6 +3666,8 @@ function renderCapPanel(cap) {
   h += `<h3>🎫 Available Exceptions</h3>`;
   h += `<div class="exc-list">`;
   for (const exc of cap.exceptions) {
+    // Bird rights are player-specific, not team-level — don't show in general list
+    if (exc.isBirdRights) continue;
     const usedLabel = exc.used ? ` (used: ${fmtMoney(exc.used)})` : '';
     const noteLabel = exc.note ? ` · ${exc.note}` : '';
     h += `<div class="exc-chip ${exc.available ? 'available' : 'unavailable'}">${exc.name}: ${fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount)}${usedLabel}${noteLabel}</div>`;
@@ -4678,9 +4682,26 @@ function openSignModal(faName, isResign) {
     // Hide S&T for re-signing own FAs and for draft picks
     if (exc.isSAT && window._signIsResign) continue;
     if (exc.isSAT && window._signIsDraftPick) continue;
-    // ALL Bird rights exceptions — don't show in exception list
-    // Max salary from Bird rights is already reflected in the player's max salary shown above
-    if (exc.isBirdRights) continue;
+    // Bird rights: only show for re-signing own FAs, show best matching type
+    if (exc.isBirdRights) {
+      if (!window._signIsResign) continue;
+      if (window._signIsDraftPick) continue;
+      const pExc = (window._signPlayerContext?.exception || '').toLowerCase();
+      if (!pExc.includes('bird')) continue;
+      // Full Bird: only if player has full Bird rights
+      if (exc.name === 'Bird Exception') {
+        if (pExc.includes('non-bird') || pExc.includes('non bird') || pExc.includes('early bird') || pExc.includes('early-bird')) continue;
+      }
+      // Early Bird: skip if player has full Bird (show best only)
+      if (exc.name === 'Early Bird Exception') {
+        if (pExc.includes('non-bird') || pExc.includes('non bird')) continue;
+        if (pExc.includes('bird') && !pExc.includes('early') && !pExc.includes('non')) continue;
+      }
+      // Non-Bird: skip if player has Early or Full Bird
+      if (exc.name === 'Non-Bird Exception') {
+        if (pExc.includes('bird') && !pExc.includes('non-bird') && !pExc.includes('non bird')) continue;
+      }
+    }
     let cls = exc.available ? '' : 'unavailable';
     // For Minimum, show the player's specific YOS-based salary
     let detailText;
@@ -4914,8 +4935,9 @@ function selectSignException(excName, maxAmount) {
   }
 
   // Effective max: can't exceed player max OR exception amount (whichever is lower)
-  // S&T bypasses exception limits (capped only by player max)
-  const effectiveMax = excName === 'Sign-and-Trade' ? playerMax : Math.min(playerMax, maxAmount);
+  // S&T and Bird rights: use player max (Bird amounts already reflect % of cap)
+  const isBirdType = excName.includes('Bird');
+  const effectiveMax = (excName === 'Sign-and-Trade' || isBirdType) ? playerMax : Math.min(playerMax, maxAmount);
   
   window._signContext = { exception: excName, maxAmount, effectiveMax };
   document.getElementById('signSalarySection').style.display = '';
@@ -5276,6 +5298,7 @@ function confirmSigning() {
     detail: `${name} · ${fmtMoney(totalValue)}/${years}yr (${fmtMoney(salary)} yr1) via ${excName}${flagStr}${satLabel}`,
     undo: { type: 'signing' }
   });
+  STATE.depthOrder = {}; // recalculate depth chart with new player
   saveState();
   closeSignModal();
   showToast(`Signed ${name} · ${fmtMoney(totalValue)}/${years}yr via ${excName}`, 'success');
@@ -5406,6 +5429,7 @@ function confirmRookieScaleSigning(prospect, pickNum) {
     detail: `${prospect} · ${fmtMoney(total)}/4yr (Rookie Scale #${pickNum})`,
     undo: { type: 'signing' }
   });
+  STATE.depthOrder = {}; // recalculate depth chart with new player
   saveState();
   closeSignModal();
   showToast(`Signed ${prospect} — 4yr / ${fmtMoney(total)} (Rookie Scale)`, 'success');
@@ -5445,6 +5469,7 @@ function confirmSREsigning(prospect, pickNum, sreType) {
     detail: `${prospect} · ${fmtMoney(total)}/${sre.years}yr (2nd Rd Exc #${pickNum})`,
     undo: { type: 'signing' }
   });
+  STATE.depthOrder = {}; // recalculate depth chart with new player
   saveState();
   closeSignModal();
   showToast(`Signed ${prospect} — ${sre.years}yr / ${fmtMoney(total)} (Second Round Exception)`, 'success');
