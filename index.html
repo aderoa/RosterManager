@@ -598,7 +598,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.6 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.7 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -608,7 +608,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.6</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.7</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -740,6 +740,9 @@ function getPlayerYOS(p) {
 }
 function getPlayerMinSalary(p) {
   const yos = getPlayerYOS(p);
+  return MIN_SALARY_BY_YOS[Math.min(yos, MIN_SALARY_BY_YOS.length - 1)] || MIN_SALARY_0YOS;
+}
+function getMinSalaryForYOS(yos) {
   return MIN_SALARY_BY_YOS[Math.min(yos, MIN_SALARY_BY_YOS.length - 1)] || MIN_SALARY_0YOS;
 }
 function getPlayerMaxSalary(p) {
@@ -1503,7 +1506,7 @@ function calcCapSheet(team) {
       exceptions.push({ name: 'BAE', amount: T.bae, available: false });
     }
   }
-  exceptions.push({ name: 'Minimum', amount: MIN_SALARY_0YOS, available: true });
+  exceptions.push({ name: 'Minimum', amount: MIN_SALARY_BY_YOS[MIN_SALARY_BY_YOS.length - 1], available: true, isMinimum: true, note: 'YOS-based salary' });
   // Two-Way: up to 3 two-way contracts per team (don't count against cap)
   const twoWayCount = (STATE.signings || []).filter(s => s.contractType === 'two-way').length
     + players.filter(p => p.isTwoWay && !STATE.waived.has(p.name) && !tradedOut.has(p.name)).length;
@@ -1512,9 +1515,15 @@ function calcCapSheet(team) {
   if (STATE.phase === 'training_camp') {
     exceptions.push({ name: 'Exhibit 10', amount: MIN_SALARY_0YOS, available: true, note: '$100K bonus' });
   }
-  // Sign-and-Trade: always available for other teams' FAs (original team signs with Bird rights)
+  // Bird Rights exceptions — always available for re-signing own FAs (go over cap/apron)
+  const maxBirdSalary = Math.round(T.cap * 0.35); // approximate 35% max
+  exceptions.push({ name: 'Bird Exception', amount: maxBirdSalary, available: true, isBirdRights: true, note: 'Max 5yr · 8% raises' });
+  exceptions.push({ name: 'Early Bird Exception', amount: Math.round(T.cap * 0.25), available: true, isBirdRights: true, note: 'Max 4yr · 8% raises' });
+  exceptions.push({ name: 'Non-Bird Exception', amount: Math.round(T.cap * 0.20), available: true, isBirdRights: true, note: 'Max 4yr · 5% raises' });
+  // Sign-and-Trade: available for other teams' FAs, but NOT if team is above 1st apron
   const MAX_SAT_SALARY = Math.round(T.cap * 0.35);
-  exceptions.push({ name: 'Sign-and-Trade', amount: MAX_SAT_SALARY, available: true, note: 'Max 4yr · Hard-caps at 1st apron', isSAT: true });
+  const satAvailable = belowApron1; // 1st apron teams cannot acquire via S&T
+  exceptions.push({ name: 'Sign-and-Trade', amount: MAX_SAT_SALARY, available: satAvailable, note: satAvailable ? 'Max 4yr · Hard-caps at 1st apron' : 'Not available above 1st apron', isSAT: true });
 
   for (const exc of exceptions) {
     const used = excUsage[exc.name] || 0;
@@ -4580,6 +4589,21 @@ function openSignModal(faName, isResign) {
     // Hide S&T for re-signing own FAs and for draft picks
     if (exc.isSAT && window._signIsResign) continue;
     if (exc.isSAT && window._isDraftPickSign) continue;
+    // Hide Bird rights for new FA signings and draft picks (only for re-signing own FAs)
+    if (exc.isBirdRights && !window._signIsResign) continue;
+    // When re-signing, only show the Bird exception that matches the player's actual rights
+    if (exc.isBirdRights && window._signIsResign) {
+      const pExc = (window._signPlayerContext?.exception || '').toLowerCase();
+      const excLower = exc.name.toLowerCase();
+      // Match: Bird only if player has Bird, Early Bird only if player has Early Bird, etc.
+      if (excLower.includes('non-bird') || excLower.includes('non bird')) {
+        if (!pExc.includes('non-bird') && !pExc.includes('non bird')) continue;
+      } else if (excLower.includes('early bird') || excLower.includes('early-bird')) {
+        if (!pExc.includes('early bird') && !pExc.includes('early-bird')) continue;
+      } else if (excLower.includes('bird')) {
+        if (pExc.includes('non-bird') || pExc.includes('non bird') || pExc.includes('early bird') || pExc.includes('early-bird') || !pExc.includes('bird')) continue;
+      }
+    }
     const cls = exc.available ? '' : 'unavailable';
     h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
     h += `<div class="exc-name">${exc.name}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
@@ -4751,8 +4775,9 @@ function selectSignException(excName, maxAmount) {
   const playerMin = ctx.playerMin || MIN_SALARY_0YOS;
   
   // Effective max: can't exceed player max OR exception amount (whichever is lower)
-  // S&T bypasses exception limits (original team uses Bird rights), but still capped by player max
-  const effectiveMax = excName === 'Sign-and-Trade' ? playerMax : Math.min(playerMax, maxAmount);
+  // S&T and Bird rights bypass exception limits (capped only by player max)
+  const isBirdType = excName.includes('Bird');
+  const effectiveMax = (excName === 'Sign-and-Trade' || isBirdType) ? playerMax : Math.min(playerMax, maxAmount);
   
   window._signContext = { exception: excName, maxAmount, effectiveMax };
   document.getElementById('signSalarySection').style.display = '';
@@ -4764,13 +4789,20 @@ function selectSignException(excName, maxAmount) {
 
   // Determine raise rate from player's exception type
   const p = allPlayers.find(pl => pl.name === ctx.name);
-  const raiseRate = p ? getPlayerRaiseRate(p, excName) : (excName === 'Sign-and-Trade' ? 0.08 : 0.05);
+  let raiseRate;
+  if (excName === 'Bird Exception' || excName === 'Early Bird Exception') raiseRate = 0.08;
+  else if (excName === 'Non-Bird Exception') raiseRate = 0.05;
+  else if (excName === 'Sign-and-Trade') raiseRate = 0.08;
+  else raiseRate = p ? getPlayerRaiseRate(p, excName) : 0.05;
 
   // Configure years options
   let minYrs = 1, maxYrs = 5;
   if (excName === 'Sign-and-Trade') { minYrs = 3; maxYrs = 4; }
   else if (excName === 'Two-Way' || excName === 'Exhibit 10') { minYrs = 1; maxYrs = 2; }
   else if (excName === 'Minimum') { maxYrs = 3; }
+  else if (excName === 'Bird Exception') { maxYrs = 5; }
+  else if (excName === 'Early Bird Exception') { maxYrs = 4; }
+  else if (excName === 'Non-Bird Exception') { maxYrs = 4; }
 
   // Rebuild years dropdown
   let yrsHtml = '';
@@ -4782,6 +4814,9 @@ function selectSignException(excName, maxAmount) {
   if (excName === 'Minimum' || excName === 'Two-Way' || excName === 'Exhibit 10') {
     raiseInput.value = '0';
     raiseInput.disabled = true;
+  } else if (excName.includes('Bird')) {
+    raiseInput.value = String(Math.round(raiseRate * 100));
+    raiseInput.disabled = false;
   } else {
     raiseInput.value = String(Math.round(raiseRate * 100));
     raiseInput.disabled = false;
@@ -4790,7 +4825,9 @@ function selectSignException(excName, maxAmount) {
   // Set default salary = trade value, bounded by effective max
   let defaultSal;
   if (excName === 'Minimum' || excName === 'Two-Way' || excName === 'Exhibit 10') {
-    defaultSal = playerMin;
+    // Use player's actual YOS-based minimum salary
+    const yos = ctx.yos || 0;
+    defaultSal = getMinSalaryForYOS(yos);
   } else {
     const proj = ctx.projSalary || playerMin;
     defaultSal = Math.max(playerMin, Math.min(proj, effectiveMax));
