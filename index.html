@@ -508,11 +508,7 @@ a{color:var(--accent);text-decoration:none}
 .share-card-wrap .share-btns{display:flex;gap:.5rem;justify-content:center;margin-top:.75rem}
 .share-card-wrap .share-btns button{padding:.4rem 1rem;border-radius:6px;font-size:.7rem;cursor:pointer;border:1px solid var(--border);font-family:inherit;font-weight:600;background:var(--accent);color:#fff;border-color:var(--accent)}
 
-/* === DRAFT PROBABILITY === */
-.draft-prob{display:flex;gap:.2rem;align-items:center;font-size:.55rem;margin-top:.15rem}
-.draft-prob .prob-bar{height:4px;border-radius:2px;background:var(--accent);min-width:2px}
-.draft-prob .prob-name{color:var(--muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.draft-prob .prob-pct{color:var(--accent);font-weight:700;min-width:28px;text-align:right}
+/* === SHARE CARD BUTTONS === */
 .trade-history-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
 .trade-item{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;margin-bottom:.4rem;font-size:.65rem;position:relative}
 .trade-item .trade-dir{display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;margin:.2rem 0}
@@ -611,8 +607,8 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v2.0</span></h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator <span style="opacity:.5;font-size:.55rem">v0.9</span></div>
+    <h1>🏀 ROSTER MANAGER</h1>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.0</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -2469,29 +2465,6 @@ function getPickTeam(pick) {
   return slot ? slot.team : null;
 }
 
-function getDraftProbabilities(pick, topN = 5) {
-  const drafted = getDraftedProspects();
-  const available = allProspects.filter(n => !drafted.has(n));
-  if (!available.length) return [];
-  const decay = pick <= 5 ? 2.5 : pick <= 14 ? 2.0 : pick <= 30 ? 1.6 : 1.2;
-  const weights = available.map((_, i) => 1 / Math.pow(1 + i, decay));
-  const totalW = weights.reduce((s, w) => s + w, 0);
-  return available.slice(0, topN).map((name, i) => ({
-    name, pct: Math.round(weights[i] / totalW * 100)
-  }));
-}
-
-function renderDraftProbBars(pick) {
-  const probs = getDraftProbabilities(pick, 5);
-  if (!probs.length) return '';
-  let h = '<div style="margin-top:.3rem">';
-  for (const p of probs) {
-    h += `<div class="draft-prob"><span class="prob-pct">${p.pct}%</span><div class="prob-bar" style="width:${Math.max(2, p.pct * 0.8)}px"></div><span class="prob-name">${p.name}</span></div>`;
-  }
-  h += '</div>';
-  return h;
-}
-
 function autoDraftPick(pick) {
   const drafted = getDraftedProspects();
   // Build available prospects in consensus order
@@ -2706,10 +2679,8 @@ function renderDraftBoard() {
   // User's pick selection (if it's their turn)
   if (!isDraftComplete && getPickTeam(current) === teamAbbrev) {
     h += `<div id="yourPickBox" class="your-pick-box" style="background:rgba(59,130,246,.1);border:2px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem">`;
-    h += `<h3 style="color:var(--accent);margin-bottom:.25rem;font-size:.9rem">🎯 Your Pick — #${current}</h3>`;
-    h += `<div style="font-size:.6rem;color:var(--muted);margin-bottom:.5rem">Other teams would likely pick:</div>`;
-    h += renderDraftProbBars(current);
-    h += `<input id="draftSearchInput" class="trade-input" style="width:100%;margin:.5rem 0" placeholder="Filter prospects..." oninput="filterDraftProspects(this.value)">`;
+    h += `<h3 style="color:var(--accent);margin-bottom:.5rem;font-size:.9rem">🎯 Your Pick — #${current}</h3>`;
+    h += `<input id="draftSearchInput" class="trade-input" style="width:100%;margin-bottom:.5rem" placeholder="Filter prospects..." oninput="filterDraftProspects(this.value)">`;
     h += `<div id="draftProspectList" style="max-height:250px;overflow-y:auto">`;
     h += buildDraftProspectList('');
     h += `</div></div>`;
@@ -2746,7 +2717,7 @@ function renderDraftBoard() {
       h += `<td style="font-weight:600">${result.prospect}</td>`;
       h += `<td style="font-size:.6rem;color:var(--muted)">${bioStr}</td>`;
     } else if (isCurrent) {
-      h += `<td style="color:var(--orange);font-style:italic">On the clock...${renderDraftProbBars(pick)}</td>`;
+      h += `<td style="color:var(--orange);font-style:italic">On the clock...</td>`;
       h += `<td></td>`;
     } else {
       h += `<td style="color:var(--muted)">—</td>`;
@@ -3817,29 +3788,15 @@ function advancePhase() {
     }
     const prevPhase = PHASES[currentIdx];
     const nextPhase = PHASES[currentIdx + 1];
-    // Collect recap of moves in this phase
-    const phaseMoves = STATE.moves.filter(m => m.action !== 'Phase');
-    const recapItems = [];
-    const trades = phaseMoves.filter(m => m.action === 'Trade');
-    const waives = phaseMoves.filter(m => m.action === 'Waive' || m.action === 'Stretch');
-    const options = phaseMoves.filter(m => m.action.includes('Option') || m.action.includes('Picked') || m.action.includes('Exercised') || m.action.includes('Declined'));
-    const signings = phaseMoves.filter(m => m.action === 'Signing' || m.action === 'Sign');
-    const extensions = phaseMoves.filter(m => m.action === 'Extension');
-    const drafts = phaseMoves.filter(m => m.action === 'Draft');
-    if (trades.length) recapItems.push(`🔄 ${trades.length} trade(s)`);
-    if (options.length) recapItems.push(`📋 ${options.length} option decision(s)`);
-    if (drafts.length) recapItems.push(`🎯 ${drafts.length} draft pick(s)`);
-    if (signings.length) recapItems.push(`✍️ ${signings.length} signing(s)`);
-    if (extensions.length) recapItems.push(`📄 ${extensions.length} extension(s)`);
-    if (waives.length) recapItems.push(`🗑️ ${waives.length} waive(s)`);
-
     STATE.phase = nextPhase.id;
     STATE.moves.push({ action: 'Phase', detail: `Advanced to ${nextPhase.label}`, undo: { type: 'phase', prev: prevPhase.id } });
     saveState();
-    render();
 
-    // Show recap if there were moves
-    if (recapItems.length) showPhaseRecap(prevPhase.label, nextPhase.label, recapItems);
+    // Collect detailed recap of moves in this phase (exclude Phase advances)
+    const phaseMoves = STATE.moves.filter(m => m.action !== 'Phase');
+    if (phaseMoves.length) showPhaseRecap(prevPhase.label, nextPhase.label, phaseMoves);
+
+    render();
   }
 }
 
@@ -5412,21 +5369,28 @@ selectTeam = function(team) {
 };
 
 // ======================== PHASE RECAP ========================
-function showPhaseRecap(fromPhase, toPhase, items) {
+function showPhaseRecap(fromPhase, toPhase, moves) {
   const overlay = document.getElementById('phaseRecapOverlay');
   overlay.style.display = 'block';
   const recap = document.createElement('div');
   recap.className = 'phase-recap';
   recap.id = 'phaseRecapBox';
+  recap.style.maxHeight = '70vh';
+  recap.style.overflowY = 'auto';
   let h = `<h3>✅ ${fromPhase} Complete</h3>`;
-  h += `<div style="font-size:.65rem;color:var(--muted);margin-bottom:.5rem;text-align:center">Moving to ${toPhase}</div>`;
-  for (const item of items) {
-    h += `<div class="recap-item"><span class="emoji">${item.split(' ')[0]}</span><span>${item.slice(item.indexOf(' ')+1)}</span></div>`;
+  h += `<div style="font-size:.65rem;color:var(--muted);margin-bottom:.6rem;text-align:center">Moving to ${toPhase} · ${moves.length} move${moves.length!==1?'s':''}</div>`;
+  const iconMap = {
+    'Trade':'🔄','Waive':'🗑️','Stretch':'🗑️','Draft':'🎯',
+    'Signing':'✍️','Sign':'✍️','Extension':'📄'
+  };
+  for (const m of moves) {
+    const icon = iconMap[m.action] || '📋';
+    h += `<div class="recap-item"><span class="emoji">${icon}</span><span style="flex:1"><strong style="font-size:.65rem">${m.action}</strong> <span style="color:var(--muted)">${m.detail || ''}</span></span></div>`;
   }
-  h += `<div style="font-size:.55rem;color:var(--muted);text-align:center;margin-top:.6rem">Click anywhere to continue</div>`;
+  h += `<div style="font-size:.55rem;color:var(--muted);text-align:center;margin-top:.75rem">Click anywhere to continue</div>`;
   recap.innerHTML = h;
   document.body.appendChild(recap);
-  setTimeout(() => { overlay.style.display = 'none'; recap.remove(); }, 6000);
+  setTimeout(() => { overlay.style.display = 'none'; recap.remove(); }, 15000);
 }
 function closePhaseRecap() {
   document.getElementById('phaseRecapOverlay').style.display = 'none';
