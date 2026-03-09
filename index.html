@@ -527,7 +527,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v2.0</span></h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator <span style="opacity:.5;font-size:.55rem">v0.7</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator <span style="opacity:.5;font-size:.55rem">v0.8</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -878,13 +878,14 @@ async function fetchDraftPicks() {
         if (!prospect) continue;
         prospects.push(prospect);
 
-        // Bio data: AA(26)=PLAYER, AB(27)=BIRTH DATE, AE(30)=COUNTRY, AK(36)=POSITION
+        // Bio data: AA(26)=PLAYER, AB(27)=BIRTH DATE, AE(30)=COUNTRY, AK(36)=POSITION, AL(37)=PRE-DRAFT TEAM
         const bioName = (row[26] || '').trim();
         const birthDate = (row[27] || '').trim();
         const country = (row[30] || '').trim();
         const position = (row[36] || '').trim();
-        if (birthDate || country || position) {
-          prospectBioMap[prospect] = { birthDate, country, position };
+        const preDraftTeam = (row[37] || '').trim();
+        if (birthDate || country || position || preDraftTeam) {
+          prospectBioMap[prospect] = { birthDate, country, position, preDraftTeam };
         }
 
         // First-round picks (1-30) get rookie scale cap holds
@@ -2376,11 +2377,25 @@ function getPickTeam(pick) {
 
 function autoDraftPick(pick) {
   const drafted = getDraftedProspects();
-  // Pick highest-ranked remaining prospect (allProspects is consensus order)
+  // Build available prospects in consensus order
+  const available = [];
   for (const name of allProspects) {
-    if (!drafted.has(name)) return name;
+    if (!drafted.has(name)) available.push(name);
   }
-  return null;
+  if (!available.length) return null;
+
+  // Weighted random: higher-ranked (earlier in list) prospects are more likely
+  // Decay controls steepness: higher = more predictable
+  // First round is tighter, second round is looser
+  const decay = pick <= 5 ? 2.5 : pick <= 14 ? 2.0 : pick <= 30 ? 1.6 : 1.2;
+  const weights = available.map((_, i) => 1 / Math.pow(1 + i, decay));
+  const totalW = weights.reduce((s, w) => s + w, 0);
+  let rand = Math.random() * totalW;
+  for (let i = 0; i < available.length; i++) {
+    rand -= weights[i];
+    if (rand <= 0) return available[i];
+  }
+  return available[0];
 }
 
 let _draftAnimTimer = null;
@@ -2428,25 +2443,31 @@ function startDraft() {
 }
 
 function skipDraft() {
-  // Auto-draft all 60 picks using default prospect order
+  // Auto-draft all 60 picks using probabilistic selection
   const teamAbbrev = TEAMS[STATE.team];
   const drafted = getDraftedProspects();
+  // Temporarily add all pre-existing drafted to the set
   for (let pick = 1; pick <= 60; pick++) {
     const pickTeam = getPickTeam(pick);
     if (!pickTeam) continue;
-    // Skip already-drafted picks
     if (STATE.draftResults.some(r => r.pick === pick)) continue;
-    
-    // Find best available prospect
-    let prospect = null;
-    for (const name of allProspects) {
-      if (!drafted.has(name)) { prospect = name; break; }
+
+    // Use probabilistic pick (same logic as autoDraftPick)
+    const available = allProspects.filter(n => !drafted.has(n));
+    if (!available.length) continue;
+    const decay = pick <= 5 ? 2.5 : pick <= 14 ? 2.0 : pick <= 30 ? 1.6 : 1.2;
+    const weights = available.map((_, i) => 1 / Math.pow(1 + i, decay));
+    const totalW = weights.reduce((s, w) => s + w, 0);
+    let rand = Math.random() * totalW;
+    let prospect = available[0];
+    for (let i = 0; i < available.length; i++) {
+      rand -= weights[i];
+      if (rand <= 0) { prospect = available[i]; break; }
     }
-    if (!prospect) continue;
-    
+
     STATE.draftResults.push({ pick, team: pickTeam, prospect });
     drafted.add(prospect);
-    
+
     // Record user's picks as moves for undo
     if (pickTeam === teamAbbrev) {
       STATE.draftSelections[pick] = prospect;
@@ -2560,6 +2581,11 @@ function renderDraftBoard() {
 
   h += `<div class="dc-section-label">🏀 2026 NBA Draft ${isDraftComplete ? '— Complete' : `— ${current <= 30 ? 'Round 1' : 'Round 2'}, Pick #${current}`}</div>`;
 
+  // Skip remaining button during active draft
+  if (!isDraftComplete) {
+    h += `<div style="margin-bottom:.75rem"><button class="action-btn" style="font-size:.65rem;padding:.3rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Simulate Remaining Picks</button></div>`;
+  }
+
   // User's pick selection (if it's their turn)
   if (!isDraftComplete && getPickTeam(current) === teamAbbrev) {
     h += `<div id="yourPickBox" class="your-pick-box" style="background:rgba(59,130,246,.1);border:2px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem">`;
@@ -2597,7 +2623,7 @@ function renderDraftBoard() {
     h += `<td><div style="display:flex;align-items:center;gap:.3rem">${logo?`<img src="${logo}" style="width:18px;height:18px">`:''}<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${pickTeam}</span></div></td>`;
     if (isPicked) {
       const bio = prospectBioMap[result.prospect];
-      const bioStr = bio ? [bio.position, bio.country && bio.country !== 'USA' ? `🌍 ${bio.country}` : '', bio.birthDate ? (calcProspectAge(bio.birthDate) ? calcProspectAge(bio.birthDate) + ' yrs' : '') : ''].filter(Boolean).join(' · ') : '';
+      const bioStr = bio ? [bio.position, bio.preDraftTeam ? `🏫 ${bio.preDraftTeam}` : '', bio.country && bio.country !== 'USA' ? `🌍 ${bio.country}` : '', bio.birthDate ? (calcProspectAge(bio.birthDate) ? calcProspectAge(bio.birthDate) + ' yrs' : '') : ''].filter(Boolean).join(' · ') : '';
       h += `<td style="font-weight:600">${result.prospect}</td>`;
       h += `<td style="font-size:.6rem;color:var(--muted)">${bioStr}</td>`;
     } else if (isCurrent) {
@@ -2680,6 +2706,7 @@ function buildDraftProspectList(filter) {
     if (bio) {
       const parts = [];
       if (bio.position) parts.push(bio.position);
+      if (bio.preDraftTeam) parts.push(`🏫 ${bio.preDraftTeam}`);
       if (bio.country && bio.country !== 'USA') parts.push(`🌍 ${bio.country}`);
       if (bio.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) parts.push(`${age} yrs`); }
       if (parts.length) h += `<span style="font-size:.55rem;color:var(--muted);margin-left:.25rem">${parts.join(' · ')}</span>`;
@@ -2806,6 +2833,7 @@ function renderRoster(cap) {
         const bio = prospectBioMap[r.prospect];
         const bioParts = [];
         if (bio?.position) bioParts.push(bio.position);
+        if (bio?.preDraftTeam) bioParts.push(`🏫 ${bio.preDraftTeam}`);
         if (bio?.country && bio.country !== 'USA') bioParts.push(`🌍 ${bio.country}`);
         if (bio?.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) bioParts.push(`${age} yrs`); }
         const bioStr = bioParts.length ? ` · ${bioParts.join(' · ')}` : '';
