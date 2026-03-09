@@ -599,7 +599,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v2.7 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v2.8 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -609,7 +609,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.7</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.8</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -735,8 +735,8 @@ const EST_AVG_SALARY = 13200000; // approximate
 // Min salary escalates by ~$100K per YOS; max % of cap by tiers
 const MIN_SALARY_BY_YOS = [
   1366314,1729368,1943840,2018015,2168293,2318571,2468848,2619126,2769404,2919682,
-  3069959,3220237,3381249,3542261,3661575,3780889,3900945
-]; // Index = YOS, projected 2026-27 via cap raise
+  3900945
+]; // Index 0-9 = specific YOS, Index 10 = 10+ year veteran minimum (all 10+ get same amount)
 function getPlayerYOS(p) {
   const raw = String(p?.age || '');
   const ageNum = parseFloat(raw) || 0;
@@ -1784,7 +1784,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 12; // bump this to invalidate saved orders
+  const ALGO_VERSION = 13; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -1883,7 +1883,8 @@ function buildDepthPositions(players) {
       }
     }
 
-    // Pass 5: Swap optimization — reduce total position distance by swapping pairs
+    // Pass 5: Swap optimization — reduce position distance by swapping pairs
+    // Prefer: lower total distance, or same total but lower MAX distance
     for (let iter = 0; iter < 10; iter++) {
       let improved = false;
       for (let a = 0; a < POS.length; a++) {
@@ -1891,9 +1892,11 @@ function buildDepthPositions(players) {
           if (!assigned[a] || !assigned[b]) continue;
           const natA = POS_IDX_R[posOf(assigned[a])];
           const natB = POS_IDX_R[posOf(assigned[b])];
-          const currentDist = Math.abs(natA - a) + Math.abs(natB - b);
-          const swapDist = Math.abs(natA - b) + Math.abs(natB - a);
-          if (swapDist < currentDist) {
+          const distA = Math.abs(natA - a), distB = Math.abs(natB - b);
+          const distAswap = Math.abs(natA - b), distBswap = Math.abs(natB - a);
+          const currentTotal = distA + distB, swapTotal = distAswap + distBswap;
+          const currentMax = Math.max(distA, distB), swapMax = Math.max(distAswap, distBswap);
+          if (swapTotal < currentTotal || (swapTotal === currentTotal && swapMax < currentMax)) {
             [assigned[a], assigned[b]] = [assigned[b], assigned[a]];
             improved = true;
           }
@@ -1967,7 +1970,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 12 };
+  const order = { _v: 13 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
