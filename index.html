@@ -599,7 +599,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v2.8 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v3.0 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -609,7 +609,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.8</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.0</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -738,14 +738,12 @@ const MIN_SALARY_BY_YOS = [
   3900945
 ]; // Index 0-9 = specific YOS, Index 10 = 10+ year veteran minimum (all 10+ get same amount)
 function getPlayerYOS(p) {
+  // Use actual YOS from spreadsheet (column AM) if available
+  if (p?.yos !== undefined && p.yos !== null && p.yos >= 0) return p.yos;
+  // Fallback: estimate from age
   const raw = String(p?.age || '');
   const ageNum = parseFloat(raw) || 0;
-  if (ageNum >= 18) return Math.max(0, Math.floor(ageNum) - 19);
-  const sal = p?.sal26 || p?.sal27 || 0;
-  if (sal >= 20000000) return 10;
-  if (sal >= 10000000) return 7;
-  if (sal >= 5000000) return 4;
-  if (sal >= 2000000) return 2;
+  if (ageNum >= 18) return Math.max(0, Math.floor(ageNum) - 20);
   return 0;
 }
 function formatAge(raw) {
@@ -1252,6 +1250,7 @@ function parseAllPlayers(csv) {
     const tradeKicker = parseFloat((r[31] || '').trim()) || 0;
     const rat365 = parseFloat((r[11] || '').trim()) || 0;
     const extEligible = extColIdx >= 0 ? (r[extColIdx] || '').trim() : '';
+    const yos = parseInt((r[38] || '').trim()) || 0; // Column AM = Years of Service
 
     if (logo && team) teamLogos[team] = logo;
 
@@ -1281,8 +1280,7 @@ function parseAllPlayers(csv) {
     // Only eligible if entering LAST year of contract (end === 2027 = contract expires after 26-27)
     let computedExtEligible = extEligible;
     if (!computedExtEligible && !isTwoWay && end === 2027 && sal27 > 0) {
-      const pAge = parseInt(age) || 22;
-      const pYos = Math.max(0, pAge - 19);
+      const pYos = yos || Math.max(0, (parseInt(age) || 22) - 20);
       if (exception && /rookie/i.test(exception) && (category === 'under_contract' || category === 'team_option')) {
         // Rookie Scale Extension: 25% cap, up to 5 new years
         computedExtEligible = 'RSE:25:5';
@@ -1296,7 +1294,7 @@ function parseAllPlayers(csv) {
     players.push({
       name, team, sal26, ch26, st26, sal27, ch27, st27,
       exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
-      category, capHold, extEligible: computedExtEligible, rat365, isTwoWay,
+      category, capHold, extEligible: computedExtEligible, rat365, isTwoWay, yos,
       tv: tradeValueMap[name.toLowerCase()] || 0
     });
   }
@@ -1509,7 +1507,8 @@ function calcCapSheet(team) {
         exception: sig.exception, st27: 'TWO-WAY', status: 'signed', isTwoWay: true,
         end: sig.end || 2027, tradeKicker: 0, tv: tradeValueMap[sig.name.toLowerCase()] || 0,
         contractType: sig.contractType, _signed: true,
-        age: (allPlayers.find(ap => ap.name === sig.name) || {}).age || ''
+        age: sig.age || (allPlayers.find(ap => ap.name === sig.name) || {}).age || '',
+        yos: sig.yos || (allPlayers.find(ap => ap.name === sig.name) || {}).yos || 0
       });
       continue;
     }
@@ -1524,7 +1523,8 @@ function calcCapSheet(team) {
       exception: sig.exception, st27: st27Label, status: 'signed',
       end: sig.end || 2027, tradeKicker: 0, tv: tradeValueMap[sig.name.toLowerCase()] || 0,
       contractType: sig.contractType, isSignAndTrade: sig.isSignAndTrade, _signed: true,
-      age: (allPlayers.find(ap => ap.name === sig.name) || {}).age || ''
+      age: sig.age || (allPlayers.find(ap => ap.name === sig.name) || {}).age || '',
+      yos: sig.yos || (allPlayers.find(ap => ap.name === sig.name) || {}).yos || 0
     });
   }
 
@@ -4865,7 +4865,7 @@ function _doFilterSignList(query, tier) {
     const bae = T.bae || 5500000;
     fas = fas.filter(p => {
       const tv = p.tv || 0;
-      const yos = Math.max(0, (parseInt(p.age) || 22) - 19);
+      const yos = p.yos || Math.max(0, (parseInt(p.age) || 22) - 20);
       if (tier === 'mle') return tv >= ntmle;
       if (tier === 'bae') return tv >= bae && tv < ntmle;
       if (tier === 'min') return tv > 0 && tv < bae;
@@ -5327,6 +5327,8 @@ function confirmSigning() {
     exception: excName || 'FA',
     pos: p?.pos || '',
     headshot: p?.headshot || '',
+    age: p?.age || '',
+    yos: p ? getPlayerYOS(p) : (window._signPlayerContext?.yos || 0),
     end: 2027 + years - 1,
     contractType,
     guaranteedPct: 100,
@@ -5482,6 +5484,7 @@ function confirmRookieScaleSigning(prospect, pickNum) {
     exception: 'Rookie Scale',
     pos: bio?.position || '',
     headshot: '',
+    age: bio?.birthDate ? calcProspectAge(bio.birthDate) : null,
     end: 2030,
     contractType: 'guaranteed',
     guaranteedPct: 100,
@@ -5522,6 +5525,7 @@ function confirmSREsigning(prospect, pickNum, sreType) {
     exception: 'Second Round Exception',
     pos: bio?.position || '',
     headshot: '',
+    age: bio?.birthDate ? calcProspectAge(bio.birthDate) : null,
     end: 2027 + sre.years - 1,
     contractType: 'guaranteed',
     guaranteedPct: 100,
