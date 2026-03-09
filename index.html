@@ -598,7 +598,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.5 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.6 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -608,7 +608,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.5</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.6</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1695,7 +1695,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 10; // bump this to invalidate saved orders
+  const ALGO_VERSION = 11; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -1725,91 +1725,94 @@ function buildDepthPositions(players) {
     PF:['PF','SF','C','SG','PG'],
     C:['C','PF','SF','SG','PG']
   };
-  const remaining = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
+  const sorted = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
   const byPos = {}; POS.forEach(p => byPos[p] = []);
+  const fullRows = Math.floor(players.length / 5);
   const maxRows = Math.ceil(players.length / 5);
-  const fullRows = Math.floor(players.length / 5); // these rows MUST be completely filled
+  const POS_IDX_R = {PG:0,SG:1,SF:2,PF:3,C:4};
 
   for (let row = 0; row < maxRows; row++) {
-    const mustFillAll = row < fullRows; // mandatory full row
-    const rowPicks = [];
-    for (const pos of POS) {
-      let bestIdx = -1, bestTV = -1;
-      for (let i = 0; i < remaining.length; i++) {
-        const p = remaining[i];
-        const nat = posOf(p);
-        const valid = [nat, ...ADJ[nat]];
-        if (valid.includes(pos) && (p.tv||0) > bestTV) {
-          bestTV = p.tv||0;
-          bestIdx = i;
-        }
-      }
-      if (bestIdx >= 0) {
-        rowPicks.push({ pos, idx: bestIdx, tv: bestTV });
+    const mustFillAll = row < fullRows;
+    // Take the next chunk of players by TV rank
+    const rowSize = mustFillAll ? 5 : (players.length - row * 5);
+    const rowPlayers = sorted.splice(0, rowSize);
+
+    // Assign positions within this row group using best-fit matching
+    // Try all permutations for small groups; greedy for larger
+    const assigned = new Array(POS.length).fill(null);
+    const usedPlayers = new Set();
+
+    // Pass 1: assign players to their natural position
+    for (const p of rowPlayers) {
+      const nat = posOf(p);
+      const posIdx = POS_IDX_R[nat];
+      if (posIdx !== undefined && !assigned[posIdx] && !usedPlayers.has(p)) {
+        assigned[posIdx] = p;
+        usedPlayers.add(p);
       }
     }
-    const used = new Set();
-    rowPicks.sort((a,b) => {
-      const countA = remaining.filter(p => !used.has(p) && [posOf(p), ...ADJ[posOf(p)]].includes(a.pos)).length;
-      const countB = remaining.filter(p => !used.has(p) && [posOf(p), ...ADJ[posOf(p)]].includes(b.pos)).length;
-      return countA - countB;
-    });
-    for (const pick of rowPicks) {
-      let bestP = null, bestTV = -1, bestRI = -1;
-      for (let i = 0; i < remaining.length; i++) {
-        const p = remaining[i];
-        if (used.has(p)) continue;
-        const nat = posOf(p);
-        const valid = [nat, ...ADJ[nat]];
-        if (valid.includes(pick.pos) && (p.tv||0) > bestTV) {
-          bestTV = p.tv||0;
-          bestP = p;
-          bestRI = i;
+
+    // Pass 2: assign unplaced players to adjacent positions (distance 1)
+    for (const p of rowPlayers) {
+      if (usedPlayers.has(p)) continue;
+      const nat = posOf(p);
+      const adjPositions = ADJ[nat] || [];
+      for (const adj of adjPositions) {
+        const posIdx = POS_IDX_R[adj];
+        if (!assigned[posIdx]) {
+          assigned[posIdx] = p;
+          usedPlayers.add(p);
+          break;
         }
       }
-      // Fallback: try by proximity, distance ≤ 2
-      if (!bestP) {
-        for (const tryPos of PROXIMITY[pick.pos]) {
-          const tryDist = Math.abs(({PG:0,SG:1,SF:2,PF:3,C:4})[tryPos] - ({PG:0,SG:1,SF:2,PF:3,C:4})[pick.pos]);
-          if (tryDist > 2) continue;
-          for (let i = 0; i < remaining.length; i++) {
-            const p = remaining[i];
-            if (used.has(p)) continue;
-            if (posOf(p) === tryPos && (p.tv||0) > bestTV) {
-              bestTV = p.tv||0; bestP = p; bestRI = i;
-            }
+    }
+
+    // Pass 3: distance 2
+    for (const p of rowPlayers) {
+      if (usedPlayers.has(p)) continue;
+      const natIdx = POS_IDX_R[posOf(p)];
+      for (let pi = 0; pi < POS.length; pi++) {
+        if (!assigned[pi] && Math.abs(natIdx - pi) <= 2) {
+          assigned[pi] = p;
+          usedPlayers.add(p);
+          break;
+        }
+      }
+    }
+
+    // Pass 4 (mandatory full rows only): any open slot
+    if (mustFillAll) {
+      for (const p of rowPlayers) {
+        if (usedPlayers.has(p)) continue;
+        for (let pi = 0; pi < POS.length; pi++) {
+          if (!assigned[pi]) {
+            assigned[pi] = p;
+            usedPlayers.add(p);
+            break;
           }
-          if (bestP) break;
         }
       }
-      // Last resort for mandatory full rows: allow ANY remaining player
-      if (!bestP && mustFillAll) {
-        for (let i = 0; i < remaining.length; i++) {
-          const p = remaining[i];
-          if (used.has(p)) continue;
-          if ((p.tv||0) > bestTV) { bestTV = p.tv||0; bestP = p; bestRI = i; }
+    }
+
+    // Place assigned players into byPos columns
+    for (let pi = 0; pi < POS.length; pi++) {
+      if (assigned[pi]) byPos[POS[pi]].push(assigned[pi]);
+    }
+    // Any unplaced in partial row — find closest column within distance 2
+    for (const p of rowPlayers) {
+      if (usedPlayers.has(p)) continue;
+      const natIdx = POS_IDX_R[posOf(p)];
+      let bestPos = posOf(p), bestCount = Infinity;
+      for (const pos of POS) {
+        const dist = Math.abs(POS_IDX_R[pos] - natIdx);
+        if (dist <= 2 && byPos[pos].length < bestCount) {
+          bestCount = byPos[pos].length; bestPos = pos;
         }
       }
-      if (bestP) {
-        byPos[pick.pos].push(bestP);
-        used.add(bestP);
-        remaining.splice(bestRI, 1);
-      }
+      byPos[bestPos].push(p);
     }
   }
-  // Any leftover — place in the least-filled column within 2 positions of natural
-  const POS_IDX_L = {PG:0,SG:1,SF:2,PF:3,C:4};
-  for (const p of remaining) {
-    const natIdx = POS_IDX_L[posOf(p)];
-    let minPos = posOf(p), minCount = Infinity;
-    for (const pos of POS) {
-      const dist = Math.abs(POS_IDX_L[pos] - natIdx);
-      if (dist <= 2 && byPos[pos].length < minCount) {
-        minCount = byPos[pos].length; minPos = pos;
-      }
-    }
-    byPos[minPos].push(p);
-  }
+  const remaining = []; // all players are placed above
 
   // === REBALANCE: balance columns, but NEVER move a player more than 2 positions away ===
   const POS_IDX = {PG:0,SG:1,SF:2,PF:3,C:4};
@@ -1856,7 +1859,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 10 };
+  const order = { _v: 11 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
