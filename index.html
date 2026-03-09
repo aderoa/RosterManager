@@ -599,7 +599,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v2.4 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v2.5 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -609,7 +609,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.4</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.5</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -726,18 +726,30 @@ const THRESHOLDS = {
   '2027-2028': {cap:174300000,tax:211775000,apron1:220812000,apron2:234200000,bae:5787000,ntmle:15896000,tmle:6407000,rmle:9897000},
 };
 const T = THRESHOLDS['2026-2027'];
-const MIN_SALARY_0YOS = 1272870; // approximate 2026-27 minimum for 0 YOS
-const MIN_SALARY_CAP_HOLD = Math.round(MIN_SALARY_0YOS * 1.5); // ~$1.9M
+const MIN_SALARY_0YOS = 1366314; // 2026-27 minimum for 0 YOS (projected)
+const MIN_SALARY_CAP_HOLD = Math.round(MIN_SALARY_0YOS * 1.5); // ~$2.05M
+const TWO_WAY_SALARY = Math.round(MIN_SALARY_0YOS / 2); // ~$683K
 const EST_AVG_SALARY = 13200000; // approximate
 
 // YOS-based salary bounds (NBA CBA)
 // Min salary escalates by ~$100K per YOS; max % of cap by tiers
-const MIN_SALARY_BY_YOS = [1272870,1611094,1810898,1880000,2020000,2160000,2300000,2440000,2580000,2720000,2860000,3000000,3150000,3300000];
+const MIN_SALARY_BY_YOS = [
+  1366314,1729368,1943840,2018015,2168293,2318571,2468848,2619126,2769404,2919682,
+  3069959,3220237,3381249,3542261,3661575,3780889,3900945
+]; // Index = YOS, projected 2026-27 via cap raise
 function getPlayerYOS(p) {
   // Estimate years of service from age; NBA entry ~19
-  const ageNum = parseInt(p?.age) || 0;
-  if (!ageNum) return 0;
-  return Math.max(0, ageNum - 19);
+  const raw = String(p?.age || '');
+  // Try parsing as number (handles "36", "36-284", "36.7", etc.)
+  const ageNum = parseFloat(raw) || 0;
+  if (ageNum >= 18) return Math.max(0, Math.floor(ageNum) - 19);
+  // Fallback: estimate from salary (higher salary → more experience)
+  const sal = p?.sal26 || p?.sal27 || 0;
+  if (sal >= 20000000) return 10;
+  if (sal >= 10000000) return 7;
+  if (sal >= 5000000) return 4;
+  if (sal >= 2000000) return 2;
+  return 0;
 }
 function getPlayerMinSalary(p) {
   const yos = getPlayerYOS(p);
@@ -1565,7 +1577,7 @@ function calcCapSheet(team) {
   // Only count players actually under two-way contract, not two-way free agents
   const twoWayCount = (STATE.signings || []).filter(s => s.contractType === 'two-way' && !STATE.waived.has(s.name)).length
     + players.filter(p => p.isTwoWay && p.sal27 && p.category !== 'free_agent' && !STATE.waived.has(p.name) && !tradedOut.has(p.name)).length;
-  exceptions.push({ name: 'Two-Way', amount: Math.round(ROOKIE_SCALE[29] / 2), available: twoWayCount < 3, note: `${twoWayCount}/3 used · Max 3 YOS`, isTwoWay: true });
+  exceptions.push({ name: 'Two-Way', amount: TWO_WAY_SALARY, available: twoWayCount < 3, note: `${twoWayCount}/3 used · Max 3 YOS`, isTwoWay: true });
   // Exhibit 10 (training camp only)
   if (STATE.phase === 'training_camp') {
     exceptions.push({ name: 'Exhibit 10', amount: MIN_SALARY_0YOS, available: true, note: '$100K bonus' });
@@ -4028,7 +4040,11 @@ function showPlayerCard(event, playerName) {
     h += p.headshot ? `<img src="${p.headshot}" onerror="this.outerHTML='<div class=phc-ini>${ini}</div>'">` : `<div class="phc-ini">${ini}</div>`;
     h += `<div><div class="phc-name">${playerName}</div><div class="phc-sub">${p.pos || ''} · ${p.age ? p.age + ' yrs' : ''} · ${TEAMS[STATE.team]}</div></div></div>`;
     h += `<div class="phc-stats">`;
-    h += `<div class="phc-stat"><span class="phc-stat-label">Salary</span><span class="phc-stat-val">${fmtMoney(p.sal27 || 0)}</span></div>`;
+    // Get effective salary: check signings first (for FAs), then sal27
+    const signing = (STATE.signings || []).find(s => s.name === playerName);
+    const effectiveSal = signing ? signing.salary : (p.sal27 || 0);
+    const salLabel = signing ? `${fmtMoney(signing.salary)}/${signing.years}yr` : fmtMoney(p.sal27 || 0);
+    h += `<div class="phc-stat"><span class="phc-stat-label">Salary</span><span class="phc-stat-val">${salLabel}</span></div>`;
     h += `<div class="phc-stat"><span class="phc-stat-label">Est. Value</span><span class="phc-stat-val">${tv ? fmtMoney(tv) : '—'}</span></div>`;
     if (cd) {
       const yrsLeft = cd.yrs.filter(y => y && y.sal > 0).length;
@@ -4595,8 +4611,7 @@ function openSignModal(faName, isResign) {
     h += `</div>`;
     h += `<div style="display:flex;gap:.25rem;flex-wrap:wrap;margin-bottom:.5rem" id="signTierBtns">`;
     h += `<button onclick="filterSignTier('all')" class="dc-btn" style="font-size:.55rem;padding:.2rem .4rem;background:var(--accent);color:#fff;border-color:var(--accent)">All</button>`;
-    h += `<button onclick="filterSignTier('max')" class="dc-btn" style="font-size:.55rem;padding:.2rem .4rem">Max</button>`;
-    h += `<button onclick="filterSignTier('mle')" class="dc-btn" style="font-size:.55rem;padding:.2rem .4rem">MLE+</button>`;
+    h += `<button onclick="filterSignTier('mle')" class="dc-btn" style="font-size:.55rem;padding:.2rem .4rem">Over MLE</button>`;
     h += `<button onclick="filterSignTier('bae')" class="dc-btn" style="font-size:.55rem;padding:.2rem .4rem">BAE–MLE</button>`;
     h += `<button onclick="filterSignTier('min')" class="dc-btn" style="font-size:.55rem;padding:.2rem .4rem">Min–BAE</button>`;
     h += `<button onclick="filterSignTier('tw')" class="dc-btn" style="font-size:.55rem;padding:.2rem .4rem">2W</button>`;
@@ -4663,34 +4678,9 @@ function openSignModal(faName, isResign) {
     // Hide S&T for re-signing own FAs and for draft picks
     if (exc.isSAT && window._signIsResign) continue;
     if (exc.isSAT && window._signIsDraftPick) continue;
-    // ALL Bird rights exceptions are team-specific — only for re-signing own FAs
-    if (exc.isBirdRights && !window._signIsResign) continue;
-    // Hide Bird rights for draft picks
-    if (exc.isBirdRights && window._signIsDraftPick) continue;
-    // Show only the best Bird exception matching the player's actual rights
-    if (exc.isBirdRights && window._signIsResign) {
-      const pExc = (window._signPlayerContext?.exception || '').toLowerCase();
-      if (!pExc.includes('bird')) continue;
-      // Full Bird: only if player has full Bird rights
-      if (exc.name === 'Bird Exception') {
-        if (pExc.includes('non-bird') || pExc.includes('non bird') || pExc.includes('early bird') || pExc.includes('early-bird')) continue;
-      }
-      // Early Bird: only if player has Early Bird (skip if full Bird is available — show best only)
-      if (exc.name === 'Early Bird Exception') {
-        if (pExc.includes('non-bird') || pExc.includes('non bird')) continue;
-        // Skip if player has full Bird (already shown above)
-        if (pExc === 'bird exception' || (pExc.includes('bird') && !pExc.includes('early') && !pExc.includes('non'))) continue;
-      }
-      // Non-Bird: skip if player has Early or Full Bird
-      if (exc.name === 'Non-Bird Exception') {
-        if (pExc.includes('bird') && !pExc.includes('non-bird') && !pExc.includes('non bird')) continue;
-      }
-    }
-    // Two-Way: hide for players with >3 YOS (counting 2025-26 season)
-    if (exc.isTwoWay) {
-      const playerYos = window._signPlayerContext?.yos || 0;
-      if (playerYos > 3) continue; // not eligible
-    }
+    // ALL Bird rights exceptions — don't show in exception list
+    // Max salary from Bird rights is already reflected in the player's max salary shown above
+    if (exc.isBirdRights) continue;
     let cls = exc.available ? '' : 'unavailable';
     // For Minimum, show the player's specific YOS-based salary
     let detailText;
@@ -4699,8 +4689,7 @@ function openSignModal(faName, isResign) {
       const minSal = getMinSalaryForYOS(playerYos);
       detailText = `Fixed: ${fmtMoneyFull(minSal)} (${playerYos} YOS)`;
     } else if (exc.isTwoWay && exc.available) {
-      const twSal = Math.round(ROOKIE_SCALE[29] / 2);
-      detailText = `Fixed: ${fmtMoneyFull(twSal)}/yr`;
+      detailText = `Fixed: ${fmtMoneyFull(TWO_WAY_SALARY)}/yr`;
     } else if (!exc.available) {
       detailText = exc.unavailNote ? `Not available — ${exc.unavailNote}` : 'Not available';
     } else if (exc.remaining !== undefined) {
@@ -4806,7 +4795,7 @@ function filterSignTier(tier) {
     btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = '';
   });
   const btns = document.querySelectorAll('#signTierBtns .dc-btn');
-  const tierIdx = ['all','max','mle','bae','min','tw'].indexOf(tier);
+  const tierIdx = ['all','mle','bae','min','tw'].indexOf(tier);
   if (btns[tierIdx]) { btns[tierIdx].style.background = 'var(--accent)'; btns[tierIdx].style.color = '#fff'; btns[tierIdx].style.borderColor = 'var(--accent)'; }
 }
 
@@ -4826,8 +4815,7 @@ function _doFilterSignList(query, tier) {
     fas = fas.filter(p => {
       const tv = p.tv || 0;
       const yos = Math.max(0, (parseInt(p.age) || 22) - 19);
-      if (tier === 'max') return tv >= Math.round(T.cap * 0.25);
-      if (tier === 'mle') return tv >= ntmle && tv < Math.round(T.cap * 0.25);
+      if (tier === 'mle') return tv >= ntmle;
       if (tier === 'bae') return tv >= bae && tv < ntmle;
       if (tier === 'min') return tv > 0 && tv < bae;
       if (tier === 'tw') return tv < MIN_SALARY_0YOS * 1.5 && yos <= 3;
@@ -4916,10 +4904,18 @@ function selectSignException(excName, maxAmount) {
   const playerMax = ctx.playerMax || Math.round(T.cap * 0.25);
   const playerMin = ctx.playerMin || MIN_SALARY_0YOS;
   
+  // Two-Way YOS eligibility check
+  if (excName === 'Two-Way') {
+    const playerYos = ctx.yos || 0;
+    if (playerYos > 3) {
+      alert(`${ctx.name || 'This player'} has ${playerYos} years of experience and is not eligible for a two-way contract (max 3 YOS).`);
+      return;
+    }
+  }
+
   // Effective max: can't exceed player max OR exception amount (whichever is lower)
-  // S&T and Bird rights bypass exception limits (capped only by player max)
-  const isBirdType = excName.includes('Bird');
-  const effectiveMax = (excName === 'Sign-and-Trade' || isBirdType) ? playerMax : Math.min(playerMax, maxAmount);
+  // S&T bypasses exception limits (capped only by player max)
+  const effectiveMax = excName === 'Sign-and-Trade' ? playerMax : Math.min(playerMax, maxAmount);
   
   window._signContext = { exception: excName, maxAmount, effectiveMax };
   document.getElementById('signSalarySection').style.display = '';
@@ -4967,9 +4963,13 @@ function selectSignException(excName, maxAmount) {
   // Set default salary = trade value, bounded by effective max
   let defaultSal;
   if (excName === 'Minimum' || excName === 'Two-Way' || excName === 'Exhibit 10') {
-    // Use player's actual YOS-based minimum salary
-    const yos = ctx.yos || 0;
-    defaultSal = getMinSalaryForYOS(yos);
+    // Use player's actual YOS-based minimum salary, or Two-Way fixed amount
+    if (excName === 'Two-Way') {
+      defaultSal = TWO_WAY_SALARY;
+    } else {
+      const yos = ctx.yos || 0;
+      defaultSal = getMinSalaryForYOS(yos);
+    }
   } else {
     const proj = ctx.projSalary || playerMin;
     defaultSal = Math.max(playerMin, Math.min(proj, effectiveMax));
@@ -5059,10 +5059,15 @@ function getSignYearStructure() {
     const seasonLabel = `'${String(season - 1).slice(2)}-${String(season).slice(2)}`;
     let sal;
     if (isMin) {
-      // Minimum contracts: use player's YOS-based minimum (increases each year as YOS grows)
       const ctx = window._signPlayerContext || {};
       const baseYos = ctx.yos || 0;
-      sal = MIN_SALARY_BY_YOS[Math.min(baseYos + y, MIN_SALARY_BY_YOS.length - 1)] || MIN_SALARY_0YOS;
+      if (excName === 'Two-Way') {
+        // Two-Way: fixed half-minimum salary, projected for each year
+        sal = Math.round(MIN_SALARY_BY_YOS[Math.min(y, MIN_SALARY_BY_YOS.length - 1)] / 2) || TWO_WAY_SALARY;
+      } else {
+        // Minimum contracts: use player's YOS-based minimum (increases each year as YOS grows)
+        sal = MIN_SALARY_BY_YOS[Math.min(baseYos + y, MIN_SALARY_BY_YOS.length - 1)] || MIN_SALARY_0YOS;
+      }
     } else {
       // Raises based on year 1 salary (NBA style: fixed raise amount each year)
       const raiseAmt = Math.round(baseSal * raiseRate);
@@ -5200,7 +5205,11 @@ function confirmSigning() {
     let yrSal;
     if (isMin) {
       const baseYos = (window._signPlayerContext?.yos) || 0;
-      yrSal = MIN_SALARY_BY_YOS[Math.min(baseYos + y, MIN_SALARY_BY_YOS.length - 1)] || MIN_SALARY_0YOS;
+      if (excName === 'Two-Way') {
+        yrSal = Math.round(MIN_SALARY_BY_YOS[Math.min(y, MIN_SALARY_BY_YOS.length - 1)] / 2) || TWO_WAY_SALARY;
+      } else {
+        yrSal = MIN_SALARY_BY_YOS[Math.min(baseYos + y, MIN_SALARY_BY_YOS.length - 1)] || MIN_SALARY_0YOS;
+      }
     } else {
       const raiseAmt = Math.round(salary * raiseRate);
       yrSal = salary + (raiseAmt * y);
