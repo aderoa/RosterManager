@@ -599,7 +599,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v3.0 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v3.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -609,7 +609,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.0</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.1</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1116,9 +1116,16 @@ async function fetchContracts() {
           ch: parseMoney(row[yr.cc]),
           st: normContractSt(row[yr.tc])
         }));
+        // Extract YOS from column AM (index 38)
+        const playerYos = parseInt((row[38] || '').trim()) || 0;
         // Only store if player has at least one future year salary
         if (yrs.some(y => y.sal)) {
-          contractsMap[name] = { yrs, totG: parseMoney(row[28]) };
+          contractsMap[name] = { yrs, totG: parseMoney(row[28]), yos: playerYos };
+        }
+        // Also store YOS separately for all players (even those without future salary)
+        if (playerYos > 0) {
+          if (!window._yosMap) window._yosMap = {};
+          window._yosMap[name] = playerYos;
         }
       }
       console.log(`[Contracts] Loaded ${Object.keys(contractsMap).length} players`);
@@ -1250,7 +1257,6 @@ function parseAllPlayers(csv) {
     const tradeKicker = parseFloat((r[31] || '').trim()) || 0;
     const rat365 = parseFloat((r[11] || '').trim()) || 0;
     const extEligible = extColIdx >= 0 ? (r[extColIdx] || '').trim() : '';
-    const yos = parseInt((r[38] || '').trim()) || 0; // Column AM = Years of Service
 
     if (logo && team) teamLogos[team] = logo;
 
@@ -1280,7 +1286,7 @@ function parseAllPlayers(csv) {
     // Only eligible if entering LAST year of contract (end === 2027 = contract expires after 26-27)
     let computedExtEligible = extEligible;
     if (!computedExtEligible && !isTwoWay && end === 2027 && sal27 > 0) {
-      const pYos = yos || Math.max(0, (parseInt(age) || 22) - 20);
+      const pYos = Math.max(0, (parseInt(age) || 22) - 20);
       if (exception && /rookie/i.test(exception) && (category === 'under_contract' || category === 'team_option')) {
         // Rookie Scale Extension: 25% cap, up to 5 new years
         computedExtEligible = 'RSE:25:5';
@@ -1294,7 +1300,7 @@ function parseAllPlayers(csv) {
     players.push({
       name, team, sal26, ch26, st26, sal27, ch27, st27,
       exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
-      category, capHold, extEligible: computedExtEligible, rat365, isTwoWay, yos,
+      category, capHold, extEligible: computedExtEligible, rat365, isTwoWay,
       tv: tradeValueMap[name.toLowerCase()] || 0
     });
   }
@@ -5659,6 +5665,13 @@ async function init() {
   }
 
   allPlayers = parseAllPlayers(csv);
+  // Merge YOS from contracts data into player objects
+  const yosMap = window._yosMap || {};
+  for (const p of allPlayers) {
+    if (yosMap[p.name] !== undefined) p.yos = yosMap[p.name];
+    else if (contractsMap[p.name]?.yos) p.yos = contractsMap[p.name].yos;
+    else p.yos = 0;
+  }
   document.getElementById('loadingState').style.display = 'none';
   renderTeamDropdown();
   renderLandingPage();
