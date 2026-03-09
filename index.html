@@ -598,7 +598,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.0 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -608,7 +608,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.0</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.1</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1694,7 +1694,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 5; // bump this to invalidate saved orders
+  const ALGO_VERSION = 6; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -1803,6 +1803,29 @@ function buildDepthPositions(players) {
     byPos[minPos || nat].push(p);
   }
 
+  // === REBALANCE: ensure no column is more than 1 player taller than any other ===
+  let rebalanced = true;
+  while (rebalanced) {
+    rebalanced = false;
+    const counts = POS.map(p => byPos[p].length);
+    const maxC = Math.max(...counts);
+    const minC = Math.min(...counts);
+    if (maxC - minC <= 1) break;
+    // Find the tallest column and shortest column
+    const tallPos = POS[counts.indexOf(maxC)];
+    const shortPos = POS[counts.indexOf(minC)];
+    // Move the lowest-TV player from tallest to shortest
+    if (byPos[tallPos].length > 1) {
+      let worstIdx = 0, worstTV = Infinity;
+      for (let i = 0; i < byPos[tallPos].length; i++) {
+        if ((byPos[tallPos][i].tv || 0) < worstTV) { worstTV = byPos[tallPos][i].tv || 0; worstIdx = i; }
+      }
+      const moved = byPos[tallPos].splice(worstIdx, 1)[0];
+      byPos[shortPos].push(moved);
+      rebalanced = true;
+    }
+  }
+
   // Clear stale order
   STATE.depthOrder = {};
   saveState();
@@ -1812,7 +1835,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 5 };
+  const order = { _v: 6 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
@@ -3809,6 +3832,7 @@ function advancePhase() {
 
 function undoLast() {
   if (!STATE.moves.length) return;
+  document.body.style.overflow = ''; // restore scrolling in case modal left it hidden
   const last = STATE.moves.pop();
   const undoneAction = last.action;
   if (last.undo) {
@@ -4508,8 +4532,9 @@ function openSignModal(faName, isResign) {
   }
 
   for (const exc of cap.exceptions) {
-    // Hide S&T for re-signing own FAs
+    // Hide S&T for re-signing own FAs and for draft picks
     if (exc.isSAT && window._signIsResign) continue;
+    if (exc.isSAT && window._isDraftPickSign) continue;
     const cls = exc.available ? '' : 'unavailable';
     h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
     h += `<div class="exc-name">${exc.name}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
@@ -5095,7 +5120,7 @@ function openDraftPickSignModal(prospect, pickNum) {
     h += `</div>`;
     h += `<table class="contract-table" style="margin-bottom:.75rem"><thead><tr><th>Year</th><th>Salary</th><th>Status</th></tr></thead><tbody>`;
     for (let y = 0; y < 4; y++) {
-      const status = y < 2 ? 'Guaranteed' : y === 2 ? 'Guaranteed' : 'Team Option';
+      const status = y < 2 ? 'Guaranteed' : 'Team Option';
       const stColor = status === 'Team Option' ? 'var(--orange)' : 'var(--green)';
       h += `<tr><td>${2027 + y}-${28 + y}</td><td>${fmtMoneyFull(yrs[y])}</td><td style="color:${stColor}">${status}</td></tr>`;
     }
@@ -5119,7 +5144,7 @@ function confirmRookieScaleSigning(prospect, pickNum) {
   const yearStructure = [];
   for (let y = 0; y < 4; y++) {
     const sal = Math.round(rookieSal * (1 + raise5 * y));
-    const status = y < 3 ? 'guaranteed' : 'team_option';
+    const status = y < 2 ? 'guaranteed' : 'team_option';
     yearStructure.push({ season: 2027 + y, salary: sal, status });
   }
   const total = yearStructure.reduce((s, y) => s + y.salary, 0);
