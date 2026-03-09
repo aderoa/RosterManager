@@ -527,7 +527,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v2.0</span></h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator <span style="opacity:.5;font-size:.55rem">v0.6</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator <span style="opacity:.5;font-size:.55rem">v0.7</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1603,7 +1603,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 4; // bump this to invalidate saved orders
+  const ALGO_VERSION = 5; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -1625,6 +1625,14 @@ function buildDepthPositions(players) {
   // For each open slot, pick the highest-TV remaining player who can play that position.
   // This guarantees higher-TV players always land in higher rows.
   const ADJ = { PG:['SG'], SG:['PG','SF'], SF:['SG','PF'], PF:['SF','C'], C:['PF'] };
+  // Proximity order: for each column, which positions to try (nearest first)
+  const PROXIMITY = {
+    PG:['PG','SG','SF','PF','C'],
+    SG:['SG','PG','SF','PF','C'],
+    SF:['SF','SG','PF','PG','C'],
+    PF:['PF','SF','C','SG','PG'],
+    C:['C','PF','SF','SG','PG']
+  };
   const remaining = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
   const byPos = {}; POS.forEach(p => byPos[p] = []);
   const maxRows = Math.ceil(players.length / 5);
@@ -1674,12 +1682,17 @@ function buildDepthPositions(players) {
           bestRI = i;
         }
       }
-      // Fallback: if no adjacent match, pick highest-TV remaining player (any position)
+      // Fallback: if no adjacent match, try by proximity (nearest positions first)
       if (!bestP) {
-        for (let i = 0; i < remaining.length; i++) {
-          const p = remaining[i];
-          if (used.has(p)) continue;
-          if ((p.tv||0) > bestTV) { bestTV = p.tv||0; bestP = p; bestRI = i; }
+        for (const tryPos of PROXIMITY[pick.pos]) {
+          for (let i = 0; i < remaining.length; i++) {
+            const p = remaining[i];
+            if (used.has(p)) continue;
+            if (posOf(p) === tryPos && (p.tv||0) > bestTV) {
+              bestTV = p.tv||0; bestP = p; bestRI = i;
+            }
+          }
+          if (bestP) break;
         }
       }
       if (bestP) {
@@ -1689,13 +1702,14 @@ function buildDepthPositions(players) {
       }
     }
   }
-  // Any leftover — place in the least-filled column (balance columns)
+  // Any leftover — place in the least-filled column, preferring proximity
   for (const p of remaining) {
-    let minPos = POS[0], minCount = Infinity;
-    for (const pos of POS) {
+    const nat = posOf(p);
+    let minPos = null, minCount = Infinity;
+    for (const pos of PROXIMITY[nat]) {
       if (byPos[pos].length < minCount) { minCount = byPos[pos].length; minPos = pos; }
     }
-    byPos[minPos].push(p);
+    byPos[minPos || nat].push(p);
   }
 
   // Clear stale order
@@ -1707,7 +1721,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 4 };
+  const order = { _v: 5 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
@@ -2958,7 +2972,7 @@ function renderRoster(cap) {
     for (const p of picks) {
       const rdLabel = p.draftRnk <= 30 ? '1st Rd' : '2nd Rd';
       h += `<div class="player-row">`;
-      h += `<div class="hs-ini" style="background:var(--orange);color:#000;font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
+      h += `<div class="hs-ini" style="background:rgba(180,83,9,.15);color:var(--orange);font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
       h += `<div class="info"><div class="pname">${rdLabel} Pick #${p.draftRnk}</div>`;
       h += `<div class="pdet">${p.draftRnk <= 30 ? 'Rookie Scale' : 'Min Salary'}</div></div>`;
       h += `<div><div class="sal" style="color:var(--orange)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
@@ -2993,6 +3007,29 @@ function renderRoster(cap) {
 
   panel.innerHTML = h;
   setupDragDrop();
+  equalizeCardHeights();
+}
+
+function equalizeCardHeights() {
+  const grid = document.getElementById('depthChartGrid');
+  if (!grid) return;
+  const cols = grid.querySelectorAll('.pos-col');
+  if (!cols.length) return;
+  // Reset heights first
+  cols.forEach(col => col.querySelectorAll('.dc-card').forEach(c => c.style.height = 'auto'));
+  // Find max cards in any column
+  let maxCards = 0;
+  cols.forEach(col => { const n = col.querySelectorAll('.dc-card').length; if (n > maxCards) maxCards = n; });
+  // Equalize each row
+  for (let r = 0; r < maxCards; r++) {
+    let maxH = 0;
+    const cards = [];
+    cols.forEach(col => {
+      const c = col.querySelectorAll('.dc-card')[r];
+      if (c) { cards.push(c); const h = c.offsetHeight; if (h > maxH) maxH = h; }
+    });
+    cards.forEach(c => c.style.height = maxH + 'px');
+  }
 }
 
 // =============== DRAG & DROP ===============
