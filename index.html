@@ -5666,10 +5666,11 @@ async function init() {
 
   allPlayers = parseAllPlayers(csv);
   // Merge YOS from contracts data into player objects
+  // Spreadsheet YOS is through current season; add +1 for 2025-26
   const yosMap = window._yosMap || {};
   for (const p of allPlayers) {
-    if (yosMap[p.name] !== undefined) p.yos = yosMap[p.name];
-    else if (contractsMap[p.name]?.yos) p.yos = contractsMap[p.name].yos;
+    if (yosMap[p.name] !== undefined) p.yos = yosMap[p.name] + 1;
+    else if (contractsMap[p.name]?.yos) p.yos = contractsMap[p.name].yos + 1;
     else p.yos = 0;
   }
   document.getElementById('loadingState').style.display = 'none';
