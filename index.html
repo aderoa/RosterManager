@@ -461,6 +461,58 @@ a{color:var(--accent);text-decoration:none}
 
 /* === TRADE HISTORY === */
 .trade-history{margin-top:.75rem}
+
+/* === FLOATING UNDO === */
+.float-undo{position:fixed;bottom:1.5rem;right:1.5rem;z-index:150;display:flex;gap:.4rem;align-items:center}
+.float-undo button{padding:.5rem 1rem;border-radius:10px;font-size:.7rem;font-weight:600;cursor:pointer;border:none;box-shadow:0 4px 16px rgba(0,0,0,.2);font-family:inherit;transition:all .15s}
+.float-undo .undo-btn{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.float-undo .undo-btn:hover{background:var(--accent);color:#fff}
+
+/* === RESET MODAL === */
+.reset-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.reset-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:360px;max-width:90vw;padding:1.5rem;text-align:center}
+.reset-modal h3{font-size:1rem;margin-bottom:.75rem;color:var(--red)}
+.reset-modal p{font-size:.75rem;color:var(--muted);margin-bottom:1rem}
+.reset-modal .reset-confirm-input{width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.75rem;text-align:center;margin-bottom:.75rem;font-family:inherit}
+.reset-modal .reset-btns{display:flex;gap:.5rem;justify-content:center}
+.reset-modal .reset-btns button{padding:.4rem 1rem;border-radius:6px;font-size:.7rem;cursor:pointer;border:1px solid var(--border);font-family:inherit;font-weight:600}
+.reset-modal .reset-btns .cancel{background:var(--bg);color:var(--muted)}
+.reset-modal .reset-btns .confirm{background:var(--red);color:#fff;border-color:var(--red);opacity:.4;pointer-events:none}
+.reset-modal .reset-btns .confirm.active{opacity:1;pointer-events:auto}
+
+/* === PHASE RECAP TOAST === */
+.phase-recap{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:250;background:var(--surface);border:2px solid var(--team1);border-radius:14px;padding:1.5rem 2rem;min-width:300px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.25);animation:recapIn .4s ease}
+.phase-recap h3{font-size:.9rem;font-weight:800;color:var(--team1);margin-bottom:.75rem;text-align:center}
+.phase-recap .recap-item{display:flex;gap:.4rem;align-items:center;font-size:.7rem;padding:.2rem 0}
+.phase-recap .recap-item .emoji{font-size:.8rem}
+@keyframes recapIn{from{opacity:0;transform:translate(-50%,-50%) scale(.9)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+/* === SAVE/LOAD MODAL === */
+.save-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.save-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:420px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.save-modal-hdr{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
+.save-modal-hdr h3{flex:1;font-size:.85rem;font-weight:700;color:var(--accent)}
+.save-modal-body{padding:1rem;overflow-y:auto;flex:1}
+.save-slot{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.5rem;font-size:.7rem;cursor:pointer;transition:all .1s}
+.save-slot:hover{border-color:var(--accent);background:var(--accent-dim)}
+.save-slot .slot-info{flex:1}
+.save-slot .slot-team{font-weight:700}
+.save-slot .slot-phase{font-size:.6rem;color:var(--muted)}
+.save-slot .slot-date{font-size:.55rem;color:var(--muted)}
+.save-slot-empty{opacity:.5;font-style:italic}
+
+/* === SHARE CARD === */
+.share-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.share-card-wrap{background:var(--surface);border-radius:12px;padding:1rem;max-width:95vw;max-height:90vh;overflow:auto}
+.share-card-wrap canvas{border-radius:8px;max-width:100%;height:auto}
+.share-card-wrap .share-btns{display:flex;gap:.5rem;justify-content:center;margin-top:.75rem}
+.share-card-wrap .share-btns button{padding:.4rem 1rem;border-radius:6px;font-size:.7rem;cursor:pointer;border:1px solid var(--border);font-family:inherit;font-weight:600;background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* === DRAFT PROBABILITY === */
+.draft-prob{display:flex;gap:.2rem;align-items:center;font-size:.55rem;margin-top:.15rem}
+.draft-prob .prob-bar{height:4px;border-radius:2px;background:var(--accent);min-width:2px}
+.draft-prob .prob-name{color:var(--muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.draft-prob .prob-pct{color:var(--accent);font-weight:700;min-width:28px;text-align:right}
 .trade-history-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
 .trade-item{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;margin-bottom:.4rem;font-size:.65rem;position:relative}
 .trade-item .trade-dir{display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;margin:.2rem 0}
@@ -511,6 +563,39 @@ a{color:var(--accent);text-decoration:none}
 
 <!-- Toast Notifications -->
 <div class="toast-container" id="toastContainer"></div>
+<div class="float-undo" id="floatUndo" style="display:none">
+  <button class="undo-btn" onclick="undoLast()">↩ Undo</button>
+</div>
+<div id="resetModalOverlay" class="reset-modal-overlay" style="display:none" onclick="if(event.target===this)closeResetModal()">
+  <div class="reset-modal">
+    <h3>🗑️ Reset All Moves</h3>
+    <p>This will erase every move for this team. Type <strong>RESET</strong> to confirm.</p>
+    <input class="reset-confirm-input" id="resetConfirmInput" placeholder="Type RESET" oninput="checkResetInput(this)">
+    <div class="reset-btns">
+      <button class="cancel" onclick="closeResetModal()">Cancel</button>
+      <button class="confirm" id="resetConfirmBtn" onclick="confirmReset()">Reset Everything</button>
+    </div>
+  </div>
+</div>
+<div id="saveModalOverlay" class="save-modal-overlay" style="display:none" onclick="if(event.target===this)closeSaveModal()">
+  <div class="save-modal">
+    <div class="save-modal-hdr">
+      <h3>💾 Scenarios</h3>
+      <button style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer" onclick="closeSaveModal()">✕</button>
+    </div>
+    <div class="save-modal-body" id="saveModalBody"></div>
+  </div>
+</div>
+<div id="shareOverlay" class="share-overlay" style="display:none" onclick="if(event.target===this)closeShareCard()">
+  <div class="share-card-wrap">
+    <canvas id="shareCanvas" width="800" height="500"></canvas>
+    <div class="share-btns">
+      <button onclick="downloadShareCard()">📥 Download Image</button>
+      <button onclick="closeShareCard()" style="background:var(--surface);color:var(--muted);border-color:var(--border)">Close</button>
+    </div>
+  </div>
+</div>
+<div id="phaseRecapOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:rgba(0,0,0,.4)" onclick="closePhaseRecap()"></div>
 
 <!-- Landing Page -->
 <div id="landingPage" class="landing">
@@ -527,11 +612,12 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER <span style="font-size:.65rem;opacity:.6">v2.0</span></h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator <span style="opacity:.5;font-size:.55rem">v0.8</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator <span style="opacity:.5;font-size:.55rem">v0.9</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
+    <button onclick="openSaveModal()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;padding:.25rem .6rem;border-radius:6px;font-size:.6rem;cursor:pointer;font-family:inherit;font-weight:600" id="saveLoadBtn" title="Save/Load Scenarios">💾</button>
     <select id="teamSelect" class="team-dropdown" onchange="if(this.value)selectTeam(this.value)">
       <option value="">Select team...</option>
     </select>
@@ -1535,6 +1621,9 @@ function render() {
   if (!STATE) return;
   updateBreadcrumb();
   renderPhaseBar();
+  // Floating undo visibility
+  const floatUndo = document.getElementById('floatUndo');
+  if (floatUndo) floatUndo.style.display = STATE.moves.length ? 'flex' : 'none';
   if (STATE.phase === 'lottery') {
     renderLottery();
     const cap = calcCapSheet(STATE.team);
@@ -1563,10 +1652,15 @@ function updateHeaderCapBar(cap) {
   if (!el || !cap) return;
   const pct = Math.min(100, (cap.teamSalary / T.apron2) * 100);
   const color = cap.teamSalary > T.apron2 ? 'var(--red)' : cap.teamSalary > T.apron1 ? 'var(--orange)' : cap.teamSalary > T.tax ? 'var(--yellow)' : '#4caf50';
+  const overTax = cap.teamSalary > T.tax;
+  const overApron = cap.teamSalary > T.apron1;
+  const taxBadge = overApron ? '<span style="background:rgba(255,0,0,.3);padding:.05rem .25rem;border-radius:3px;font-size:.45rem;font-weight:700">APRON</span>' :
+    overTax ? '<span style="background:rgba(255,180,0,.3);padding:.05rem .25rem;border-radius:3px;font-size:.45rem;font-weight:700">TAX</span>' :
+    '<span style="background:rgba(76,175,80,.3);padding:.05rem .25rem;border-radius:3px;font-size:.45rem;font-weight:700">CLEAR</span>';
   el.innerHTML = `
-    <div class="cap-mini-label"><span>Cap Usage</span><span>${fmtMoney(cap.teamSalary)}</span></div>
+    <div class="cap-mini-label"><span>Salary ${taxBadge}</span><span>${fmtMoney(cap.teamSalary)}</span></div>
     <div class="cap-mini-bar"><div class="cap-mini-fill" style="width:${pct}%;background:${color}"></div></div>
-    <div class="cap-mini-vals"><span>Cap: ${fmtMoney(T.cap)}</span><span>Tax: ${fmtMoney(T.tax)}</span></div>`;
+    <div class="cap-mini-vals"><span>${cap.rosterCount} players</span><span>Room: ${cap.capSpace > 0 ? fmtMoney(cap.capSpace) : '—'}</span></div>`;
   el.style.display = 'flex';
 }
 
@@ -2375,6 +2469,29 @@ function getPickTeam(pick) {
   return slot ? slot.team : null;
 }
 
+function getDraftProbabilities(pick, topN = 5) {
+  const drafted = getDraftedProspects();
+  const available = allProspects.filter(n => !drafted.has(n));
+  if (!available.length) return [];
+  const decay = pick <= 5 ? 2.5 : pick <= 14 ? 2.0 : pick <= 30 ? 1.6 : 1.2;
+  const weights = available.map((_, i) => 1 / Math.pow(1 + i, decay));
+  const totalW = weights.reduce((s, w) => s + w, 0);
+  return available.slice(0, topN).map((name, i) => ({
+    name, pct: Math.round(weights[i] / totalW * 100)
+  }));
+}
+
+function renderDraftProbBars(pick) {
+  const probs = getDraftProbabilities(pick, 5);
+  if (!probs.length) return '';
+  let h = '<div style="margin-top:.3rem">';
+  for (const p of probs) {
+    h += `<div class="draft-prob"><span class="prob-pct">${p.pct}%</span><div class="prob-bar" style="width:${Math.max(2, p.pct * 0.8)}px"></div><span class="prob-name">${p.name}</span></div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
 function autoDraftPick(pick) {
   const drafted = getDraftedProspects();
   // Build available prospects in consensus order
@@ -2589,8 +2706,10 @@ function renderDraftBoard() {
   // User's pick selection (if it's their turn)
   if (!isDraftComplete && getPickTeam(current) === teamAbbrev) {
     h += `<div id="yourPickBox" class="your-pick-box" style="background:rgba(59,130,246,.1);border:2px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem">`;
-    h += `<h3 style="color:var(--accent);margin-bottom:.5rem;font-size:.9rem">🎯 Your Pick — #${current}</h3>`;
-    h += `<input id="draftSearchInput" class="trade-input" style="width:100%;margin-bottom:.5rem" placeholder="Filter prospects..." oninput="filterDraftProspects(this.value)">`;
+    h += `<h3 style="color:var(--accent);margin-bottom:.25rem;font-size:.9rem">🎯 Your Pick — #${current}</h3>`;
+    h += `<div style="font-size:.6rem;color:var(--muted);margin-bottom:.5rem">Other teams would likely pick:</div>`;
+    h += renderDraftProbBars(current);
+    h += `<input id="draftSearchInput" class="trade-input" style="width:100%;margin:.5rem 0" placeholder="Filter prospects..." oninput="filterDraftProspects(this.value)">`;
     h += `<div id="draftProspectList" style="max-height:250px;overflow-y:auto">`;
     h += buildDraftProspectList('');
     h += `</div></div>`;
@@ -2627,7 +2746,7 @@ function renderDraftBoard() {
       h += `<td style="font-weight:600">${result.prospect}</td>`;
       h += `<td style="font-size:.6rem;color:var(--muted)">${bioStr}</td>`;
     } else if (isCurrent) {
-      h += `<td style="color:var(--orange);font-style:italic">On the clock...</td>`;
+      h += `<td style="color:var(--orange);font-style:italic">On the clock...${renderDraftProbBars(pick)}</td>`;
       h += `<td></td>`;
     } else {
       h += `<td style="color:var(--muted)">—</td>`;
@@ -3288,6 +3407,9 @@ function renderSeasonReady() {
   h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid var(--border)"><div style="color:var(--muted)">Moves</div><div style="font-weight:800;font-size:.85rem">${STATE.moves.filter(m => m.action !== 'Phase').length}</div></div>`;
   h += `</div>`;
 
+  // Share button
+  h += `<div style="text-align:center;margin-bottom:1rem"><button onclick="openShareCard()" style="padding:.45rem 1.25rem;border-radius:8px;font-size:.7rem;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;font-weight:600;font-family:inherit">📸 Generate Share Card</button></div>`;
+
   // Final depth chart (read-only)
   const byPos = buildDepthPositions(depthPlayers);
   const POS = ['PG', 'SG', 'SF', 'PF', 'C'];
@@ -3693,10 +3815,31 @@ function advancePhase() {
         return;
       }
     }
-    STATE.phase = PHASES[currentIdx + 1].id;
-    STATE.moves.push({ action: 'Phase', detail: `Advanced to ${PHASES[currentIdx + 1].label}`, undo: { type: 'phase', prev: PHASES[currentIdx].id } });
+    const prevPhase = PHASES[currentIdx];
+    const nextPhase = PHASES[currentIdx + 1];
+    // Collect recap of moves in this phase
+    const phaseMoves = STATE.moves.filter(m => m.action !== 'Phase');
+    const recapItems = [];
+    const trades = phaseMoves.filter(m => m.action === 'Trade');
+    const waives = phaseMoves.filter(m => m.action === 'Waive' || m.action === 'Stretch');
+    const options = phaseMoves.filter(m => m.action.includes('Option') || m.action.includes('Picked') || m.action.includes('Exercised') || m.action.includes('Declined'));
+    const signings = phaseMoves.filter(m => m.action === 'Signing' || m.action === 'Sign');
+    const extensions = phaseMoves.filter(m => m.action === 'Extension');
+    const drafts = phaseMoves.filter(m => m.action === 'Draft');
+    if (trades.length) recapItems.push(`🔄 ${trades.length} trade(s)`);
+    if (options.length) recapItems.push(`📋 ${options.length} option decision(s)`);
+    if (drafts.length) recapItems.push(`🎯 ${drafts.length} draft pick(s)`);
+    if (signings.length) recapItems.push(`✍️ ${signings.length} signing(s)`);
+    if (extensions.length) recapItems.push(`📄 ${extensions.length} extension(s)`);
+    if (waives.length) recapItems.push(`🗑️ ${waives.length} waive(s)`);
+
+    STATE.phase = nextPhase.id;
+    STATE.moves.push({ action: 'Phase', detail: `Advanced to ${nextPhase.label}`, undo: { type: 'phase', prev: prevPhase.id } });
     saveState();
     render();
+
+    // Show recap if there were moves
+    if (recapItems.length) showPhaseRecap(prevPhase.label, nextPhase.label, recapItems);
   }
 }
 
@@ -3749,7 +3892,20 @@ function undoLast() {
 }
 
 function resetTeam() {
-  if (!confirm(`Reset all moves for ${STATE.team}?`)) return;
+  document.getElementById('resetModalOverlay').style.display = 'flex';
+  document.getElementById('resetConfirmInput').value = '';
+  document.getElementById('resetConfirmBtn').classList.remove('active');
+  setTimeout(() => document.getElementById('resetConfirmInput').focus(), 100);
+}
+function closeResetModal() { document.getElementById('resetModalOverlay').style.display = 'none'; }
+function checkResetInput(el) {
+  const btn = document.getElementById('resetConfirmBtn');
+  if (el.value.trim().toUpperCase() === 'RESET') btn.classList.add('active');
+  else btn.classList.remove('active');
+}
+function confirmReset() {
+  if (!document.getElementById('resetConfirmBtn').classList.contains('active')) return;
+  closeResetModal();
   localStorage.removeItem('rm_state_' + STATE.team);
   STATE = defaultState(STATE.team);
   showToast('All moves reset', 'warning');
@@ -5254,6 +5410,221 @@ selectTeam = function(team) {
   _tmPreloaded = false; // Reset for new team
   setTimeout(preloadTradeMachine, 500);
 };
+
+// ======================== PHASE RECAP ========================
+function showPhaseRecap(fromPhase, toPhase, items) {
+  const overlay = document.getElementById('phaseRecapOverlay');
+  overlay.style.display = 'block';
+  const recap = document.createElement('div');
+  recap.className = 'phase-recap';
+  recap.id = 'phaseRecapBox';
+  let h = `<h3>✅ ${fromPhase} Complete</h3>`;
+  h += `<div style="font-size:.65rem;color:var(--muted);margin-bottom:.5rem;text-align:center">Moving to ${toPhase}</div>`;
+  for (const item of items) {
+    h += `<div class="recap-item"><span class="emoji">${item.split(' ')[0]}</span><span>${item.slice(item.indexOf(' ')+1)}</span></div>`;
+  }
+  h += `<div style="font-size:.55rem;color:var(--muted);text-align:center;margin-top:.6rem">Click anywhere to continue</div>`;
+  recap.innerHTML = h;
+  document.body.appendChild(recap);
+  setTimeout(() => { overlay.style.display = 'none'; recap.remove(); }, 6000);
+}
+function closePhaseRecap() {
+  document.getElementById('phaseRecapOverlay').style.display = 'none';
+  const box = document.getElementById('phaseRecapBox');
+  if (box) box.remove();
+}
+
+// ======================== SAVE/LOAD SCENARIOS ========================
+const MAX_SCENARIOS = 5;
+function getSavedScenarios() {
+  try { return JSON.parse(localStorage.getItem('rm_scenarios') || '[]'); } catch { return []; }
+}
+function saveScenarios(list) {
+  localStorage.setItem('rm_scenarios', JSON.stringify(list));
+}
+function openSaveModal() {
+  document.getElementById('saveModalOverlay').style.display = 'flex';
+  renderSaveSlots();
+}
+function closeSaveModal() {
+  document.getElementById('saveModalOverlay').style.display = 'none';
+}
+function renderSaveSlots() {
+  const body = document.getElementById('saveModalBody');
+  const scenarios = getSavedScenarios();
+  let h = '';
+  // Save current button
+  if (STATE && STATE.team) {
+    h += `<div style="margin-bottom:.75rem">`;
+    h += `<input id="scenarioNameInput" style="width:100%;padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.7rem;font-family:inherit;margin-bottom:.35rem" placeholder="Scenario name (e.g., 'Trade Embiid')">`;
+    h += `<button onclick="saveCurrentScenario()" style="width:100%;padding:.35rem;border-radius:6px;font-size:.7rem;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;font-weight:600;font-family:inherit">💾 Save Current State</button>`;
+    h += `</div>`;
+  }
+  h += `<div style="font-size:.65rem;font-weight:700;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.5px">Saved Scenarios (${scenarios.length}/${MAX_SCENARIOS})</div>`;
+  if (!scenarios.length) {
+    h += `<div style="font-size:.7rem;color:var(--muted);text-align:center;padding:1rem">No saved scenarios yet</div>`;
+  }
+  for (let i = 0; i < scenarios.length; i++) {
+    const s = scenarios[i];
+    const phaseLabel = (PHASES.find(p => p.id === s.phase) || {}).label || s.phase;
+    h += `<div class="save-slot">`;
+    h += `<div class="slot-info" onclick="loadScenario(${i})">`;
+    h += `<div class="slot-team">${s.name || 'Unnamed'} <span style="font-weight:400;color:var(--muted)">— ${s.team}</span></div>`;
+    h += `<div class="slot-phase">${phaseLabel} · ${s.moveCount || 0} moves</div>`;
+    h += `<div class="slot-date">${s.savedAt ? new Date(s.savedAt).toLocaleString() : ''}</div>`;
+    h += `</div>`;
+    h += `<button onclick="event.stopPropagation();deleteScenario(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem" title="Delete">🗑</button>`;
+    h += `</div>`;
+  }
+  body.innerHTML = h;
+}
+function saveCurrentScenario() {
+  if (!STATE || !STATE.team) return;
+  const scenarios = getSavedScenarios();
+  if (scenarios.length >= MAX_SCENARIOS) {
+    showToast(`Max ${MAX_SCENARIOS} scenarios. Delete one first.`, 'warning');
+    return;
+  }
+  const nameInput = document.getElementById('scenarioNameInput');
+  const name = (nameInput ? nameInput.value.trim() : '') || `${STATE.team} - ${(PHASES.find(p => p.id === STATE.phase) || {}).label || STATE.phase}`;
+  // Serialize STATE
+  const serialized = JSON.parse(JSON.stringify(STATE));
+  serialized.renounced = [...(STATE.renounced || [])];
+  serialized.waived = [...(STATE.waived || [])];
+  serialized.stretched = [...(STATE.stretched || [])];
+  scenarios.push({
+    name,
+    team: STATE.team,
+    phase: STATE.phase,
+    moveCount: STATE.moves.filter(m => m.action !== 'Phase').length,
+    savedAt: new Date().toISOString(),
+    state: serialized
+  });
+  saveScenarios(scenarios);
+  showToast(`Saved: "${name}"`, 'success');
+  renderSaveSlots();
+}
+function loadScenario(idx) {
+  const scenarios = getSavedScenarios();
+  const s = scenarios[idx];
+  if (!s) return;
+  if (!confirm(`Load "${s.name}"? Current unsaved progress will be lost.`)) return;
+  const loaded = s.state;
+  loaded.renounced = new Set(loaded.renounced || []);
+  loaded.waived = new Set(loaded.waived || []);
+  loaded.stretched = new Set(loaded.stretched || []);
+  STATE = loaded;
+  saveState();
+  closeSaveModal();
+  showToast(`Loaded: "${s.name}"`, 'success');
+  render();
+}
+function deleteScenario(idx) {
+  const scenarios = getSavedScenarios();
+  const name = scenarios[idx]?.name || 'Unnamed';
+  if (!confirm(`Delete "${name}"?`)) return;
+  scenarios.splice(idx, 1);
+  saveScenarios(scenarios);
+  showToast(`Deleted: "${name}"`, 'info');
+  renderSaveSlots();
+}
+
+// ======================== SHARE CARD ========================
+function openShareCard() {
+  document.getElementById('shareOverlay').style.display = 'flex';
+  renderShareCard();
+}
+function closeShareCard() {
+  document.getElementById('shareOverlay').style.display = 'none';
+}
+function downloadShareCard() {
+  const canvas = document.getElementById('shareCanvas');
+  const link = document.createElement('a');
+  link.download = `${STATE.team.replace(/\s+/g,'_')}_2027_roster.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+function renderShareCard() {
+  const canvas = document.getElementById('shareCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = 800, H = 520;
+  canvas.width = W; canvas.height = H;
+  const cap = calcCapSheet(STATE.team);
+  const depthPlayers = getDepthPlayers(cap);
+  const byPos = buildDepthPositions(depthPlayers);
+  const POS = ['PG','SG','SF','PF','C'];
+  const teamAbbrev = TEAMS[STATE.team];
+
+  // Background
+  const cs = getComputedStyle(document.documentElement);
+  const t1 = cs.getPropertyValue('--team1').trim() || '#3b82f6';
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+  // Gradient header
+  const grad = ctx.createLinearGradient(0, 0, W, 80);
+  grad.addColorStop(0, t1);
+  grad.addColorStop(1, '#1a1a2e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, 80);
+
+  // Title
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 22px system-ui, sans-serif';
+  ctx.fillText(`${STATE.team} — 2026-27 Projected Roster`, 20, 35);
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  ctx.fillText(`Salary: ${fmtMoney(cap.teamSalary)} · ${cap.rosterCount} players · HoopsMatic Roster Manager`, 20, 58);
+
+  // Columns
+  const colW = (W - 40) / 5;
+  const startY = 100;
+  POS.forEach((pos, ci) => {
+    const x = 20 + ci * colW;
+    // Position header
+    ctx.fillStyle = t1;
+    ctx.font = 'bold 13px system-ui, sans-serif';
+    ctx.fillText(pos, x + colW / 2 - 8, startY);
+    ctx.fillStyle = t1;
+    ctx.fillRect(x + 5, startY + 5, colW - 10, 2);
+
+    // Players
+    const players = byPos[pos] || [];
+    players.forEach((p, ri) => {
+      const y = startY + 20 + ri * 52;
+      if (y > H - 40) return;
+      // Card bg
+      ctx.fillStyle = 'rgba(255,255,255,.06)';
+      ctx.fillRect(x + 4, y, colW - 8, 46);
+      // Name
+      ctx.fillStyle = '#fff';
+      ctx.font = '600 11px system-ui, sans-serif';
+      const displayName = p.name.length > 16 ? p.name.slice(0, 15) + '…' : p.name;
+      ctx.fillText(displayName, x + 10, y + 18);
+      // Salary
+      ctx.fillStyle = '#4caf50';
+      ctx.font = '600 10px system-ui, sans-serif';
+      ctx.fillText(fmtMoney(p.sal27 || 0), x + 10, y + 34);
+    });
+  });
+
+  // Footer
+  ctx.fillStyle = 'rgba(255,255,255,.3)';
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.fillText('Generated by HoopsMatic Roster Manager · hoopsmatic.com', 20, H - 12);
+
+  // Moves summary
+  const moves = STATE.moves.filter(m => m.action !== 'Phase');
+  const tradeCt = (STATE.trades || []).length;
+  const signCt = (STATE.signings || []).length;
+  const draftCt = (STATE.draftResults || []).filter(r => r.team === teamAbbrev).length;
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  ctx.font = '10px system-ui, sans-serif';
+  const summary = [`${moves.length} moves`, tradeCt ? `${tradeCt} trades` : '', signCt ? `${signCt} signings` : '', draftCt ? `${draftCt} draft picks` : ''].filter(Boolean).join(' · ');
+  ctx.fillText(summary, W - ctx.measureText(summary).width - 20, H - 12);
+}
+
+// Add share button to season_ready phase
+const _origRenderSeasonReady = typeof renderSeasonReady === 'function' ? renderSeasonReady : null;
 
 init();
 </script>
