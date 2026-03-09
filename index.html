@@ -4107,17 +4107,14 @@ function closeTradeMachine() {
 }
 
 function resetTradeMachine() {
-  const abbrev = TEAMS[STATE.team];
-  const partner = getRandomTradePartner(abbrev);
-  const freshUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}`;
   const iframe = document.getElementById('tmIframe');
-  const loading = document.getElementById('tmLoading');
-  loading.style.display = 'flex';
-  iframe.style.display = 'block';
-  iframe.onload = function() { loading.style.display = 'none'; iframe.dataset.ready = '1'; };
-  iframe.src = freshUrl;
-  _tmUrl = freshUrl;
-  document.getElementById('tmExternalLink').href = freshUrl;
+  if (iframe && iframe.contentWindow) {
+    // Send reset message to TM iframe — faster than full reload
+    iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_RESET' }, '*');
+    // Reset send button state in TM
+    const rmBtn = iframe.contentDocument?.getElementById('rmSendBtn');
+    if (rmBtn) { rmBtn.disabled = true; rmBtn.textContent = 'Send Trade'; rmBtn.classList.remove('sent', 'ready'); }
+  }
 }
 
 function rollbackPendingSAT() {
