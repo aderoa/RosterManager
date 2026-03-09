@@ -599,7 +599,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v2.6 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v2.7 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -609,7 +609,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.6</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.7</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -738,18 +738,24 @@ const MIN_SALARY_BY_YOS = [
   3069959,3220237,3381249,3542261,3661575,3780889,3900945
 ]; // Index = YOS, projected 2026-27 via cap raise
 function getPlayerYOS(p) {
-  // Estimate years of service from age; NBA entry ~19
   const raw = String(p?.age || '');
-  // Try parsing as number (handles "36", "36-284", "36.7", etc.)
   const ageNum = parseFloat(raw) || 0;
   if (ageNum >= 18) return Math.max(0, Math.floor(ageNum) - 19);
-  // Fallback: estimate from salary (higher salary → more experience)
   const sal = p?.sal26 || p?.sal27 || 0;
   if (sal >= 20000000) return 10;
   if (sal >= 10000000) return 7;
   if (sal >= 5000000) return 4;
   if (sal >= 2000000) return 2;
   return 0;
+}
+function formatAge(raw) {
+  if (!raw) return '';
+  const s = String(raw).trim();
+  const m = s.match(/^(\d+)[–\-](\d+)$/);
+  if (m) return `${m[1]} yrs, ${m[2]} days`;
+  const n = parseFloat(s);
+  if (!isNaN(n) && n > 0) return `${Math.floor(n)} yrs`;
+  return s;
 }
 function getPlayerMinSalary(p) {
   const yos = getPlayerYOS(p);
@@ -1502,7 +1508,8 @@ function calcCapSheet(team) {
         name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
         exception: sig.exception, st27: 'TWO-WAY', status: 'signed', isTwoWay: true,
         end: sig.end || 2027, tradeKicker: 0, tv: tradeValueMap[sig.name.toLowerCase()] || 0,
-        contractType: sig.contractType, _signed: true
+        contractType: sig.contractType, _signed: true,
+        age: (allPlayers.find(ap => ap.name === sig.name) || {}).age || ''
       });
       continue;
     }
@@ -1516,7 +1523,8 @@ function calcCapSheet(team) {
       name: sig.name, sal27: sig.salary, pos: sig.pos || '', headshot: sig.headshot || '',
       exception: sig.exception, st27: st27Label, status: 'signed',
       end: sig.end || 2027, tradeKicker: 0, tv: tradeValueMap[sig.name.toLowerCase()] || 0,
-      contractType: sig.contractType, isSignAndTrade: sig.isSignAndTrade, _signed: true
+      contractType: sig.contractType, isSignAndTrade: sig.isSignAndTrade, _signed: true,
+      age: (allPlayers.find(ap => ap.name === sig.name) || {}).age || ''
     });
   }
 
@@ -1776,7 +1784,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 11; // bump this to invalidate saved orders
+  const ALGO_VERSION = 12; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -1875,6 +1883,25 @@ function buildDepthPositions(players) {
       }
     }
 
+    // Pass 5: Swap optimization — reduce total position distance by swapping pairs
+    for (let iter = 0; iter < 10; iter++) {
+      let improved = false;
+      for (let a = 0; a < POS.length; a++) {
+        for (let b = a + 1; b < POS.length; b++) {
+          if (!assigned[a] || !assigned[b]) continue;
+          const natA = POS_IDX_R[posOf(assigned[a])];
+          const natB = POS_IDX_R[posOf(assigned[b])];
+          const currentDist = Math.abs(natA - a) + Math.abs(natB - b);
+          const swapDist = Math.abs(natA - b) + Math.abs(natB - a);
+          if (swapDist < currentDist) {
+            [assigned[a], assigned[b]] = [assigned[b], assigned[a]];
+            improved = true;
+          }
+        }
+      }
+      if (!improved) break;
+    }
+
     // Place assigned players into byPos columns
     for (let pi = 0; pi < POS.length; pi++) {
       if (assigned[pi]) byPos[POS[pi]].push(assigned[pi]);
@@ -1940,7 +1967,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 11 };
+  const order = { _v: 12 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
@@ -3157,7 +3184,7 @@ function renderRoster(cap) {
       const hs = p.headshot
         ? `<img class="ct-hs" src="${p.headshot}" onerror="this.outerHTML='<div class=ct-ini>${ini}</div>'">`
         : `<div class="ct-ini">${ini}</div>`;
-      h += `<tr><td><div class="player-cell">${hs}<div><div style="font-weight:600;font-size:.7rem">${p.name}</div><div style="font-size:.55rem;color:var(--muted)">${p.pos || ''} ${p.age ? '· ' + p.age : ''}</div></div></div></td>`;
+      h += `<tr><td><div class="player-cell">${hs}<div><div style="font-weight:600;font-size:.7rem">${p.name}</div><div style="font-size:.55rem;color:var(--muted)">${p.pos || ''} ${p.age ? '· ' + formatAge(p.age) : ''}</div></div></div></td>`;
       const cd = synthContracts[p.name] || contractsMap[p.name];
       if (cd) {
         CONTRACT_YEARS.forEach((yr, i) => {
@@ -4917,7 +4944,35 @@ function selectSignPlayer(name) {
   inp.value = name;
   // Store player context
   window._signPlayerContext = { name, team: p?.team || '', tv, projSalary, isTwoWayLevel, needsSAT, playerMax, playerMin, defaultRaiseRate, rookieScale, yos, exception: p?.exception || '' };
-  document.getElementById('signExcSection').style.display = '';
+  // Re-render exception section with player-specific data (e.g. YOS-based min salary)
+  const excSection = document.getElementById('signExcSection');
+  const cap2 = calcCapSheet(STATE.team);
+  let excHtml = `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
+  for (const exc of cap2.exceptions) {
+    if (exc.isSAT && window._signIsResign) continue;
+    if (exc.isSAT && window._signIsDraftPick) continue;
+    if (exc.isBirdRights) continue; // Bird only for re-signs
+    let detailText;
+    if (exc.isMinimum && exc.available) {
+      detailText = `Fixed: ${fmtMoneyFull(getMinSalaryForYOS(yos))} (${yos} YOS)`;
+    } else if (exc.isTwoWay && exc.available) {
+      detailText = `Fixed: ${fmtMoneyFull(TWO_WAY_SALARY)}/yr`;
+    } else if (!exc.available) {
+      detailText = exc.unavailNote ? `Not available — ${exc.unavailNote}` : 'Not available';
+    } else if (exc.remaining !== undefined) {
+      detailText = `Remaining: ${fmtMoneyFull(exc.remaining)}`;
+    } else {
+      detailText = `Up to ${fmtMoneyFull(exc.amount)}`;
+    }
+    if (exc.used) detailText += ` (used ${fmtMoneyFull(exc.used)})`;
+    const cls = exc.available ? '' : 'unavailable';
+    excHtml += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${exc.name.replace(/'/g,"\\'")}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
+    excHtml += `<div class="exc-name">${exc.name}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
+    excHtml += `<div class="exc-detail">${detailText}</div>`;
+    excHtml += `</div>`;
+  }
+  excSection.innerHTML = excHtml;
+  excSection.style.display = '';
 }
 
 function selectSignException(excName, maxAmount) {
@@ -5033,6 +5088,11 @@ function selectSignException(excName, maxAmount) {
   }
 
   updateSignPreview();
+  // Auto-scroll to salary configuration
+  setTimeout(() => {
+    const salSection = document.getElementById('signSalarySection');
+    if (salSection) salSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
 }
 
 function setSignSalary(amount) {
@@ -5273,6 +5333,11 @@ function confirmSigning() {
   if (isSignAndTrade) {
     signing.fromTeam = window._signPlayerContext?.team || '';
     signing.isSAT = true;
+  }
+  // Track draft pick signings (so draft pick section clears)
+  if (window._signIsDraftPick && window._signDraftPickNum) {
+    signing.isDraftPick = true;
+    signing.draftPick = window._signDraftPickNum;
   }
 
   STATE.signings.push(signing);
