@@ -598,7 +598,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.7 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.9 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -608,7 +608,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.7</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.9</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1521,9 +1521,10 @@ function calcCapSheet(team) {
   exceptions.push({ name: 'Early Bird Exception', amount: Math.round(T.cap * 0.25), available: true, isBirdRights: true, note: 'Max 4yr · 8% raises' });
   exceptions.push({ name: 'Non-Bird Exception', amount: Math.round(T.cap * 0.20), available: true, isBirdRights: true, note: 'Max 4yr · 5% raises' });
   // Sign-and-Trade: available for other teams' FAs, but NOT if team is above 1st apron
+  // Original team signs using their Bird rights, so max salary = player's Bird max
   const MAX_SAT_SALARY = Math.round(T.cap * 0.35);
   const satAvailable = belowApron1; // 1st apron teams cannot acquire via S&T
-  exceptions.push({ name: 'Sign-and-Trade', amount: MAX_SAT_SALARY, available: satAvailable, note: satAvailable ? 'Max 4yr · Hard-caps at 1st apron' : 'Not available above 1st apron', isSAT: true });
+  exceptions.push({ name: 'Sign-and-Trade', amount: MAX_SAT_SALARY, available: satAvailable, note: satAvailable ? 'Max 4yr · Bird max · Hard-caps at 1st apron' : 'Not available above 1st apron', isSAT: true });
 
   for (const exc of exceptions) {
     const used = excUsage[exc.name] || 0;
@@ -4589,20 +4590,24 @@ function openSignModal(faName, isResign) {
     // Hide S&T for re-signing own FAs and for draft picks
     if (exc.isSAT && window._signIsResign) continue;
     if (exc.isSAT && window._isDraftPickSign) continue;
-    // Hide Bird rights for new FA signings and draft picks (only for re-signing own FAs)
+    // ALL Bird rights exceptions are team-specific — only for re-signing own FAs
     if (exc.isBirdRights && !window._signIsResign) continue;
-    // When re-signing, only show the Bird exception that matches the player's actual rights
-    if (exc.isBirdRights && window._signIsResign) {
+    // Hide Bird rights for draft picks
+    if (exc.isBirdRights && window._isDraftPickSign) continue;
+    // When re-signing with Full Bird, only show if player actually has Bird rights
+    if (exc.name === 'Bird Exception' && window._signIsResign) {
       const pExc = (window._signPlayerContext?.exception || '').toLowerCase();
-      const excLower = exc.name.toLowerCase();
-      // Match: Bird only if player has Bird, Early Bird only if player has Early Bird, etc.
-      if (excLower.includes('non-bird') || excLower.includes('non bird')) {
-        if (!pExc.includes('non-bird') && !pExc.includes('non bird')) continue;
-      } else if (excLower.includes('early bird') || excLower.includes('early-bird')) {
-        if (!pExc.includes('early bird') && !pExc.includes('early-bird')) continue;
-      } else if (excLower.includes('bird')) {
-        if (pExc.includes('non-bird') || pExc.includes('non bird') || pExc.includes('early bird') || pExc.includes('early-bird') || !pExc.includes('bird')) continue;
-      }
+      if (pExc.includes('non-bird') || pExc.includes('non bird') || pExc.includes('early bird') || pExc.includes('early-bird') || !pExc.includes('bird')) continue;
+    }
+    // Early Bird: only if player has Early Bird or full Bird rights
+    if (exc.name === 'Early Bird Exception' && window._signIsResign) {
+      const pExc = (window._signPlayerContext?.exception || '').toLowerCase();
+      if (!pExc.includes('bird')) continue;
+      if (pExc.includes('non-bird') || pExc.includes('non bird')) continue;
+    }
+    // Non-Bird: show for any re-sign (all FAs have at least Non-Bird if they played for team)
+    if (exc.name === 'Non-Bird Exception' && window._signIsResign) {
+      // Always available for own FAs
     }
     const cls = exc.available ? '' : 'unavailable';
     h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
@@ -4834,6 +4839,9 @@ function selectSignException(excName, maxAmount) {
   }
   salInput.value = fmtMoneyFull(defaultSal);
   salInput.dataset.raw = defaultSal;
+  // Lock salary input for minimum-type contracts (YOS-based, not editable)
+  salInput.disabled = (excName === 'Minimum' || excName === 'Two-Way' || excName === 'Exhibit 10');
+  salInput.style.opacity = salInput.disabled ? '0.6' : '1';
 
   // S&T note
   if (satNote) satNote.style.display = excName === 'Sign-and-Trade' ? '' : 'none';
@@ -5054,7 +5062,8 @@ function confirmSigning() {
     const season = 2027 + y;
     let yrSal;
     if (isMin) {
-      yrSal = MIN_SALARY_0YOS;
+      const baseYos = (window._signPlayerContext?.yos) || 0;
+      yrSal = MIN_SALARY_BY_YOS[Math.min(baseYos + y, MIN_SALARY_BY_YOS.length - 1)] || MIN_SALARY_0YOS;
     } else {
       const raiseAmt = Math.round(salary * raiseRate);
       yrSal = salary + (raiseAmt * y);
@@ -5077,9 +5086,11 @@ function confirmSigning() {
   else if (hasPartial) contractType = 'partial-guaranteed';
 
   const p = allPlayers.find(p => p.name === name);
+  // For minimum contracts, ensure stored salary is YOS-based
+  const storedSalary = isMin ? yearStructure[0].salary : salary;
   const signing = {
     name,
-    salary,
+    salary: storedSalary,
     years,
     raiseRate,
     exception: excName || 'FA',
