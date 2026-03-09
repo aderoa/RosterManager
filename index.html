@@ -598,7 +598,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.9 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v2.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -608,7 +608,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.9</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.1</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -784,11 +784,46 @@ function getPlayerRaiseRate(p, excName) {
   return 0.05;
 }
 
-// 2026-27 Rookie Scale at 120% (Year 1 cap holds), picks 1-30
+// 2026-27 Rookie Scale (Year 1 for 2026 draft class), picks 1-30
+// Calculated: 2025-26 base × (cap 26-27 / cap 25-26 ratio), then raises from published scale
 const ROOKIE_SCALE = [
-  13825920,12370320,11108880,10015680,9069840,8237640,7520040,6889200,6332520,6016080,
-  5715120,5429520,5157960,4900320,4655040,4422360,4201080,3991320,3811560,3658800,
-  3512520,3372240,3237480,3108120,2983320,2884560,2801280,2783880,2763960,2743800
+  14840913,13278454,11924409,10750955,9735678,8842385,8072104,7394952,6797405,6457735,
+  6134680,5828114,5536618,5260064,4996777,4747016,4509491,4284332,4091376,3927401,
+  3770382,3619804,3475151,3336294,3202333,3096322,3006929,2988251,2966869,2945229
+];
+// Full 4-year rookie scale per pick: [Y1 (26-27), Y2 (27-28), Y3 (28-29 TO), Y4 (29-30 TO)]
+// Raises derived from published 2025 draft class scale ratios, applied to 2026-27 base
+const ROOKIE_SCALE_4YR = [
+  [14840913,15583242,16325185,20586058],
+  [13278454,13942596,14606738,18433703],
+  [11924409,12520153,13116927,16579796],
+  [10750955,11288606,11826386,14960378],
+  [9735678,10222191,10708962,13568255],
+  [8842385,9284588,9726920,12333734],
+  [8072104,8475922,8879225,11276616],
+  [7394952,7764764,8134576,10347180],
+  [6797405,7137720,7477391,9526196],
+  [6457735,6780403,7102942,9056251],
+  [6134680,6441633,6748457,8955203],
+  [5828114,6119739,6411235,8834682],
+  [5536618,5813687,6090370,8703138],
+  [5260064,5523093,5786380,8569629],
+  [4996777,5246539,5496301,8425829],
+  [4747016,4984412,5222066,8010649],
+  [4509491,4735036,4960453,7619256],
+  [4284332,4498156,4712624,7248016],
+  [4091376,4295797,4500862,6931328],
+  [3927401,4123707,4319884,6661261],
+  [3770382,3959088,4147665,6607230],
+  [3619804,3800524,3981630,6549781],
+  [3475151,3649044,3822293,6486431],
+  [3336294,3502973,3669781,6418447],
+  [3202333,3362314,3522939,6344813],
+  [3096322,3250893,3405851,6140750],
+  [3006929,3157378,3308085,5967785],
+  [2988251,3138185,3287475,5933892],
+  [2966869,3115129,3263518,5890650],
+  [2945229,3092458,3240074,5848333]
 ];
 
 const SSID = '11llk0icQqoi0JwJXat5KO8y2RQeBMN5rS9FhAY56Idc';
@@ -5192,14 +5227,9 @@ function openDraftPickSignModal(prospect, pickNum) {
   const bio = prospectBioMap[prospect];
 
   if (isFirstRound) {
-    // Rookie Scale — show confirmation modal
-    const rookieSal = ROOKIE_SCALE[pickNum - 1] || MIN_SALARY_0YOS;
-    const raise5 = 0.05;
-    const yrs = [];
-    for (let y = 0; y < 4; y++) {
-      const sal = Math.round(rookieSal * (1 + raise5 * y));
-      yrs.push(sal);
-    }
+    // Rookie Scale — show confirmation modal using published 4-year values
+    const scale4yr = ROOKIE_SCALE_4YR[pickNum - 1];
+    const yrs = scale4yr ? [...scale4yr] : [ROOKIE_SCALE[pickNum-1]||MIN_SALARY_0YOS, 0, 0, 0];
     const total = yrs.reduce((s, v) => s + v, 0);
     const bioStr = bio ? [bio.position, bio.country && bio.country !== 'USA' ? bio.country : '', bio.birthDate ? (calcProspectAge(bio.birthDate) ? calcProspectAge(bio.birthDate) + ' yrs' : '') : ''].filter(Boolean).join(' · ') : '';
 
@@ -5232,11 +5262,10 @@ function openDraftPickSignModal(prospect, pickNum) {
 }
 
 function confirmRookieScaleSigning(prospect, pickNum) {
-  const rookieSal = ROOKIE_SCALE[pickNum - 1] || MIN_SALARY_0YOS;
-  const raise5 = 0.05;
+  const scale4yr = ROOKIE_SCALE_4YR[pickNum - 1];
   const yearStructure = [];
   for (let y = 0; y < 4; y++) {
-    const sal = Math.round(rookieSal * (1 + raise5 * y));
+    const sal = scale4yr ? scale4yr[y] : (ROOKIE_SCALE[pickNum-1] || MIN_SALARY_0YOS);
     const status = y < 2 ? 'guaranteed' : 'team_option';
     yearStructure.push({ season: 2027 + y, salary: sal, status });
   }
@@ -5245,9 +5274,9 @@ function confirmRookieScaleSigning(prospect, pickNum) {
 
   const signing = {
     name: prospect,
-    salary: rookieSal,
+    salary: yearStructure[0].salary,
     years: 4,
-    raiseRate: 0.05,
+    raiseRate: 0,
     exception: 'Rookie Scale',
     pos: bio?.position || '',
     headshot: '',
