@@ -598,7 +598,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.3 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.5 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -608,7 +608,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.3</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.5</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1695,7 +1695,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 8; // bump this to invalidate saved orders
+  const ALGO_VERSION = 10; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -1728,12 +1728,12 @@ function buildDepthPositions(players) {
   const remaining = [...players].sort((a,b) => (b.tv||0) - (a.tv||0));
   const byPos = {}; POS.forEach(p => byPos[p] = []);
   const maxRows = Math.ceil(players.length / 5);
+  const fullRows = Math.floor(players.length / 5); // these rows MUST be completely filled
 
   for (let row = 0; row < maxRows; row++) {
-    // For each position in this row, find best available player
+    const mustFillAll = row < fullRows; // mandatory full row
     const rowPicks = [];
     for (const pos of POS) {
-      // Find highest-TV remaining player whose natural or adjacent includes this position
       let bestIdx = -1, bestTV = -1;
       for (let i = 0; i < remaining.length; i++) {
         const p = remaining[i];
@@ -1748,20 +1748,13 @@ function buildDepthPositions(players) {
         rowPicks.push({ pos, idx: bestIdx, tv: bestTV });
       }
     }
-    // Assign picks — but each player can only go to one position.
-    // Sort picks by TV ascending so we process lowest first;
-    // if a player is best for multiple positions, they go to the one
-    // where they're most needed (handled by processing order).
-    // Actually: process positions that have fewer candidates first to avoid conflicts.
     const used = new Set();
-    // Sort: positions with fewer valid remaining candidates first (most constrained)
     rowPicks.sort((a,b) => {
       const countA = remaining.filter(p => !used.has(p) && [posOf(p), ...ADJ[posOf(p)]].includes(a.pos)).length;
       const countB = remaining.filter(p => !used.has(p) && [posOf(p), ...ADJ[posOf(p)]].includes(b.pos)).length;
       return countA - countB;
     });
     for (const pick of rowPicks) {
-      // Re-find best for this position among unused
       let bestP = null, bestTV = -1, bestRI = -1;
       for (let i = 0; i < remaining.length; i++) {
         const p = remaining[i];
@@ -1774,9 +1767,11 @@ function buildDepthPositions(players) {
           bestRI = i;
         }
       }
-      // Fallback: if no adjacent match, try by proximity (nearest positions first)
+      // Fallback: try by proximity, distance ≤ 2
       if (!bestP) {
         for (const tryPos of PROXIMITY[pick.pos]) {
+          const tryDist = Math.abs(({PG:0,SG:1,SF:2,PF:3,C:4})[tryPos] - ({PG:0,SG:1,SF:2,PF:3,C:4})[pick.pos]);
+          if (tryDist > 2) continue;
           for (let i = 0; i < remaining.length; i++) {
             const p = remaining[i];
             if (used.has(p)) continue;
@@ -1787,6 +1782,14 @@ function buildDepthPositions(players) {
           if (bestP) break;
         }
       }
+      // Last resort for mandatory full rows: allow ANY remaining player
+      if (!bestP && mustFillAll) {
+        for (let i = 0; i < remaining.length; i++) {
+          const p = remaining[i];
+          if (used.has(p)) continue;
+          if ((p.tv||0) > bestTV) { bestTV = p.tv||0; bestP = p; bestRI = i; }
+        }
+      }
       if (bestP) {
         byPos[pick.pos].push(bestP);
         used.add(bestP);
@@ -1794,24 +1797,21 @@ function buildDepthPositions(players) {
       }
     }
   }
-  // Any leftover — place in the least-filled column, preferring closest to natural position
+  // Any leftover — place in the least-filled column within 2 positions of natural
   const POS_IDX_L = {PG:0,SG:1,SF:2,PF:3,C:4};
   for (const p of remaining) {
     const natIdx = POS_IDX_L[posOf(p)];
-    let minPos = posOf(p), minCount = Infinity, minDist = 99;
+    let minPos = posOf(p), minCount = Infinity;
     for (const pos of POS) {
       const dist = Math.abs(POS_IDX_L[pos] - natIdx);
-      const count = byPos[pos].length;
-      // Prefer fewest players, break ties by closest position
-      if (count < minCount || (count === minCount && dist < minDist)) {
-        minCount = count; minDist = dist; minPos = pos;
+      if (dist <= 2 && byPos[pos].length < minCount) {
+        minCount = byPos[pos].length; minPos = pos;
       }
     }
     byPos[minPos].push(p);
   }
 
-  // === REBALANCE: ensure columns differ by at most 1 player, respecting position proximity ===
-  // Position distance: how far apart two positions are (0=same, 1=adjacent, etc.)
+  // === REBALANCE: balance columns, but NEVER move a player more than 2 positions away ===
   const POS_IDX = {PG:0,SG:1,SF:2,PF:3,C:4};
   function posDist(a, b) { return Math.abs(POS_IDX[a] - POS_IDX[b]); }
 
@@ -1821,7 +1821,7 @@ function buildDepthPositions(players) {
     const minC = Math.min(...counts);
     if (maxC - minC <= 1) break;
 
-    // Try moves with increasing distance tolerance: first dist≤2, then allow any
+    // Find best move with distance ≤ 2 only
     let bestMove = null, bestDist = 99, bestTV = Infinity;
     for (const tallPos of POS) {
       if (byPos[tallPos].length < maxC) continue;
@@ -1832,8 +1832,8 @@ function buildDepthPositions(players) {
           const p = byPos[tallPos][i];
           const nat = posOf(p);
           const dist = posDist(nat, shortPos);
+          if (dist > 2) continue; // HARD LIMIT: never move 3+ positions away
           const tv = p.tv || 0;
-          // Prefer: smallest distance first, then lowest TV to break ties
           if (dist < bestDist || (dist === bestDist && tv < bestTV)) {
             bestDist = dist;
             bestTV = tv;
@@ -1842,7 +1842,7 @@ function buildDepthPositions(players) {
         }
       }
     }
-    if (!bestMove) break;
+    if (!bestMove) break; // no valid move within distance 2 — accept uneven columns
     const moved = byPos[bestMove.fromPos].splice(bestMove.idx, 1)[0];
     byPos[bestMove.toPos].push(moved);
   }
@@ -1856,7 +1856,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 8 };
+  const order = { _v: 10 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
