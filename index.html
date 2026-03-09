@@ -598,7 +598,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v2.0 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.0 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -3788,12 +3788,19 @@ function advancePhase() {
     }
     const prevPhase = PHASES[currentIdx];
     const nextPhase = PHASES[currentIdx + 1];
+
+    // Collect moves from THIS phase only (moves after the last Phase advance)
+    let lastPhaseIdx = -1;
+    for (let i = STATE.moves.length - 1; i >= 0; i--) {
+      if (STATE.moves[i].action === 'Phase') { lastPhaseIdx = i; break; }
+    }
+    const phaseMoves = STATE.moves.slice(lastPhaseIdx + 1).filter(m => m.action !== 'Phase');
+
     STATE.phase = nextPhase.id;
     STATE.moves.push({ action: 'Phase', detail: `Advanced to ${nextPhase.label}`, undo: { type: 'phase', prev: prevPhase.id } });
     saveState();
 
-    // Collect detailed recap of moves in this phase (exclude Phase advances)
-    const phaseMoves = STATE.moves.filter(m => m.action !== 'Phase');
+    // Collect detailed recap of moves in this phase only
     if (phaseMoves.length) showPhaseRecap(prevPhase.label, nextPhase.label, phaseMoves);
 
     render();
