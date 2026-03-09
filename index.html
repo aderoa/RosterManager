@@ -598,7 +598,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v1.1 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v1.3 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -608,7 +608,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.1</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v1.3</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -661,6 +661,7 @@ a{color:var(--accent);text-decoration:none}
     <span style="font-size:1rem">🔄</span>
     <h3>Trade Machine</h3>
     <a id="tmExternalLink" class="tm-external" href="#" target="_blank" onclick="closeTradeMachine()">Open in new tab ↗</a>
+    <button class="tm-close" onclick="resetTradeMachine()" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:.25rem .6rem;border-radius:6px;font-size:.65rem;cursor:pointer;font-family:inherit;margin-right:.5rem">🔄 Reset</button>
     <button class="tm-close" onclick="closeTradeMachine()">✕ Close</button>
   </div>
   <div id="tmLoading" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.5rem">
@@ -1694,7 +1695,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 6; // bump this to invalidate saved orders
+  const ALGO_VERSION = 8; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -1793,37 +1794,57 @@ function buildDepthPositions(players) {
       }
     }
   }
-  // Any leftover — place in the least-filled column, preferring proximity
+  // Any leftover — place in the least-filled column, preferring closest to natural position
+  const POS_IDX_L = {PG:0,SG:1,SF:2,PF:3,C:4};
   for (const p of remaining) {
-    const nat = posOf(p);
-    let minPos = null, minCount = Infinity;
-    for (const pos of PROXIMITY[nat]) {
-      if (byPos[pos].length < minCount) { minCount = byPos[pos].length; minPos = pos; }
+    const natIdx = POS_IDX_L[posOf(p)];
+    let minPos = posOf(p), minCount = Infinity, minDist = 99;
+    for (const pos of POS) {
+      const dist = Math.abs(POS_IDX_L[pos] - natIdx);
+      const count = byPos[pos].length;
+      // Prefer fewest players, break ties by closest position
+      if (count < minCount || (count === minCount && dist < minDist)) {
+        minCount = count; minDist = dist; minPos = pos;
+      }
     }
-    byPos[minPos || nat].push(p);
+    byPos[minPos].push(p);
   }
 
-  // === REBALANCE: ensure no column is more than 1 player taller than any other ===
-  let rebalanced = true;
-  while (rebalanced) {
-    rebalanced = false;
+  // === REBALANCE: ensure columns differ by at most 1 player, respecting position proximity ===
+  // Position distance: how far apart two positions are (0=same, 1=adjacent, etc.)
+  const POS_IDX = {PG:0,SG:1,SF:2,PF:3,C:4};
+  function posDist(a, b) { return Math.abs(POS_IDX[a] - POS_IDX[b]); }
+
+  for (let iter = 0; iter < 20; iter++) {
     const counts = POS.map(p => byPos[p].length);
     const maxC = Math.max(...counts);
     const minC = Math.min(...counts);
     if (maxC - minC <= 1) break;
-    // Find the tallest column and shortest column
-    const tallPos = POS[counts.indexOf(maxC)];
-    const shortPos = POS[counts.indexOf(minC)];
-    // Move the lowest-TV player from tallest to shortest
-    if (byPos[tallPos].length > 1) {
-      let worstIdx = 0, worstTV = Infinity;
-      for (let i = 0; i < byPos[tallPos].length; i++) {
-        if ((byPos[tallPos][i].tv || 0) < worstTV) { worstTV = byPos[tallPos][i].tv || 0; worstIdx = i; }
+
+    // Try moves with increasing distance tolerance: first dist≤2, then allow any
+    let bestMove = null, bestDist = 99, bestTV = Infinity;
+    for (const tallPos of POS) {
+      if (byPos[tallPos].length < maxC) continue;
+      for (const shortPos of POS) {
+        if (byPos[shortPos].length > minC) continue;
+        if (tallPos === shortPos) continue;
+        for (let i = 0; i < byPos[tallPos].length; i++) {
+          const p = byPos[tallPos][i];
+          const nat = posOf(p);
+          const dist = posDist(nat, shortPos);
+          const tv = p.tv || 0;
+          // Prefer: smallest distance first, then lowest TV to break ties
+          if (dist < bestDist || (dist === bestDist && tv < bestTV)) {
+            bestDist = dist;
+            bestTV = tv;
+            bestMove = { fromPos: tallPos, toPos: shortPos, idx: i };
+          }
+        }
       }
-      const moved = byPos[tallPos].splice(worstIdx, 1)[0];
-      byPos[shortPos].push(moved);
-      rebalanced = true;
     }
+    if (!bestMove) break;
+    const moved = byPos[bestMove.fromPos].splice(bestMove.idx, 1)[0];
+    byPos[bestMove.toPos].push(moved);
   }
 
   // Clear stale order
@@ -1835,7 +1856,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 6 };
+  const order = { _v: 8 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
@@ -1890,9 +1911,15 @@ function dcActions(p) {
   if (phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'signed')) {
     btns += `<button class="dc-btn waive" onclick="event.stopPropagation();openWaiveModal('${esc(p.name)}')">Waive</button>`;
   }
-  // Trade
-  if (phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'signed')) {
-    btns += `<button class="dc-btn trade" onclick="event.stopPropagation();openTradeModal('${esc(p.name)}')">Trade</button>`;
+  // Trade — gray out for recently signed FAs and traded-in players (trade restriction)
+  const canTrade = p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised';
+  const cantTradeReason = (p._signed || p.status === 'signed') ? 'Recently signed' : p.status === 'traded_in' ? 'Recently acquired' : '';
+  if (phase !== 'draft' && (canTrade || p.status === 'traded_in' || p.status === 'signed')) {
+    if (canTrade) {
+      btns += `<button class="dc-btn trade" onclick="event.stopPropagation();openTradeModal('${esc(p.name)}')">Trade</button>`;
+    } else {
+      btns += `<button class="dc-btn" style="opacity:.35;cursor:not-allowed;color:var(--muted);border-color:var(--border)" title="${cantTradeReason} — can't trade yet">Trade</button>`;
+    }
   }
   // Extend
   if ((phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa') && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && p.extEligible) {
@@ -4074,11 +4101,23 @@ function closeTradeMachine() {
   const overlay = document.getElementById('tmOverlay');
   overlay.style.display = 'none';
   document.body.style.overflow = '';
-  // If there's a pending S&T signing and no trade is being processed, roll it back
-  // (_pendingTrade is set when TM sends a trade, so don't roll back in that case)
   if (window._pendingSATSigning && !_pendingTrade) {
     rollbackPendingSAT();
   }
+}
+
+function resetTradeMachine() {
+  const abbrev = TEAMS[STATE.team];
+  const partner = getRandomTradePartner(abbrev);
+  const freshUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}`;
+  const iframe = document.getElementById('tmIframe');
+  const loading = document.getElementById('tmLoading');
+  loading.style.display = 'flex';
+  iframe.style.display = 'block';
+  iframe.onload = function() { loading.style.display = 'none'; iframe.dataset.ready = '1'; };
+  iframe.src = freshUrl;
+  _tmUrl = freshUrl;
+  document.getElementById('tmExternalLink').href = freshUrl;
 }
 
 function rollbackPendingSAT() {
@@ -4241,8 +4280,14 @@ function confirmPendingTrade() {
   _pendingTrade = null;
   document.getElementById('tradeConfirmOverlay').style.display = 'none';
   document.body.style.overflow = '';
+  // Reset TM iframe so it loads fresh next time
+  const tmIframe = document.getElementById('tmIframe');
+  if (tmIframe) { tmIframe.src = 'about:blank'; tmIframe.dataset.ready = '0'; }
+  _tmPreloaded = false;
   showToast(`Trade completed! Acquired ${inNames}`, 'success');
   render();
+  // Preload fresh TM in background
+  setTimeout(preloadTradeMachine, 500);
   console.log('[RM] Trade confirmed');
 }
 
