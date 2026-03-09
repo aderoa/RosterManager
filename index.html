@@ -78,6 +78,7 @@ a{color:var(--accent);text-decoration:none}
   .toast-container{right:.5rem;left:.5rem;max-width:none}
   .toast{font-size:.7rem}
   .trade-confirm{width:95%}
+  .phase-bar{top:0}
 }
 
 /* Roster Panel */
@@ -204,7 +205,7 @@ a{color:var(--accent);text-decoration:none}
 .empty{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem}
 
 /* Phase Stepper */
-.phase-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;gap:.4rem;justify-content:center;flex-wrap:wrap;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.phase-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;gap:.4rem;justify-content:center;flex-wrap:wrap;box-shadow:0 1px 2px rgba(0,0,0,.04);position:sticky;top:60px;z-index:90}
 
 /* Content transitions */
 .roster-panel,.cap-panel{animation:fadeSlideIn .3s ease}
@@ -598,7 +599,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v2.2 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v2.3 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -608,7 +609,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.2</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.3</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1544,8 +1545,9 @@ function calcCapSheet(team) {
   }
   exceptions.push({ name: 'Minimum', amount: MIN_SALARY_BY_YOS[MIN_SALARY_BY_YOS.length - 1], available: true, isMinimum: true, note: 'YOS-based salary' });
   // Two-Way: up to 3 two-way contracts per team (don't count against cap)
+  // Only count players actually under two-way contract, not two-way free agents
   const twoWayCount = (STATE.signings || []).filter(s => s.contractType === 'two-way' && !STATE.waived.has(s.name)).length
-    + players.filter(p => p.isTwoWay && !STATE.waived.has(p.name) && !tradedOut.has(p.name)).length;
+    + players.filter(p => p.isTwoWay && p.sal27 && p.category !== 'free_agent' && !STATE.waived.has(p.name) && !tradedOut.has(p.name)).length;
   exceptions.push({ name: 'Two-Way', amount: MIN_SALARY_0YOS, available: twoWayCount < 3, note: `${twoWayCount}/3 used` });
   // Exhibit 10 (training camp only)
   if (STATE.phase === 'training_camp') {
@@ -4546,15 +4548,18 @@ function confirmExtension() {
 
 // ======================== FREE AGENCY SIGNING ========================
 function openSignModal(faName, isResign) {
-  // Clear draft pick flag unless set just before this call
-  if (!window._isDraftPickSign) {
-    window._isDraftPickSign = false;
-    window._draftPickNum = 0;
-  }
+  // Read and immediately clear draft pick flags
+  const isDraftPick = !!window._isDraftPickSign;
+  const draftPickNum = window._draftPickNum || 0;
+  window._isDraftPickSign = false;
+  window._draftPickNum = 0;
+
   const modal = document.getElementById('signModalBody');
-  const title = window._isDraftPickSign ? `Sign #${window._draftPickNum} Pick — ${faName}` : (isResign ? `Re-sign ${faName}` : 'Sign Free Agent');
+  const title = isDraftPick ? `Sign #${draftPickNum} Pick — ${faName}` : (isResign ? `Re-sign ${faName}` : 'Sign Free Agent');
   document.getElementById('signModalTitle').textContent = title;
   window._signIsResign = !!isResign;
+  window._signIsDraftPick = isDraftPick;
+  window._signDraftPickNum = draftPickNum;
 
   const cap = calcCapSheet(STATE.team);
   let h = '';
@@ -4584,13 +4589,13 @@ function openSignModal(faName, isResign) {
     h += `<div style="padding:.5rem;background:var(--surface);border-radius:6px;margin-bottom:.75rem;font-size:.7rem;line-height:1.5">`;
     h += `<div style="font-weight:700;font-size:.8rem">${faName}</div>`;
     if (p) h += `<div>${p.pos || ''} · was ${fmtMoneyFull(p.sal26)} in 25-26 · ~${yos} YOS</div>`;
-    else if (window._isDraftPickSign) {
+    else if (window._signIsDraftPick) {
       const bio = prospectBioMap[faName];
       const bioParts = [];
       if (bio?.position) bioParts.push(bio.position);
       if (bio?.country && bio.country !== 'USA') bioParts.push(`🌍 ${bio.country}`);
       if (bio?.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) bioParts.push(`${age} yrs`); }
-      if (bioParts.length) h += `<div>${bioParts.join(' · ')} · 2nd Round Pick #${window._draftPickNum}</div>`;
+      if (bioParts.length) h += `<div>${bioParts.join(' · ')} · 2nd Round Pick #${window._signDraftPickNum}</div>`;
     }
     h += `<div style="display:flex;gap:.75rem;flex-wrap:wrap">`;
     if (tv) h += `<span>Est. Value: <strong>${fmtMoneyFull(tv)}</strong></span>`;
@@ -4611,16 +4616,16 @@ function openSignModal(faName, isResign) {
   h += `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
 
   // Second Round Exception (only for 2nd-round draft picks)
-  if (window._isDraftPickSign && window._draftPickNum > 30) {
+  if (window._signIsDraftPick && window._signDraftPickNum > 30) {
     const sre3Total = SRE_3YR.salaries.reduce((s,v) => s + v, 0);
     const sre4Total = SRE_4YR.salaries.reduce((s,v) => s + v, 0);
     const dpName = faName || (document.getElementById('signPlayerName')?.value);
     h += `<div style="border:2px solid var(--orange);border-radius:8px;padding:.6rem;margin-bottom:.75rem;background:rgba(180,83,9,.04)">`;
     h += `<div style="font-size:.7rem;font-weight:700;color:var(--orange);margin-bottom:.4rem">🏀 Second Round Exception</div>`;
     h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap">`;
-    h += `<button class="phase-advance" onclick="confirmSREsigning('${esc(dpName || '')}',${window._draftPickNum},'3yr')" style="font-size:.7rem;padding:.4rem .8rem;flex:1">`;
+    h += `<button class="phase-advance" onclick="confirmSREsigning('${esc(dpName || '')}',${window._signDraftPickNum},'3yr')" style="font-size:.7rem;padding:.4rem .8rem;flex:1">`;
     h += `3yr deal<br><span style="font-size:.55rem;font-weight:400">${fmtMoney(SRE_3YR.salaries[0])}/yr · Y3 TO · ${fmtMoney(sre3Total)} total</span></button>`;
-    h += `<button class="phase-advance" onclick="confirmSREsigning('${esc(dpName || '')}',${window._draftPickNum},'4yr')" style="font-size:.7rem;padding:.4rem .8rem;flex:1">`;
+    h += `<button class="phase-advance" onclick="confirmSREsigning('${esc(dpName || '')}',${window._signDraftPickNum},'4yr')" style="font-size:.7rem;padding:.4rem .8rem;flex:1">`;
     h += `4yr deal<br><span style="font-size:.55rem;font-weight:400">${fmtMoney(SRE_4YR.salaries[0])}/yr · Y4 TO · ${fmtMoney(sre4Total)} total</span></button>`;
     h += `</div>`;
     h += `<div style="font-size:.5rem;color:var(--muted);margin-top:.3rem">Or choose a standard exception below:</div>`;
@@ -4630,11 +4635,11 @@ function openSignModal(faName, isResign) {
   for (const exc of cap.exceptions) {
     // Hide S&T for re-signing own FAs and for draft picks
     if (exc.isSAT && window._signIsResign) continue;
-    if (exc.isSAT && window._isDraftPickSign) continue;
+    if (exc.isSAT && window._signIsDraftPick) continue;
     // ALL Bird rights exceptions are team-specific — only for re-signing own FAs
     if (exc.isBirdRights && !window._signIsResign) continue;
     // Hide Bird rights for draft picks
-    if (exc.isBirdRights && window._isDraftPickSign) continue;
+    if (exc.isBirdRights && window._signIsDraftPick) continue;
     // When re-signing with Full Bird, only show if player actually has Bird rights
     if (exc.name === 'Bird Exception' && window._signIsResign) {
       const pExc = (window._signPlayerContext?.exception || '').toLowerCase();
@@ -4651,9 +4656,23 @@ function openSignModal(faName, isResign) {
       // Always available for own FAs
     }
     const cls = exc.available ? '' : 'unavailable';
+    // For Minimum, show the player's specific YOS-based salary
+    let detailText;
+    if (exc.isMinimum && exc.available) {
+      const playerYos = window._signPlayerContext?.yos || 0;
+      const minSal = getMinSalaryForYOS(playerYos);
+      detailText = `Fixed: ${fmtMoneyFull(minSal)} (${playerYos} YOS)`;
+    } else if (!exc.available) {
+      detailText = 'Not available';
+    } else if (exc.remaining !== undefined) {
+      detailText = `Remaining: ${fmtMoneyFull(exc.remaining)}`;
+    } else {
+      detailText = `Up to ${fmtMoneyFull(exc.amount)}`;
+    }
+    if (exc.used) detailText += ` (used ${fmtMoneyFull(exc.used)})`;
     h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
     h += `<div class="exc-name">${exc.name}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
-    h += `<div class="exc-detail">${exc.available ? (exc.remaining !== undefined ? 'Remaining: ' + fmtMoneyFull(exc.remaining) : 'Up to ' + fmtMoneyFull(exc.amount)) : 'Not available'}${exc.used ? ` (used ${fmtMoneyFull(exc.used)})` : ''}</div>`;
+    h += `<div class="exc-detail">${detailText}</div>`;
     h += `</div>`;
   }
 
