@@ -598,7 +598,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v2.1 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v2.2 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -608,7 +608,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.1</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v2.2</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1245,15 +1245,16 @@ function parseAllPlayers(csv) {
     const isTwoWay = (st26 === 'TWO-WAY' || st27 === 'TWO-WAY');
 
     // Auto-compute extension eligibility if not set from CSV
+    // Only eligible if entering LAST year of contract (end === 2027 = contract expires after 26-27)
     let computedExtEligible = extEligible;
-    if (!computedExtEligible && !isTwoWay) {
+    if (!computedExtEligible && !isTwoWay && end === 2027 && sal27 > 0) {
       const pAge = parseInt(age) || 22;
       const pYos = Math.max(0, pAge - 19);
       if (exception && /rookie/i.test(exception) && (category === 'under_contract' || category === 'team_option')) {
         // Rookie Scale Extension: 25% cap, up to 5 new years
         computedExtEligible = 'RSE:25:5';
-      } else if (category === 'under_contract' && end >= 2028) {
-        // Veteran extension: player has years beyond 26-27, max % by YOS, up to 4 new years
+      } else if (category === 'under_contract') {
+        // Veteran extension: max % by YOS, up to 4 new years
         const maxPct = pYos >= 10 ? 35 : pYos >= 7 ? 30 : 25;
         computedExtEligible = `VET:${maxPct}:4`;
       }
@@ -1543,7 +1544,7 @@ function calcCapSheet(team) {
   }
   exceptions.push({ name: 'Minimum', amount: MIN_SALARY_BY_YOS[MIN_SALARY_BY_YOS.length - 1], available: true, isMinimum: true, note: 'YOS-based salary' });
   // Two-Way: up to 3 two-way contracts per team (don't count against cap)
-  const twoWayCount = (STATE.signings || []).filter(s => s.contractType === 'two-way').length
+  const twoWayCount = (STATE.signings || []).filter(s => s.contractType === 'two-way' && !STATE.waived.has(s.name)).length
     + players.filter(p => p.isTwoWay && !STATE.waived.has(p.name) && !tradedOut.has(p.name)).length;
   exceptions.push({ name: 'Two-Way', amount: MIN_SALARY_0YOS, available: twoWayCount < 3, note: `${twoWayCount}/3 used` });
   // Exhibit 10 (training camp only)
@@ -1562,6 +1563,8 @@ function calcCapSheet(team) {
   exceptions.push({ name: 'Sign-and-Trade', amount: MAX_SAT_SALARY, available: satAvailable, note: satAvailable ? 'Max 4yr · Bird max · Hard-caps at 1st apron' : 'Not available above 1st apron', isSAT: true });
 
   for (const exc of exceptions) {
+    // Don't track usage/remaining for per-player exceptions (unlimited uses)
+    if (exc.isMinimum || exc.isBirdRights || exc.name === 'Two-Way' || exc.name === 'Exhibit 10') continue;
     const used = excUsage[exc.name] || 0;
     if (used > 0) {
       exc.used = used;
@@ -3187,9 +3190,12 @@ function renderRoster(cap) {
     h += `<div class="section"><div class="section-body">`;
     for (const p of picks) {
       const rdLabel = p.draftRnk <= 30 ? '1st Rd' : '2nd Rd';
+      // Show drafted prospect name if available
+      const draftResult = (STATE.draftResults || []).find(r => r.pick === p.draftRnk);
+      const prospectName = draftResult ? draftResult.prospect : '';
       h += `<div class="player-row">`;
       h += `<div class="hs-ini" style="background:rgba(180,83,9,.15);color:var(--orange);font-weight:700;font-size:.7rem">#${p.draftRnk}</div>`;
-      h += `<div class="info"><div class="pname">${rdLabel} Pick #${p.draftRnk}</div>`;
+      h += `<div class="info"><div class="pname">${prospectName ? prospectName : `${rdLabel} Pick #${p.draftRnk}`}${prospectName ? ` <span style="font-size:.55rem;color:var(--muted)">${rdLabel} #${p.draftRnk}</span>` : ''}</div>`;
       h += `<div class="pdet">${p.draftRnk <= 30 ? 'Rookie Scale' : 'Min Salary'}</div></div>`;
       h += `<div><div class="sal" style="color:var(--orange)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
       h += `<div style="display:flex;gap:.3rem">`;
@@ -4742,6 +4748,7 @@ function filterSignList(query) {
 
 function closeSignModal() {
   document.getElementById('signOverlay').style.display = 'none';
+  document.body.style.overflow = ''; // restore scrolling
 }
 
 function isProjectedFA(p) {
