@@ -736,7 +736,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v4.1 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v4.2 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -746,7 +746,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v4.1</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v4.2</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -5962,13 +5962,15 @@ async function init() {
   // Check if returning from same-tab Trade Machine
   const returnTeam = localStorage.getItem('rm_return_team');
   
-  // Check window.name for trade data (persists across same-tab navigations)
+  // Check URL hash for trade data from TM
   let pendingTradeData = null;
-  if (window.name && window.name.startsWith('RMTRADE:')) {
+  if (window.location.hash.startsWith('#rmtrade=')) {
     try {
-      pendingTradeData = JSON.parse(window.name.slice('RMTRADE:'.length));
-    } catch (e) { console.warn('Failed to parse trade from window.name:', e); }
-    window.name = ''; // clear so it doesn't re-trigger
+      const b64 = window.location.hash.slice('#rmtrade='.length);
+      pendingTradeData = JSON.parse(decodeURIComponent(escape(atob(b64))));
+      // Clean hash so refresh doesn't re-trigger
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (e) { console.warn('Failed to parse trade hash:', e); }
   }
   
   if (returnTeam || pendingTradeData) {
@@ -6304,30 +6306,6 @@ function renderShareCard() {
 const _origRenderSeasonReady = typeof renderSeasonReady === 'function' ? renderSeasonReady : null;
 
 init();
-
-// Handle return from Trade Machine via history.back() (bfcache restore or re-render)
-window.addEventListener('pageshow', function(event) {
-  if (!window.name || !window.name.startsWith('RMTRADE:')) return;
-  // Skip if init() already handled it (full reload case)
-  if (!STATE) return;
-  
-  try {
-    const data = JSON.parse(window.name.slice('RMTRADE:'.length));
-    window.name = '';
-    
-    if (data.type === 'ROSTER_MANAGER_TRADE') {
-      const teamAbbrev = TEAMS[STATE.team];
-      if (data.team === teamAbbrev) {
-        _pendingTrade = {
-          out: (data.out || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '' })),
-          in: (data.in || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '', fromTeam: p.fromTeam || '' })),
-          timestamp: data.timestamp || Date.now()
-        };
-        showTradeConfirm(_pendingTrade);
-      }
-    }
-  } catch (e) { console.warn('pageshow trade parse error:', e); }
-});
 </script>
 </body>
 </html>
