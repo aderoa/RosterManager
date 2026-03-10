@@ -4460,9 +4460,8 @@ function openTradeModal(playerName) {
     localStorage.setItem('rm_return_scroll', String(window.scrollY));
     localStorage.setItem('rm_return_team', STATE.team);
     saveState(); // persist current state
-    // Add same-tab flag to URL
     const sep = _tmUrl.includes('?') ? '&' : '?';
-    window.location.href = _tmUrl + sep + 'rmst=1';
+    window.location.href = _tmUrl + sep + 'rmst=1&rmurl=' + encodeURIComponent(window.location.href);
     return;
   }
   
@@ -5671,7 +5670,7 @@ function confirmSigning() {
           localStorage.setItem('rm_return_team', STATE.team);
           saveState();
           const sep = _tmUrl.includes('?') ? '&' : '?';
-          window.location.href = _tmUrl + sep + 'rmst=1';
+          window.location.href = _tmUrl + sep + 'rmst=1&rmurl=' + encodeURIComponent(window.location.href);
           return;
         }
         const overlay = document.getElementById('tmOverlay');
