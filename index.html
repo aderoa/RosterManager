@@ -85,23 +85,27 @@ a{color:var(--accent);text-decoration:none}
   .cap-mini-bar{height:4px}
   .team-dropdown{min-width:100px;font-size:.65rem;padding:.3rem .5rem}
 
-  /* 2. PHASE BAR COMPACT */
-  .phase-bar{top:42px;padding:.35rem .5rem;gap:.25rem;font-size:.6rem}
+  /* 2. PHASE BAR — hide on scroll down, show on scroll up */
+  .phase-bar{top:42px;padding:.35rem .5rem;gap:.25rem;font-size:.6rem;transition:transform .25s ease}
+  .phase-bar.mobile-hidden{transform:translateY(-100%);pointer-events:none}
   .phase-bar .phase-step{font-size:.5rem;padding:.2rem .4rem}
   .phase-bar .phase-advance{font-size:.55rem;padding:.25rem .5rem}
 
   /* 3. MAIN LAYOUT */
   .main{grid-template-columns:1fr;padding:.5rem;gap:.5rem}
 
-  /* 4. DEPTH CHART — horizontal scroll */
+  /* 4. DEPTH CHART — smooth horizontal scroll */
   .depth-chart{
     display:flex!important;overflow-x:auto;-webkit-overflow-scrolling:touch;
-    scroll-snap-type:x proximity;gap:.4rem;padding:.5rem;margin-bottom:.5rem;
+    gap:.4rem;padding:.5rem;margin-bottom:.5rem;
     grid-template-columns:unset!important;
+    scroll-behavior:smooth;
+    overscroll-behavior-x:contain;
+    touch-action:pan-x pan-y;
   }
-  .pos-col{min-width:130px;flex:0 0 130px;scroll-snap-align:start;min-height:auto}
+  .pos-col{min-width:130px;flex:0 0 130px;min-height:auto}
   .pos-hdr{font-size:.7rem;padding:.25rem;position:sticky;top:0;background:var(--bg);z-index:1}
-  .dc-card{padding:.4rem;min-height:auto;touch-action:pan-y}
+  .dc-card{padding:.4rem;min-height:auto;touch-action:pan-x pan-y}
   .dc-card .dc-top{gap:.25rem}
   .dc-card .dc-hs,.dc-card .dc-ini{width:30px;height:23px;font-size:.4rem}
   .dc-card .dc-name{font-size:.6rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -708,7 +712,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v3.2 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v3.3 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -718,7 +722,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.2</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.3</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1913,12 +1917,26 @@ function toggleMobileCapExpand() {
   if (arrow) arrow.textContent = expand.classList.contains('open') ? '▼' : '▲';
 }
 // Close mobile cap expand on scroll
+let _lastScrollY = 0;
 window.addEventListener('scroll', () => {
   const expand = document.getElementById('mobileCapExpand');
   if (expand && expand.classList.contains('open')) {
     expand.classList.remove('open');
     const arrow = document.querySelector('#mobileCapPill span:last-child');
     if (arrow) arrow.textContent = '▲';
+  }
+  // Phase bar: hide on scroll down, show on scroll up (mobile only)
+  if (window.innerWidth <= 768) {
+    const phaseBar = document.querySelector('.phase-bar');
+    if (phaseBar) {
+      const currentY = window.scrollY;
+      if (currentY > _lastScrollY && currentY > 80) {
+        phaseBar.classList.add('mobile-hidden');
+      } else {
+        phaseBar.classList.remove('mobile-hidden');
+      }
+      _lastScrollY = currentY;
+    }
   }
 }, { passive: true });
 
@@ -3541,14 +3559,12 @@ function setupDragDrop() {
         holdTimer: null,
         isDragging: false
       };
-      // Long-press to activate drag (250ms)
+      // Long-press to activate drag (400ms — longer to avoid conflict with scroll)
       _touchDragState.holdTimer = setTimeout(() => {
         if (!_touchDragState) return;
         _touchDragState.isDragging = true;
         card.classList.add('touch-held');
-        // Haptic feedback
         if (navigator.vibrate) navigator.vibrate(30);
-        // Create floating clone
         const rect = card.getBoundingClientRect();
         const clone = card.cloneNode(true);
         clone.className = 'dc-card touch-dragging';
@@ -3560,29 +3576,28 @@ function setupDragDrop() {
         document.body.appendChild(clone);
         _touchDragState.clone = clone;
         card.style.opacity = '0.3';
-      }, 250);
-    }, { passive: false });
+      }, 400);
+    }, { passive: true }); // passive: allow browser to scroll immediately
 
     card.addEventListener('touchmove', e => {
       if (!_touchDragState) return;
       const touch = e.touches[0];
       const dx = Math.abs(touch.clientX - _touchDragState.startX);
       const dy = Math.abs(touch.clientY - _touchDragState.startY);
-      // Cancel hold if finger moves too much before hold triggers
-      if (!_touchDragState.isDragging && (dx > 10 || dy > 10)) {
+      // Cancel hold if finger moves before hold triggers — let scroll happen
+      if (!_touchDragState.isDragging && (dx > 8 || dy > 8)) {
         clearTimeout(_touchDragState.holdTimer);
         _touchDragState = null;
-        return;
+        return; // don't preventDefault — allow native scroll
       }
       if (!_touchDragState.isDragging) return;
-      e.preventDefault();
-      // Move clone with finger
+      // Only block scrolling when actively dragging
+      try { e.preventDefault(); } catch(_) {}
       const clone = _touchDragState.clone;
       if (clone) {
         clone.style.left = (touch.clientX - clone.offsetWidth / 2) + 'px';
         clone.style.top = (touch.clientY - clone.offsetHeight / 2) + 'px';
       }
-      // Highlight target column
       grid.querySelectorAll('.pos-col.drag-over').forEach(el => el.classList.remove('drag-over'));
       grid.querySelectorAll('.dc-drop-indicator').forEach(el => el.remove());
       const target = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -3601,7 +3616,7 @@ function setupDragDrop() {
         if (afterCard) col.insertBefore(indicator, afterCard);
         else col.appendChild(indicator);
       }
-    }, { passive: false });
+    }, { passive: false }); // passive:false needed for drag preventDefault
 
     card.addEventListener('touchend', e => {
       if (!_touchDragState) return;
