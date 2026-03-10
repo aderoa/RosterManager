@@ -18,7 +18,23 @@
   --team1:#3b82f6;--team2:#2563eb;--team1-dim:rgba(59,130,246,.1);--team2-dim:rgba(37,99,235,.1);
   --green-dim:rgba(52,199,89,.15);--red-dim:rgba(255,69,58,.15);--accent-dim:rgba(59,130,246,.15);
 }
-body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;max-width:100vw;line-height:1.5}
+body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;max-width:100vw;line-height:1.5;font-size:112%}
+
+/* Beating effect for cards needing action */
+@keyframes needsAction{
+  0%{box-shadow:0 0 0 0 rgba(255,180,0,.4)}
+  40%{box-shadow:0 0 0 6px rgba(255,180,0,0)}
+  100%{box-shadow:0 0 0 0 rgba(255,180,0,0)}
+}
+@keyframes needsActionFA{
+  0%{box-shadow:0 0 0 0 rgba(52,199,89,.4)}
+  40%{box-shadow:0 0 0 6px rgba(52,199,89,0)}
+  100%{box-shadow:0 0 0 0 rgba(52,199,89,0)}
+}
+.dc-card.needs-action{animation:needsAction 2s ease-out infinite;border-color:var(--orange)}
+.dc-card.needs-action-fa{animation:needsActionFA 2s ease-out infinite;border-color:var(--green)}
+.player-row.needs-action{animation:needsAction 2s ease-out infinite;border-left:3px solid var(--orange)}
+.player-row.needs-action-fa{animation:needsActionFA 2s ease-out infinite;border-left:3px solid var(--green)}
 a{color:var(--accent);text-decoration:none}
 
 /* Header */
@@ -712,7 +728,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v3.3 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v3.4 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -722,7 +738,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.3</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.4</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -2260,7 +2276,12 @@ function dcCard(p) {
   const hs = p.headshot
     ? `<img class="dc-hs" src="${p.headshot}" onerror="this.outerHTML='<div class=dc-ini>${ini}</div>'">`
     : `<div class="dc-ini">${ini}</div>`;
-  return `<div class="dc-card" draggable="true" data-player="${p.name}" onmouseenter="showPlayerCard(event,'${esc}')" onmouseleave="hidePlayerCard()">
+  // Determine if card needs attention
+  let extraClass = '';
+  if (p.status === 'pending_to' || p.status === 'pending_po') extraClass = ' needs-action';
+  else if (p.status === 'non_guaranteed' || p.status === 'partial_guaranteed') extraClass = ' needs-action';
+  else if (p.category === 'free_agent' && p.status === 'held' && (STATE.phase === 'pre_fa' || STATE.phase === 'free_agency' || STATE.phase === 'training_camp')) extraClass = ' needs-action-fa';
+  return `<div class="dc-card${extraClass}" draggable="true" data-player="${p.name}" onmouseenter="showPlayerCard(event,'${esc}')" onmouseleave="hidePlayerCard()">
     ${dcBadge(p)}
     <div class="dc-top">${hs}<div class="dc-name">${p.name}</div><div class="dc-sal">${fmtMoney(p.sal27 || 0)}</div></div>
     <div class="dc-actions">${dcActions(p)}</div></div>`;
@@ -2903,6 +2924,32 @@ function startDraft() {
   runDraftUntilUser();
 }
 
+function skipToNextPick() {
+  // Instantly auto-draft all picks until the user's next pick (no animation)
+  if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
+  const teamAbbrev = TEAMS[STATE.team];
+  let current = STATE.draftCurrentPick || 1;
+  let safety = 0;
+  while (current <= 60 && safety++ < 65) {
+    const pickTeam = getPickTeam(current);
+    if (!pickTeam) { current++; continue; }
+    if (pickTeam === teamAbbrev) break; // stop at user's pick
+    const prospect = autoDraftPick(current);
+    if (prospect) {
+      STATE.draftResults.push({ pick: current, team: pickTeam, prospect });
+    }
+    current++;
+  }
+  STATE.draftCurrentPick = current;
+  saveState();
+  render();
+  // Scroll to user's pick box
+  setTimeout(() => {
+    const box = document.getElementById('yourPickBox');
+    if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
 function skipDraft() {
   // Auto-draft all 60 picks using probabilistic selection
   const teamAbbrev = TEAMS[STATE.team];
@@ -3044,7 +3091,18 @@ function renderDraftBoard() {
 
   // Skip remaining button during active draft
   if (!isDraftComplete) {
-    h += `<div style="margin-bottom:.75rem"><button class="action-btn" style="font-size:.65rem;padding:.3rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Simulate Remaining Picks</button></div>`;
+    // Check if user has any remaining picks
+    const userPicks = [];
+    for (let p = current; p <= 60; p++) { if (getPickTeam(p) === teamAbbrev) userPicks.push(p); }
+    const nextUserPick = userPicks[0];
+    const isUserTurn = getPickTeam(current) === teamAbbrev;
+    
+    h += `<div style="margin-bottom:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">`;
+    if (!isUserTurn && nextUserPick) {
+      h += `<button class="action-btn" style="font-size:.7rem;padding:.4rem .9rem;background:var(--accent);color:#fff;border:none;font-weight:600" onclick="skipToNextPick()">⏭ Skip to Pick #${nextUserPick}</button>`;
+    }
+    h += `<button class="action-btn" style="font-size:.65rem;padding:.35rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Simulate All</button>`;
+    h += `</div>`;
   }
 
   // User's pick selection (if it's their turn)
@@ -3433,7 +3491,8 @@ function renderRoster(cap) {
       return (b.capHold||0) - (a.capHold||0);
     })) {
       const acted = p.status === 'renounced';
-      h += `<div class="player-row${acted ? ' acted' : ''}">`;
+      const faClass = !acted ? ' needs-action-fa' : '';
+      h += `<div class="player-row${acted ? ' acted' : ''}${faClass}">`;
       h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
       h += `<div class="info"><div class="pname">${p.name}${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(110,110,115,.15);color:var(--muted)">2W</span>' : ''}</div>`;
       h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}</div></div>`;
