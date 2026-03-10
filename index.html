@@ -746,7 +746,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.7</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.8</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -5961,27 +5961,40 @@ async function init() {
   renderTeamDropdown();
 
   // Check if returning from same-tab Trade Machine
-  const pendingTrade = localStorage.getItem('rm_pending_trade');
   const returnTeam = localStorage.getItem('rm_return_team');
   
-  if (returnTeam) {
+  // Check URL hash for trade data (passed from TM via #rmtrade=...)
+  let pendingTradeData = null;
+  if (window.location.hash.startsWith('#rmtrade=')) {
+    try {
+      const b64 = window.location.hash.slice('#rmtrade='.length);
+      pendingTradeData = JSON.parse(decodeURIComponent(escape(atob(b64))));
+      // Clean the hash so it doesn't re-trigger on refresh
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (e) { console.warn('Failed to parse trade hash:', e); }
+  }
+  
+  if (returnTeam || pendingTradeData) {
+    const team = returnTeam || (pendingTradeData ? pendingTradeData.team : null);
+    if (!team) { renderLandingPage(); return; }
     // Coming back from TM — with or without a trade
     const scrollY = parseInt(localStorage.getItem('rm_return_scroll') || '0');
     
     // Clean up localStorage
-    localStorage.removeItem('rm_pending_trade');
     localStorage.removeItem('rm_return_team');
     localStorage.removeItem('rm_return_url');
     localStorage.removeItem('rm_return_scroll');
     
     // Auto-select the team and restore state
-    selectTeam(returnTeam);
+    // returnTeam is the full team key; pendingTradeData.team is the abbreviation
+    const teamKey = returnTeam || Object.keys(TEAMS).find(k => TEAMS[k] === team);
+    if (teamKey) selectTeam(teamKey);
     
-    if (pendingTrade) {
-      // Process pending trade after render completes
+    if (pendingTradeData) {
+      // Process trade after render completes
       setTimeout(() => {
         try {
-          const data = JSON.parse(pendingTrade);
+          const data = pendingTradeData;
           if (data.type === 'ROSTER_MANAGER_TRADE' && STATE) {
             const teamAbbrev = TEAMS[STATE.team];
             if (data.team === teamAbbrev) {
