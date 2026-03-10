@@ -439,6 +439,14 @@ a{color:var(--accent);text-decoration:none}
 .tm-bar .tm-external{background:none;border:1px solid var(--border);color:var(--muted);font-size:.65rem;padding:.3rem .6rem;border-radius:6px;cursor:pointer;text-decoration:none;transition:all .15s}
 .tm-bar .tm-external:hover{border-color:var(--accent);color:var(--accent)}
 .tm-iframe{flex:1;border:none;width:100%;background:var(--bg)}
+@media(max-width:768px){
+  .tm-overlay{z-index:300}
+  .tm-bar{padding:.35rem .5rem;gap:.35rem;flex-wrap:wrap}
+  .tm-bar h3{font-size:.65rem}
+  .tm-bar .tm-close{font-size:.6rem;padding:.25rem .5rem}
+  .tm-bar .tm-external{font-size:.55rem;padding:.2rem .4rem}
+  .tm-iframe{-webkit-overflow-scrolling:touch;overflow:auto}
+}
 
 /* Trade Confirm Dialog */
 .trade-confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
@@ -728,7 +736,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v3.4 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v3.5 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -738,7 +746,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.4</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.5</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -4478,6 +4486,18 @@ function openTradeModal(playerName) {
   
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  // On mobile, hide cap pill and phase bar under the TM overlay
+  const capPill = document.getElementById('mobileCapPill');
+  if (capPill) capPill.style.display = 'none';
+  const capExpand = document.getElementById('mobileCapExpand');
+  if (capExpand) capExpand.classList.remove('open');
+  const floatUndo = document.getElementById('floatUndo');
+  if (floatUndo) floatUndo.style.display = 'none';
+  // Prevent iOS bounce/rubber-banding
+  document.documentElement.style.overflow = 'hidden';
+  document.documentElement.style.position = 'fixed';
+  document.documentElement.style.width = '100%';
+  document.documentElement.style.height = '100%';
 }
 
 function tmFallbackNewTab() {
@@ -4489,6 +4509,18 @@ function closeTradeMachine() {
   const overlay = document.getElementById('tmOverlay');
   overlay.style.display = 'none';
   document.body.style.overflow = '';
+  // Restore iOS scroll lock
+  document.documentElement.style.overflow = '';
+  document.documentElement.style.position = '';
+  document.documentElement.style.width = '';
+  document.documentElement.style.height = '';
+  // Restore mobile elements
+  if (window.innerWidth <= 768) {
+    const capPill = document.getElementById('mobileCapPill');
+    if (capPill) capPill.style.display = '';
+    const floatUndo = document.getElementById('floatUndo');
+    if (floatUndo && STATE && STATE.moves && STATE.moves.length) floatUndo.style.display = 'flex';
+  }
   if (window._pendingSATSigning && !_pendingTrade) {
     rollbackPendingSAT();
   }
