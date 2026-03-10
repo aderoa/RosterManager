@@ -746,7 +746,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v3.9</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v4.0</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -6306,6 +6306,30 @@ function renderShareCard() {
 const _origRenderSeasonReady = typeof renderSeasonReady === 'function' ? renderSeasonReady : null;
 
 init();
+
+// Handle return from Trade Machine via history.back() (bfcache restore or re-render)
+window.addEventListener('pageshow', function(event) {
+  if (!window.name || !window.name.startsWith('RMTRADE:')) return;
+  // Skip if init() already handled it (full reload case)
+  if (!STATE) return;
+  
+  try {
+    const data = JSON.parse(window.name.slice('RMTRADE:'.length));
+    window.name = '';
+    
+    if (data.type === 'ROSTER_MANAGER_TRADE') {
+      const teamAbbrev = TEAMS[STATE.team];
+      if (data.team === teamAbbrev) {
+        _pendingTrade = {
+          out: (data.out || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '' })),
+          in: (data.in || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '', fromTeam: p.fromTeam || '' })),
+          timestamp: data.timestamp || Date.now()
+        };
+        showTradeConfirm(_pendingTrade);
+      }
+    }
+  } catch (e) { console.warn('pageshow trade parse error:', e); }
+});
 </script>
 </body>
 </html>
