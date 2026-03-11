@@ -774,7 +774,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v5.8 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v5.9 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +784,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.8</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.9</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -4918,7 +4918,7 @@ function dwDecideAndNext(name) {
 
 function getCapHoldsInfo() {
   const cap = calcCapSheet(STATE.team);
-  if (!cap) return { holds: [], capSpace: 0, capSpaceNoHolds: 0 };
+  if (!cap) return { holds: [], capSpace: 0, capSpaceNoHolds: 0, apron1Room: 0, apron2Room: 0 };
   const holds = [];
   for (const p of cap.roster.free_agent) {
     if (p.status === 'held') holds.push({ name: p.name, capHold: p.capHold, type: 'fa' });
@@ -4927,7 +4927,7 @@ function getCapHoldsInfo() {
     holds.push({ name: 'Pick #' + pick.draftRnk + ' (' + (pick.selectedProspect || pick.prospect) + ')', capHold: pick.capHold, type: 'pick', pickRnk: pick.draftRnk });
   }
   const totalHolds = holds.reduce((s, h) => s + h.capHold, 0);
-  return { holds, capSpace: cap.capSpace, capSpaceNoHolds: cap.capSpace + totalHolds };
+  return { holds, capSpace: cap.capSpace, capSpaceNoHolds: cap.capSpace + totalHolds, apron1Room: cap.apron1Room, apron2Room: cap.apron2Room, faHoldsTotal: holds.filter(h => h.type === 'fa').reduce((s, h) => s + h.capHold, 0) };
 }
 
 function renderDWCard() {
@@ -5031,6 +5031,12 @@ function renderDWCard() {
     h += `<div class="dw-cap-row"><span>If all cap holds cleared</span><span style="color:var(--green)"><strong>${fmtMoney(capInfo.capSpaceNoHolds)}</strong></span></div>`;
     const totalHolds = capInfo.holds.reduce((s, h) => s + h.capHold, 0);
     h += `<div class="dw-cap-row warn"><span>Total cap holds</span><span>${fmtMoney(totalHolds)}</span></div>`;
+    // Apron notes
+    if (capInfo.apron1Room < 0 && capInfo.apron1Room + totalHolds > 0) {
+      h += `<div style="font-size:.55rem;color:var(--orange);margin:.2rem 0">⚠️ Renouncing holds could bring team below 1st apron — enables trade exceptions & S&T</div>`;
+    } else if (capInfo.apron2Room < 0 && capInfo.apron2Room + totalHolds > 0) {
+      h += `<div style="font-size:.55rem;color:var(--orange);margin:.2rem 0">⚠️ Renouncing holds could bring team below 2nd apron — more flexibility</div>`;
+    }
     h += `<div style="margin-top:.4rem;font-size:.55rem;color:var(--muted)">Cap holds you can renounce:</div>`;
     for (const hold of capInfo.holds) {
       const isThis = hold.name === item.name;
@@ -5550,6 +5556,12 @@ function openSignModal(faName, isResign) {
       const _faHoldsTotal = _faHolds.reduce((s, h) => s + h.capHold, 0);
       h += `<div style="margin:.5rem 0;padding:.5rem .65rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">`;
       h += `<div style="font-size:.6rem;font-weight:700;margin-bottom:.3rem">💰 Cap Space: <span style="color:${_capInfo.capSpace >= 0 ? 'var(--green)' : 'var(--red)'}"> ${fmtMoney(_capInfo.capSpace)}</span> <span style="color:var(--muted)">→ ${fmtMoney(_capInfo.capSpace + _faHoldsTotal)} if FA holds cleared</span></div>`;
+      // Apron notes
+      if (_capInfo.apron1Room < 0 && _capInfo.apron1Room + _faHoldsTotal > 0) {
+        h += `<div style="font-size:.55rem;color:var(--orange);margin-bottom:.25rem">⚠️ Renouncing FA holds could bring team below 1st apron — enables trade exceptions & S&T</div>`;
+      } else if (_capInfo.apron2Room < 0 && _capInfo.apron2Room + _faHoldsTotal > 0) {
+        h += `<div style="font-size:.55rem;color:var(--orange);margin-bottom:.25rem">⚠️ Renouncing FA holds could bring team below 2nd apron — more flexibility</div>`;
+      }
       for (const hold of _faHolds) {
         h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.15rem 0;font-size:.55rem">`;
         h += `<span>${hold.name}</span>`;
@@ -6511,29 +6523,42 @@ async function init() {
   renderTeamDropdown();
 
   // Check if returning from same-tab Trade Machine
-  window._rmRawWN = window.name ? window.name.substring(0, 40) : 'empty';
   const returnTeam = localStorage.getItem('rm_return_team');
   
-  // Check URL for trade data — query param (?rmtrade=) or hash (#rmtrade=)
+  // Check for trade data via multiple methods
   let pendingTradeData = null;
   const urlParams = new URLSearchParams(window.location.search);
-  const tradeParam = urlParams.get('rmtrade');
   
-  if (tradeParam) {
+  // Method 1: Token-based fetch from worker cache
+  const tradeToken = urlParams.get('rmt');
+  if (tradeToken) {
     try {
-      // Try direct JSON first (new format: URL-encoded JSON)
-      pendingTradeData = JSON.parse(tradeParam);
-      history.replaceState(null, '', window.location.pathname);
-    } catch (e1) {
-      // Fallback: try base64 decode (old format)
+      const resp = await fetch('https://hoopsmatic.com/rmfetch?t=' + encodeURIComponent(tradeToken));
+      const json = await resp.json();
+      if (json && json.type) {
+        pendingTradeData = json;
+      }
+    } catch(e) { console.warn('Token fetch failed:', e); }
+    history.replaceState(null, '', window.location.pathname);
+  }
+  
+  // Method 2: Direct JSON in query param
+  if (!pendingTradeData) {
+    const tradeParam = urlParams.get('rmtrade');
+    if (tradeParam) {
       try {
-        const fixedB64 = tradeParam.replace(/ /g, '+');
-        pendingTradeData = JSON.parse(decodeURIComponent(escape(atob(fixedB64))));
+        pendingTradeData = JSON.parse(tradeParam);
         history.replaceState(null, '', window.location.pathname);
-      } catch (e2) { console.warn('Failed to parse trade param:', e1, e2); }
+      } catch (e1) {
+        try {
+          const fixedB64 = tradeParam.replace(/ /g, '+');
+          pendingTradeData = JSON.parse(decodeURIComponent(escape(atob(fixedB64))));
+          history.replaceState(null, '', window.location.pathname);
+        } catch (e2) {}
+      }
     }
   }
-  // Fallback: check hash
+  // Method 3: Hash
   if (!pendingTradeData && window.location.hash.startsWith('#rmtrade=')) {
     try {
       const b64 = window.location.hash.slice('#rmtrade='.length);
@@ -6541,22 +6566,13 @@ async function init() {
       history.replaceState(null, '', window.location.pathname);
     } catch (e) {}
   }
-  // Fallback: check window.name
+  // Method 4: window.name
   if (!pendingTradeData && window.name && window.name.startsWith('RMTRADE:')) {
     try {
       pendingTradeData = JSON.parse(window.name.slice('RMTRADE:'.length));
     } catch (e) {}
     window.name = '';
   }
-  
-  // TEMP DIAGNOSTIC — always show on load (remove after confirming)
-  setTimeout(() => {
-    const d = document.createElement('div');
-    d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#222;color:#0f0;padding:6px 10px;font:10px monospace;word-break:break-all';
-    d.textContent = 'v5.8 | RT:' + (returnTeam||'null') + ' | TD:' + (pendingTradeData ? pendingTradeData.type + '/' + pendingTradeData.team : 'null') + ' | WN:' + (window._rmRawWN || 'na');
-    document.body.appendChild(d);
-    setTimeout(() => d.remove(), 15000);
-  }, 500);
   
   if (returnTeam || pendingTradeData) {
     const team = returnTeam || (pendingTradeData ? pendingTradeData.team : null);
@@ -6897,15 +6913,30 @@ const _origRenderSeasonReady = typeof renderSeasonReady === 'function' ? renderS
 init();
 
 // Handle bfcache restore from Trade Machine (history.back case)
-window.addEventListener('pageshow', function(event) {
+window.addEventListener('pageshow', async function(event) {
   let tradeData = null;
   
-  // Check query param
   const urlP = new URLSearchParams(window.location.search);
-  const tParam = urlP.get('rmtrade');
-  if (tParam) {
-    try { tradeData = JSON.parse(decodeURIComponent(escape(atob(tParam)))); } catch(e) {}
+  
+  // Check token
+  const tok = urlP.get('rmt');
+  if (tok) {
+    try {
+      const resp = await fetch('https://hoopsmatic.com/rmfetch?t=' + encodeURIComponent(tok));
+      const json = await resp.json();
+      if (json && json.type) tradeData = json;
+    } catch(e) {}
     history.replaceState(null, '', window.location.pathname);
+  }
+  // Check query param
+  if (!tradeData) {
+    const tParam = urlP.get('rmtrade');
+    if (tParam) {
+      try { tradeData = JSON.parse(tParam); } catch(e) {
+        try { tradeData = JSON.parse(decodeURIComponent(escape(atob(tParam.replace(/ /g, '+'))))); } catch(e2) {}
+      }
+      history.replaceState(null, '', window.location.pathname);
+    }
   }
   // Check hash
   if (!tradeData && window.location.hash.startsWith('#rmtrade=')) {
