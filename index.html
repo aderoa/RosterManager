@@ -5998,6 +5998,7 @@ async function init() {
   _dbg.push('H:' + (window.location.hash ? window.location.hash.substring(0, 30) + '...' : 'none'));
   if (pendingTradeData) _dbg.push('TRADE:' + pendingTradeData.team);
   else _dbg.push('TRADE:null');
+  _dbg.push('Q:' + (window.location.search ? window.location.search.substring(0, 30) : 'none'));
   const _dbgDiv = document.createElement('div');
   _dbgDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#222;color:#0f0;padding:6px 10px;font:10px monospace;word-break:break-all';
   _dbgDiv.textContent = _dbg.join(' | ');
