@@ -774,7 +774,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v5.7 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v5.8 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +784,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.7</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.8</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -2317,9 +2317,14 @@ function dcActions(p) {
     }
   }
   // Extend
-  if ((phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa') && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && p.extEligible) {
-    if (!(STATE.extensions || []).some(e => e.name === p.name)) {
-      btns += `<button class="dc-btn opt" onclick="event.stopPropagation();openExtModal('${esc(p.name)}')">Ext</button>`;
+  if ((p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && p.extEligible) {
+    const _extCode = parseExtCode(p.extEligible);
+    const _isRSE = _extCode && _extCode.type === 'RSE';
+    const _extPhaseOk = _isRSE ? (phase === 'free_agency' || phase === 'training_camp') : (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa');
+    if (_extPhaseOk) {
+      if (!(STATE.extensions || []).some(e => e.name === p.name)) {
+        btns += `<button class="dc-btn opt" onclick="event.stopPropagation();openExtModal('${esc(p.name)}')">Ext</button>`;
+      }
     }
   }
   // Extension badge
@@ -4844,6 +4849,17 @@ function getDecisionQueue() {
       push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: p.status, extEligible: p.extEligible || '' });
     }
   }
+  // 6a. RSE extension candidates — reappear in FA/TC even if previously skipped
+  if (phase === 'free_agency' || phase === 'training_camp') {
+    for (const p of cap.roster.under_contract) {
+      if ((p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name) && p.extEligible) {
+        const _ec = parseExtCode(p.extEligible);
+        if (_ec && _ec.type === 'RSE' && !(STATE.extensions || []).some(e => e.name === p.name)) {
+          push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: p.status, extEligible: p.extEligible || '' });
+        }
+      }
+    }
+  }
   // 6b. Already-guaranteed non-guaranteed/partial
   for (const p of [...cap.roster.non_guaranteed, ...cap.roster.partial_guaranteed]) {
     if (p.status === 'active' && !tradedOutNames.has(p.name) && STATE.guaranteed.has(p.name) && !_dwDecided.has(p.name) && !STATE.dwSkipped.has(p.name)) {
@@ -4969,10 +4985,16 @@ function renderDWCard() {
     h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwDecideAndNext('${esc(item.name)}')`);
   }
   else if (item.type === 'under_contract') {
-    const extPhases = ['pre_lottery', 'pre_draft', 'pre_fa'];
     const alreadyExtended = (STATE.extensions || []).some(e => e.name === item.name);
-    if (item.extEligible && extPhases.includes(phase) && !alreadyExtended) {
-      h += dwOpt('green', '📝', 'Extend', 'Negotiate contract extension', `dwAction('extend')`);
+    if (item.extEligible && !alreadyExtended) {
+      const extCode = parseExtCode(item.extEligible);
+      const isRSE = extCode && extCode.type === 'RSE';
+      const vetPhases = ['pre_lottery', 'pre_draft', 'pre_fa'];
+      const rsePhases = ['free_agency', 'training_camp'];
+      const showExt = isRSE ? rsePhases.includes(phase) : vetPhases.includes(phase);
+      if (showExt) {
+        h += dwOpt('green', '📝', 'Extend', 'Negotiate contract extension', `dwAction('extend')`);
+      }
     }
     h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
     h += dwOpt('red', '🗑️', 'Waive', 'Release player', `dwAction('waive')`);
@@ -6489,6 +6511,7 @@ async function init() {
   renderTeamDropdown();
 
   // Check if returning from same-tab Trade Machine
+  window._rmRawWN = window.name ? window.name.substring(0, 40) : 'empty';
   const returnTeam = localStorage.getItem('rm_return_team');
   
   // Check URL for trade data — query param (?rmtrade=) or hash (#rmtrade=)
@@ -6525,6 +6548,15 @@ async function init() {
     } catch (e) {}
     window.name = '';
   }
+  
+  // TEMP DIAGNOSTIC — always show on load (remove after confirming)
+  setTimeout(() => {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#222;color:#0f0;padding:6px 10px;font:10px monospace;word-break:break-all';
+    d.textContent = 'v5.8 | RT:' + (returnTeam||'null') + ' | TD:' + (pendingTradeData ? pendingTradeData.type + '/' + pendingTradeData.team : 'null') + ' | WN:' + (window._rmRawWN || 'na');
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 15000);
+  }, 500);
   
   if (returnTeam || pendingTradeData) {
     const team = returnTeam || (pendingTradeData ? pendingTradeData.team : null);
