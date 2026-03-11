@@ -774,7 +774,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v5.4 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v5.5 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +784,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.4</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.5</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -3159,12 +3159,18 @@ function renderDraftBoard() {
     h += `<button class="action-btn" style="font-size:.65rem;padding:.35rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Simulate All</button>`;
     h += `</div>`;
     
-    // Fixed floating buttons when animation is running (re-renders make inline buttons hard to click)
+    // Fixed floating buttons when animation is running (persistent, not re-rendered)
     if (_draftAnimTimer && !isUserTurn && nextUserPick) {
-      h += `<div id="draftFloatBtns" style="position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:150;display:flex;gap:.5rem;background:var(--surface);padding:.5rem .75rem;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);border:1px solid var(--border)">`;
-      h += `<button style="font-size:.75rem;padding:.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer" onclick="skipToNextPick()">⏭ Skip to Pick #${nextUserPick}</button>`;
-      h += `<button style="font-size:.65rem;padding:.5rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Sim All</button>`;
-      h += `</div>`;
+      if (!document.getElementById('draftFloatBtns')) {
+        const fb = document.createElement('div');
+        fb.id = 'draftFloatBtns';
+        fb.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:150;display:flex;gap:.5rem;background:var(--surface);padding:.5rem .75rem;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);border:1px solid var(--border)';
+        fb.innerHTML = `<button style="font-size:.75rem;padding:.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer" onclick="skipToNextPick()">⏭ Skip to Pick #${nextUserPick}</button><button style="font-size:.65rem;padding:.5rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Sim All</button>`;
+        document.body.appendChild(fb);
+      }
+    } else {
+      const fb = document.getElementById('draftFloatBtns');
+      if (fb) fb.remove();
     }
   }
 
@@ -3320,9 +3326,13 @@ function renderRoster(cap) {
     const tradeBadge = STATE.trades?.length ? ` <span style="font-size:.55rem;background:var(--cyan);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.25rem">${STATE.trades.length}</span>` : '';
     h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Trade Machine${tradeBadge}</button>`;
   }
-  // Take Decisions button — show outside draft phases
+  // Roster Wizard button — show outside draft phases, exclude phase-reviewed
   if (phase !== 'draft_lottery' && phase !== 'draft') {
-    const dwCount = getDecisionQueue().length;
+    const _dwAll = getDecisionQueue();
+    const dwCount = _dwAll.filter(item => {
+      const key = item.type === 'draft_pick' ? 'PICK_' + item.draftRnk : item.name;
+      return !_dwPhaseReviewed.has(key);
+    }).length;
     if (dwCount > 0) {
       h += `<button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(245,158,11,.08);border-color:var(--orange);color:var(--orange)" onclick="openDW()">📋 Roster Wizard <span style="font-size:.55rem;background:var(--orange);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.2rem">${dwCount}</span></button>`;
     }
@@ -4242,6 +4252,7 @@ function setPhase(id) {
   const targetIdx = PHASES.findIndex(p => p.id === id);
   if (targetIdx <= currentIdx) {
     STATE.phase = id;
+    _dwPhaseReviewed.clear();
     saveState();
     render();
   }
@@ -4299,6 +4310,7 @@ function advancePhase() {
     const phaseMoves = STATE.moves.slice(lastPhaseIdx + 1).filter(m => m.action !== 'Phase');
 
     STATE.phase = nextPhase.id;
+    _dwPhaseReviewed.clear();
     STATE.moves.push({ action: 'Phase', detail: `Advanced to ${nextPhase.label}`, undo: { type: 'phase', prev: prevPhase.id } });
     saveState();
 
@@ -4344,6 +4356,7 @@ function undoLast() {
       if (last.undo.removedSATSignings) {
         for (const sig of last.undo.removedSATSignings) {
           STATE.signings.push(sig);
+          STATE.dwSkipped.add(sig.name);
         }
       }
     }
@@ -4767,7 +4780,8 @@ function rejectPendingTrade() {
 // ======================== DECISION WIZARD ========================
 let _dwIndex = 0;
 let _dwQueue = [];
-let _dwDecided = new Set(); // tracks names decided in this wizard session
+let _dwDecided = new Set(); // tracks names decided in this wizard session (resets on open)
+let _dwPhaseReviewed = new Set(); // tracks names reviewed in current phase (persists between opens)
 let _dwTotal = 0; // total players at wizard open
 
 function getDecisionQueue() {
@@ -4853,19 +4867,24 @@ function openDW() {
 }
 
 function closeDW() {
+  // Sync phase-level tracking before closing
+  for (const name of _dwDecided) _dwPhaseReviewed.add(name);
   document.getElementById('dwOverlay').style.display = 'none';
   document.body.style.overflow = '';
 }
 
 function dwNext() {
+  // Sync phase-level tracking from session
+  for (const name of _dwDecided) _dwPhaseReviewed.add(name);
   _dwQueue = getDecisionQueue();
   if (!_dwQueue.length) { closeDW(); showToast('All players reviewed!', 'success'); return; }
-  _dwIndex = 0; // always show first remaining
+  _dwIndex = 0;
   renderDWCard();
 }
 
 function dwDecideAndNext(name) {
   _dwDecided.add(name);
+  _dwPhaseReviewed.add(name);
   dwNext();
 }
 
@@ -5187,6 +5206,9 @@ function openExtModal(playerName) {
   const modal = document.getElementById('extModalBody');
 
   const maxStarting = Math.round(EXT_CAP * (ext.maxPct / 100));
+  // Default to player's Real Value (trade value), capped at max starting
+  const playerTV = tradeValueMap[playerName.toLowerCase()] || 0;
+  const defaultStarting = playerTV > 0 ? Math.min(playerTV, maxStarting) : maxStarting;
   const initCalc = calcExtension(ext.maxPct, ext.maxYears);
 
   // Determine extension start year
@@ -5208,16 +5230,16 @@ function openExtModal(playerName) {
   h += `<div class="ext-config">`;
 
   // Max % info
-  h += `<div class="ext-note">📊 Max starting salary: <strong>${ext.maxPct}% of cap</strong> = <strong>${fmtMoneyFull(maxStarting)}</strong> · 8% annual raises · Up to ${ext.maxYears} years</div>`;
+  h += `<div class="ext-note">📊 Max starting salary: <strong>${ext.maxPct}% of cap</strong> = <strong>${fmtMoneyFull(maxStarting)}</strong> · 8% annual raises · Up to ${ext.maxYears} years${playerTV > 0 ? ` · Real Value: <strong>${fmtMoneyFull(playerTV)}</strong>` : ''}</div>`;
 
   // Starting salary
   h += `<label>Starting Salary (Year 1)</label>`;
   h += `<div class="row">`;
-  h += `<input type="range" id="extSalRange" min="${Math.round(maxStarting * 0.3)}" max="${maxStarting}" step="100000" value="${maxStarting}" oninput="updateExtPreview()">`;
-  h += `<span class="sal-display" id="extSalDisplay">${fmtMoneyFull(maxStarting)}</span>`;
+  h += `<input type="range" id="extSalRange" min="${Math.round(maxStarting * 0.3)}" max="${maxStarting}" step="100000" value="${defaultStarting}" oninput="updateExtPreview()">`;
+  h += `<span class="sal-display" id="extSalDisplay">${fmtMoneyFull(defaultStarting)}</span>`;
   h += `</div>`;
   h += `<div class="row">`;
-  h += `<input type="number" id="extSalInput" value="${maxStarting}" min="1000000" max="${maxStarting}" step="100000" style="flex:1" oninput="syncExtSlider()">`;
+  h += `<input type="number" id="extSalInput" value="${defaultStarting}" min="1000000" max="${maxStarting}" step="100000" style="flex:1" oninput="syncExtSlider()">`;
   h += `</div>`;
 
   // Years
@@ -5486,18 +5508,16 @@ function openSignModal(faName, isResign) {
   const _signPhase = STATE?.phase || '';
   if (_signPhase === 'free_agency' || _signPhase === 'training_camp' || _signPhase === 'pre_fa') {
     const _capInfo = getCapHoldsInfo();
-    if (_capInfo.holds.length > 0) {
+    const _faHolds = _capInfo.holds.filter(h => h.type === 'fa');
+    if (_faHolds.length > 0) {
+      const _faHoldsTotal = _faHolds.reduce((s, h) => s + h.capHold, 0);
       h += `<div style="margin:.5rem 0;padding:.5rem .65rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">`;
-      h += `<div style="font-size:.6rem;font-weight:700;margin-bottom:.3rem">💰 Cap Space: <span style="color:${_capInfo.capSpace >= 0 ? 'var(--green)' : 'var(--red)'}"> ${fmtMoney(_capInfo.capSpace)}</span> <span style="color:var(--muted)">→ ${fmtMoney(_capInfo.capSpaceNoHolds)} if all holds cleared</span></div>`;
-      for (const hold of _capInfo.holds) {
+      h += `<div style="font-size:.6rem;font-weight:700;margin-bottom:.3rem">💰 Cap Space: <span style="color:${_capInfo.capSpace >= 0 ? 'var(--green)' : 'var(--red)'}"> ${fmtMoney(_capInfo.capSpace)}</span> <span style="color:var(--muted)">→ ${fmtMoney(_capInfo.capSpace + _faHoldsTotal)} if FA holds cleared</span></div>`;
+      for (const hold of _faHolds) {
         h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.15rem 0;font-size:.55rem">`;
         h += `<span>${hold.name}</span>`;
         h += `<span style="display:flex;align-items:center;gap:.3rem"><span>${fmtMoney(hold.capHold)}</span>`;
-        if (hold.type === 'fa') {
-          h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--orange);background:rgba(245,158,11,.1);color:var(--orange);cursor:pointer" onclick="doRenounce('${esc(hold.name)}');openSignModal(${faName ? "'" + esc(faName) + "'" : ''},${!!isResign})">Ren</button>`;
-        } else if (hold.type === 'pick') {
-          h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--orange);background:rgba(245,158,11,.1);color:var(--orange);cursor:pointer" onclick="dwQuickRenouncePick(${hold.pickRnk});openSignModal(${faName ? "'" + esc(faName) + "'" : ''},${!!isResign})">Ren</button>`;
-        }
+        h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--orange);background:rgba(245,158,11,.1);color:var(--orange);cursor:pointer" onclick="doRenounce('${esc(hold.name)}');openSignModal(${faName ? "'" + esc(faName) + "'" : ''},${!!isResign})">Ren</button>`;
         h += `</span></div>`;
       }
       h += `</div>`;
@@ -6099,6 +6119,7 @@ function confirmSigning() {
   }
 
   STATE.signings.push(signing);
+  STATE.dwSkipped.add(signing.name);
 
   // Build detail string
   const totalValue = yearStructure.reduce((s, y) => s + y.salary, 0);
@@ -6258,6 +6279,7 @@ function confirmRookieScaleSigning(prospect, pickNum) {
   };
 
   STATE.signings.push(signing);
+  STATE.dwSkipped.add(signing.name);
   STATE.moves.push({
     action: 'Signed',
     detail: `${prospect} · ${fmtMoney(total)}/4yr (Rookie Scale #${pickNum})`,
@@ -6299,6 +6321,7 @@ function confirmSREsigning(prospect, pickNum, sreType) {
   };
 
   STATE.signings.push(signing);
+  STATE.dwSkipped.add(signing.name);
   STATE.moves.push({
     action: 'Signed',
     detail: `${prospect} · ${fmtMoney(total)}/${sre.years}yr (2nd Rd Exc #${pickNum})`,
