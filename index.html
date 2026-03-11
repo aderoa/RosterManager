@@ -774,7 +774,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v5.9 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v6.0 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +784,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.9</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v6.0</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -4544,17 +4544,6 @@ function openTradeModal(playerName) {
     _tmUrl += `&p=${encodeURIComponent(pParam)}&pd=0-`;
   }
   
-  // Mobile: navigate to TM in same tab (iframe breaks on mobile)
-  if (window.innerWidth <= 900) {
-    localStorage.setItem('rm_return_scroll', String(window.scrollY));
-    localStorage.setItem('rm_return_team', STATE.team);
-    saveState();
-    window.name = JSON.stringify({ rmReturnUrl: window.location.href });
-    const sep = _tmUrl.includes('?') ? '&' : '?';
-    window.location.href = _tmUrl + sep + 'rmst=1';
-    return;
-  }
-  
   const overlay = document.getElementById('tmOverlay');
   const iframe = document.getElementById('tmIframe');
   const loading = document.getElementById('tmLoading');
@@ -6223,16 +6212,6 @@ function confirmSigning() {
       setTimeout(() => {
         const satName = encodeURIComponent(name.replace(/\s+/g, '-').toLowerCase());
         _tmUrl = `${TRADE_MACHINE_URL}/?rm=${myAbbrev}&t=${fromAbbrev},${myAbbrev}&sat=${satName}&sat_sal=${salary}&sat_from=${fromAbbrev}`;
-        // Mobile: navigate in same tab
-        if (window.innerWidth <= 900) {
-          localStorage.setItem('rm_return_scroll', String(window.scrollY));
-          localStorage.setItem('rm_return_team', STATE.team);
-          saveState();
-          window.name = JSON.stringify({ rmReturnUrl: window.location.href });
-          const sep = _tmUrl.includes('?') ? '&' : '?';
-          window.location.href = _tmUrl + sep + 'rmst=1';
-          return;
-        }
         const overlay = document.getElementById('tmOverlay');
         const iframe = document.getElementById('tmIframe');
         const loading = document.getElementById('tmLoading');
