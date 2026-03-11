@@ -774,7 +774,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v5.6 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v5.7 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +784,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.6</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.7</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -3178,6 +3178,11 @@ function renderDraftBoard() {
       const fb = document.getElementById('draftFloatBtns');
       if (fb) fb.remove();
     }
+  } else {
+    // Draft complete — remove any lingering float buttons
+    const fb = document.getElementById('draftFloatBtns');
+    if (fb) fb.remove();
+    if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
   }
 
   // User's pick selection (if it's their turn)
@@ -3329,8 +3334,7 @@ function renderRoster(cap) {
   // Action bar
   h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;align-items:center">`;
   if (phase !== 'draft') {
-    const tradeBadge = STATE.trades?.length ? ` <span style="font-size:.55rem;background:var(--cyan);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.25rem">${STATE.trades.length}</span>` : '';
-    h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Trade Machine${tradeBadge}</button>`;
+    h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Trade Machine</button>`;
   }
   // Roster Wizard button — show outside draft phases, exclude phase-reviewed
   if (phase !== 'draft_lottery' && phase !== 'draft') {
@@ -3340,7 +3344,7 @@ function renderRoster(cap) {
       return !_dwPhaseReviewed.has(key);
     }).length;
     if (dwCount > 0) {
-      h += `<button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(245,158,11,.08);border-color:var(--orange);color:var(--orange)" onclick="openDW()">📋 Roster Wizard <span style="font-size:.55rem;background:var(--orange);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.2rem">${dwCount}</span></button>`;
+      h += `<button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(245,158,11,.08);border-color:var(--orange);color:var(--orange)" onclick="openDW()">📋 Roster Wizard</button>`;
     }
   }
   if (phase === 'free_agency' || phase === 'training_camp') {
@@ -4824,38 +4828,38 @@ function getDecisionQueue() {
       push({ type: 'partial_guaranteed', name: p.name, sal27: p.sal27, ch27: p.ch27 || 0, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0 });
     }
   }
-  // 5. Under contract (guaranteed, picked up, exercised) — review/trade/waive/extend
+  // 5. Draft picks FIRST during free agency (sign rookies before FA moves)
+  if (phase === 'free_agency' || phase === 'training_camp') {
+    const signedDraftPicks = new Set((STATE.signings || []).filter(s => s.isDraftPick).map(s => s.draftPick));
+    for (const pick of cap.roster.draft_picks) {
+      const pickKey = 'PICK_' + pick.draftRnk;
+      if (!signedDraftPicks.has(pick.draftRnk) && !STATE.renounced.has(pickKey) && !_dwDecided.has(pickKey) && !STATE.dwSkipped.has(pickKey)) {
+        push({ type: 'draft_pick', name: pick.selectedProspect || pick.prospect, draftRnk: pick.draftRnk, capHold: pick.capHold, headshot: '' });
+      }
+    }
+  }
+  // 6. Under contract (guaranteed, picked up, exercised) — review/trade/waive/extend
   for (const p of cap.roster.under_contract) {
     if ((p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name) && !STATE.dwSkipped.has(p.name)) {
       push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: p.status, extEligible: p.extEligible || '' });
     }
   }
-  // 5b. Already-guaranteed non-guaranteed/partial
+  // 6b. Already-guaranteed non-guaranteed/partial
   for (const p of [...cap.roster.non_guaranteed, ...cap.roster.partial_guaranteed]) {
     if (p.status === 'active' && !tradedOutNames.has(p.name) && STATE.guaranteed.has(p.name) && !_dwDecided.has(p.name) && !STATE.dwSkipped.has(p.name)) {
       push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: 'guaranteed', extEligible: p.extEligible || '' });
     }
   }
-  // 6. Free agents (held)
+  // 7. Free agents (held, not already decided)
   for (const p of cap.roster.free_agent) {
-    if (p.status === 'held' && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name)) {
+    if (p.status === 'held' && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name) && !STATE.dwSkipped.has(p.name)) {
       push({ type: 'free_agent', name: p.name, capHold: p.capHold, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, exception: p.exception || '', fromOption: p.fromOption || '' });
     }
   }
-  // 7. Signed players (from STATE.signings)
+  // 8. Signed players (from STATE.signings)
   for (const sig of (STATE.signings || [])) {
     if (!STATE.waived.has(sig.name) && !tradedOutNames.has(sig.name) && !_dwDecided.has(sig.name) && !added.has(sig.name) && !STATE.dwSkipped.has(sig.name)) {
       push({ type: 'signed', name: sig.name, sal27: sig.salary, headshot: sig.headshot || '', pos: sig.pos || '', rat365: 0, contractType: sig.contractType || '' });
-    }
-  }
-  // 8. Draft picks (unsigned, not renounced) — from free_agency onward
-  if (phase === 'free_agency' || phase === 'training_camp') {
-    const signedDraftPicks = new Set((STATE.signings || []).filter(s => s.isDraftPick).map(s => s.draftPick));
-    for (const pick of cap.roster.draft_picks) {
-      const pickKey = 'PICK_' + pick.draftRnk;
-      if (!signedDraftPicks.has(pick.draftRnk) && !STATE.renounced.has(pickKey) && !_dwDecided.has(pickKey)) {
-        push({ type: 'draft_pick', name: pick.selectedProspect || pick.prospect, draftRnk: pick.draftRnk, capHold: pick.capHold, headshot: '' });
-      }
     }
   }
   return queue;
@@ -5670,13 +5674,13 @@ function closeSignModal() {
 }
 
 function signModalRenounce(name) {
-  // Renounce without full render — then reopen sign modal with updated cap info
   STATE.renounced.add(name);
+  STATE.dwSkipped.add(name);
   const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
   STATE.moves.push({ action: 'Renounced', detail: `${name} (freed ${fmtMoney(p?.capHold || 0)} cap hold)`, undo: { type: 'renounce', name } });
   saveState();
   showToast(`Renounced ${name} — freed ${fmtMoney(p?.capHold || 0)}`, 'warning');
-  // Reopen sign modal with same context
+  // Reopen sign modal with same context — recalculates cap space with updated renounced set
   const fa = window._signModalFaName;
   const re = window._signModalIsResign;
   document.getElementById('signOverlay').style.display = 'none';
