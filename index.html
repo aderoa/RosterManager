@@ -774,7 +774,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v5.3 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v5.4 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +784,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.3</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.4</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1103,7 +1103,7 @@ const TRADE_MACHINE_URL = 'https://hoopsmatic.com';
 const MIN_SALARY_2ND_RD = 1157379; // 2nd round minimum cap hold
 
 function defaultState(team) {
-  return { team, phase: 'pre_lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), guaranteed: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0 };
+  return { team, phase: 'pre_lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), guaranteed: new Set(), dwSkipped: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0 };
 }
 
 function saveState() {
@@ -1113,7 +1113,8 @@ function saveState() {
     renounced: [...STATE.renounced],
     waived: [...STATE.waived],
     stretched: [...STATE.stretched],
-    guaranteed: [...STATE.guaranteed]
+    guaranteed: [...STATE.guaranteed],
+    dwSkipped: [...STATE.dwSkipped]
   };
   localStorage.setItem('rm_state_' + STATE.team, JSON.stringify(s));
 }
@@ -1127,6 +1128,7 @@ function loadState(team) {
       s.waived = new Set(s.waived || []);
       s.stretched = new Set(s.stretched || []);
       s.guaranteed = new Set(s.guaranteed || []);
+      s.dwSkipped = new Set(s.dwSkipped || []);
       s.draftSelections = s.draftSelections || {};
       s.trades = s.trades || [];
       s.signings = s.signings || [];
@@ -3156,6 +3158,14 @@ function renderDraftBoard() {
     }
     h += `<button class="action-btn" style="font-size:.65rem;padding:.35rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Simulate All</button>`;
     h += `</div>`;
+    
+    // Fixed floating buttons when animation is running (re-renders make inline buttons hard to click)
+    if (_draftAnimTimer && !isUserTurn && nextUserPick) {
+      h += `<div id="draftFloatBtns" style="position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:150;display:flex;gap:.5rem;background:var(--surface);padding:.5rem .75rem;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);border:1px solid var(--border)">`;
+      h += `<button style="font-size:.75rem;padding:.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer" onclick="skipToNextPick()">⏭ Skip to Pick #${nextUserPick}</button>`;
+      h += `<button style="font-size:.65rem;padding:.5rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Sim All</button>`;
+      h += `</div>`;
+    }
   }
 
   // User's pick selection (if it's their turn)
@@ -3314,7 +3324,7 @@ function renderRoster(cap) {
   if (phase !== 'draft_lottery' && phase !== 'draft') {
     const dwCount = getDecisionQueue().length;
     if (dwCount > 0) {
-      h += `<button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(245,158,11,.08);border-color:var(--orange);color:var(--orange)" onclick="openDW()">📋 Roster Review <span style="font-size:.55rem;background:var(--orange);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.2rem">${dwCount}</span></button>`;
+      h += `<button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(245,158,11,.08);border-color:var(--orange);color:var(--orange)" onclick="openDW()">📋 Roster Wizard <span style="font-size:.55rem;background:var(--orange);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.2rem">${dwCount}</span></button>`;
     }
   }
   if (phase === 'free_agency' || phase === 'training_camp') {
@@ -4794,16 +4804,16 @@ function getDecisionQueue() {
       push({ type: 'partial_guaranteed', name: p.name, sal27: p.sal27, ch27: p.ch27 || 0, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0 });
     }
   }
-  // 5. Under contract (guaranteed, picked up, exercised) — review/trade/waive
+  // 5. Under contract (guaranteed, picked up, exercised) — review/trade/waive/extend
   for (const p of cap.roster.under_contract) {
-    if ((p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name)) {
-      push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: p.status });
+    if ((p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name) && !STATE.dwSkipped.has(p.name)) {
+      push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: p.status, extEligible: p.extEligible || '' });
     }
   }
   // 5b. Already-guaranteed non-guaranteed/partial
   for (const p of [...cap.roster.non_guaranteed, ...cap.roster.partial_guaranteed]) {
-    if (p.status === 'active' && !tradedOutNames.has(p.name) && STATE.guaranteed.has(p.name) && !_dwDecided.has(p.name)) {
-      push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: 'guaranteed' });
+    if (p.status === 'active' && !tradedOutNames.has(p.name) && STATE.guaranteed.has(p.name) && !_dwDecided.has(p.name) && !STATE.dwSkipped.has(p.name)) {
+      push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: 'guaranteed', extEligible: p.extEligible || '' });
     }
   }
   // 6. Free agents (held)
@@ -4814,7 +4824,7 @@ function getDecisionQueue() {
   }
   // 7. Signed players (from STATE.signings)
   for (const sig of (STATE.signings || [])) {
-    if (!STATE.waived.has(sig.name) && !tradedOutNames.has(sig.name) && !_dwDecided.has(sig.name) && !added.has(sig.name)) {
+    if (!STATE.waived.has(sig.name) && !tradedOutNames.has(sig.name) && !_dwDecided.has(sig.name) && !added.has(sig.name) && !STATE.dwSkipped.has(sig.name)) {
       push({ type: 'signed', name: sig.name, sal27: sig.salary, headshot: sig.headshot || '', pos: sig.pos || '', rat365: 0, contractType: sig.contractType || '' });
     }
   }
@@ -4883,7 +4893,7 @@ function renderDWCard() {
 
   // Header with progress
   let h = `<div class="dw-hdr">
-    <h3>📋 Roster Review</h3>
+    <h3>📋 Roster Wizard</h3>
     <span class="dw-progress">${decided} of ${_dwTotal} done · ${remaining} left</span>
     <button class="dw-close" onclick="closeDW()">✕ Close</button>
   </div>`;
@@ -4928,14 +4938,21 @@ function renderDWCard() {
     h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwDecideAndNext('${esc(item.name)}')`);
   }
   else if (item.type === 'under_contract') {
+    const extPhases = ['pre_lottery', 'pre_draft', 'pre_fa'];
+    const alreadyExtended = (STATE.extensions || []).some(e => e.name === item.name);
+    if (item.extEligible && extPhases.includes(phase) && !alreadyExtended) {
+      h += dwOpt('green', '📝', 'Extend', 'Negotiate contract extension', `dwAction('extend')`);
+    }
     h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
     h += dwOpt('red', '🗑️', 'Waive', 'Release player', `dwAction('waive')`);
     h += dwOpt('muted', '⏸️', 'Stay Put', 'Keep as-is', `dwDecideAndNext('${esc(item.name)}')`);
+    h += `<div style="text-align:center;margin-top:.3rem"><button style="font-size:.5rem;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;padding:.2rem" onclick="dwSkipForever('${esc(item.name)}')">Don't ask again for this player</button></div>`;
   }
   else if (item.type === 'signed') {
     h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
     h += dwOpt('red', '🗑️', 'Waive', 'Release player', `dwAction('waive')`);
     h += dwOpt('muted', '⏸️', 'Stay Put', 'Keep as-is', `dwDecideAndNext('${esc(item.name)}')`);
+    h += `<div style="text-align:center;margin-top:.3rem"><button style="font-size:.5rem;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;padding:.2rem" onclick="dwSkipForever('${esc(item.name)}')">Don't ask again for this player</button></div>`;
   }
   else if (item.type === 'free_agent') {
     const canResign = (phase === 'free_agency' || phase === 'training_camp');
@@ -5049,16 +5066,36 @@ function dwAction(action) {
   else if (item.type === 'under_contract' || item.type === 'signed') {
     if (action === 'trade') { closeDW(); openTradeModal(item.name); return; }
     else if (action === 'waive') doWaive(item.name);
+    else if (action === 'extend') {
+      _dwDecided.add(item.name);
+      closeDW();
+      window._dwPendingReopen = true;
+      openExtModal(item.name);
+      return;
+    }
     _dwDecided.add(item.name);
   }
   else if (item.type === 'free_agent') {
     if (action === 'renounce') doRenounce(item.name);
-    else if (action === 'resign') { closeDW(); openSignModal(item.name, true); return; }
+    else if (action === 'resign') {
+      // Mark decided, keep DW state, open sign modal — wizard continues after
+      _dwDecided.add(item.name);
+      closeDW();
+      window._dwPendingReopen = true;
+      openSignModal(item.name, true);
+      return;
+    }
     _dwDecided.add(item.name);
   }
   else if (item.type === 'draft_pick') {
     const pickKey = 'PICK_' + item.draftRnk;
-    if (action === 'sign') { closeDW(); openSignDraftPick(item.draftRnk, item.name); return; }
+    if (action === 'sign') {
+      _dwDecided.add(pickKey);
+      closeDW();
+      window._dwPendingReopen = true;
+      openSignDraftPick(item.draftRnk, item.name);
+      return;
+    }
     else if (action === 'stash') {
       STATE.renounced.add(pickKey);
       STATE.moves.push({ action: 'Won\'t Sign', detail: `#${item.draftRnk} ${item.name} — won't sign this season (freed ${fmtMoney(item.capHold)} cap hold)`, undo: { type: 'renounce', name: pickKey } });
@@ -5097,6 +5134,13 @@ function dwQuickRenouncePick(pickRnk) {
 
 function openSignDraftPick(pickRnk, name) {
   openDraftPickSignModal(name, pickRnk);
+}
+
+function dwSkipForever(name) {
+  STATE.dwSkipped.add(name);
+  _dwDecided.add(name);
+  saveState();
+  dwNext();
 }
 
 // ======================== EXTENSION ENGINE ========================
@@ -5215,6 +5259,10 @@ function openExtModal(playerName) {
 function closeExtModal() {
   document.getElementById('extOverlay').style.display = 'none';
   window._extContext = null;
+  if (window._dwPendingReopen) {
+    window._dwPendingReopen = false;
+    setTimeout(() => { if (getDecisionQueue().length) openDW(); }, 300);
+  }
 }
 
 function syncExtSlider() {
@@ -5433,6 +5481,29 @@ function openSignModal(faName, isResign) {
   }
 
   if (!faName) h += `</div>`; // close signExcSection
+
+  // Cap holds advisory — show during FA/TC phases
+  const _signPhase = STATE?.phase || '';
+  if (_signPhase === 'free_agency' || _signPhase === 'training_camp' || _signPhase === 'pre_fa') {
+    const _capInfo = getCapHoldsInfo();
+    if (_capInfo.holds.length > 0) {
+      h += `<div style="margin:.5rem 0;padding:.5rem .65rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">`;
+      h += `<div style="font-size:.6rem;font-weight:700;margin-bottom:.3rem">💰 Cap Space: <span style="color:${_capInfo.capSpace >= 0 ? 'var(--green)' : 'var(--red)'}"> ${fmtMoney(_capInfo.capSpace)}</span> <span style="color:var(--muted)">→ ${fmtMoney(_capInfo.capSpaceNoHolds)} if all holds cleared</span></div>`;
+      for (const hold of _capInfo.holds) {
+        h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.15rem 0;font-size:.55rem">`;
+        h += `<span>${hold.name}</span>`;
+        h += `<span style="display:flex;align-items:center;gap:.3rem"><span>${fmtMoney(hold.capHold)}</span>`;
+        if (hold.type === 'fa') {
+          h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--orange);background:rgba(245,158,11,.1);color:var(--orange);cursor:pointer" onclick="doRenounce('${esc(hold.name)}');openSignModal(${faName ? "'" + esc(faName) + "'" : ''},${!!isResign})">Ren</button>`;
+        } else if (hold.type === 'pick') {
+          h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--orange);background:rgba(245,158,11,.1);color:var(--orange);cursor:pointer" onclick="dwQuickRenouncePick(${hold.pickRnk});openSignModal(${faName ? "'" + esc(faName) + "'" : ''},${!!isResign})">Ren</button>`;
+        }
+        h += `</span></div>`;
+      }
+      h += `</div>`;
+    }
+  }
+
   h += `<div id="signSalarySection" style="display:none">`;
   // Year 1 salary
   h += `<div class="sign-config-row">`;
@@ -5559,7 +5630,12 @@ function _doFilterSignList(query, tier) {
 
 function closeSignModal() {
   document.getElementById('signOverlay').style.display = 'none';
-  document.body.style.overflow = ''; // restore scrolling
+  document.body.style.overflow = '';
+  // Reopen Decision Wizard if it was mid-flow
+  if (window._dwPendingReopen) {
+    window._dwPendingReopen = false;
+    setTimeout(() => { if (getDecisionQueue().length) openDW(); }, 300);
+  }
 }
 
 function isProjectedFA(p) {
@@ -6594,6 +6670,7 @@ function saveCurrentScenario() {
   serialized.waived = [...(STATE.waived || [])];
   serialized.stretched = [...(STATE.stretched || [])];
   serialized.guaranteed = [...(STATE.guaranteed || [])];
+  serialized.dwSkipped = [...(STATE.dwSkipped || [])];
   scenarios.push({
     name,
     team: STATE.team,
@@ -6616,6 +6693,7 @@ function loadScenario(idx) {
   loaded.waived = new Set(loaded.waived || []);
   loaded.stretched = new Set(loaded.stretched || []);
   loaded.guaranteed = new Set(loaded.guaranteed || []);
+  loaded.dwSkipped = new Set(loaded.dwSkipped || []);
   STATE = loaded;
   saveState();
   closeSaveModal();
