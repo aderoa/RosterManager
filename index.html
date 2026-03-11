@@ -774,7 +774,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v5.5 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v5.6 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +784,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.5</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.6</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1753,8 +1753,11 @@ function calcCapSheet(team) {
   const isHardCapped = usedNTMLE;
 
   const exceptions = [];
+  // Calculate FA-only cap holds for potential cap space
+  const faCapHolds = roster.free_agent.filter(p => p.status === 'held').reduce((s, p) => s + (p.capHold || 0), 0);
+  const potentialCapSpace = capSpace + faCapHolds;
   if (hasCapSpace) {
-    exceptions.push({ name: 'Cap Space', amount: capSpace, available: true });
+    exceptions.push({ name: 'Cap Space', amount: capSpace, potentialAmount: potentialCapSpace > capSpace ? potentialCapSpace : capSpace, faHoldsAmount: faCapHolds, available: true });
     exceptions.push({ name: 'Room MLE', amount: T.rmle, available: true });
   } else {
     exceptions.push({ name: 'Cap Space', amount: 0, available: false });
@@ -3160,12 +3163,15 @@ function renderDraftBoard() {
     h += `</div>`;
     
     // Fixed floating buttons when animation is running (persistent, not re-rendered)
-    if (_draftAnimTimer && !isUserTurn && nextUserPick) {
+    if (_draftAnimTimer && !isUserTurn) {
       if (!document.getElementById('draftFloatBtns')) {
         const fb = document.createElement('div');
         fb.id = 'draftFloatBtns';
         fb.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:150;display:flex;gap:.5rem;background:var(--surface);padding:.5rem .75rem;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);border:1px solid var(--border)';
-        fb.innerHTML = `<button style="font-size:.75rem;padding:.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer" onclick="skipToNextPick()">⏭ Skip to Pick #${nextUserPick}</button><button style="font-size:.65rem;padding:.5rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Sim All</button>`;
+        let btns = '';
+        if (nextUserPick) btns += `<button style="font-size:.75rem;padding:.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer" onclick="skipToNextPick()">⏭ Skip to Pick #${nextUserPick}</button>`;
+        btns += `<button style="font-size:.65rem;padding:.5rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Sim All</button>`;
+        fb.innerHTML = btns;
         document.body.appendChild(fb);
       }
     } else {
@@ -4885,6 +4891,8 @@ function dwNext() {
 function dwDecideAndNext(name) {
   _dwDecided.add(name);
   _dwPhaseReviewed.add(name);
+  STATE.dwSkipped.add(name);
+  saveState();
   dwNext();
 }
 
@@ -4924,7 +4932,7 @@ function renderDWCard() {
     ${hsImg}
     <div class="dw-pinfo">
       <div class="dw-pname">${item.name}</div>
-      <div class="dw-pdet">${item.pos ? item.pos + ' · ' : ''}${typeLabel(item)}${item.rat365 ? ' · ' + item.rat365.toFixed(1) + ' RAT' : ''}</div>
+      <div class="dw-pdet">${item.pos ? item.pos + ' · ' : ''}${typeLabel(item)}</div>
     </div>
     <div class="dw-sal">${salLabel}</div>
   </div>`;
@@ -4965,13 +4973,11 @@ function renderDWCard() {
     h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
     h += dwOpt('red', '🗑️', 'Waive', 'Release player', `dwAction('waive')`);
     h += dwOpt('muted', '⏸️', 'Stay Put', 'Keep as-is', `dwDecideAndNext('${esc(item.name)}')`);
-    h += `<div style="text-align:center;margin-top:.3rem"><button style="font-size:.5rem;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;padding:.2rem" onclick="dwSkipForever('${esc(item.name)}')">Don't ask again for this player</button></div>`;
   }
   else if (item.type === 'signed') {
     h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
     h += dwOpt('red', '🗑️', 'Waive', 'Release player', `dwAction('waive')`);
     h += dwOpt('muted', '⏸️', 'Stay Put', 'Keep as-is', `dwDecideAndNext('${esc(item.name)}')`);
-    h += `<div style="text-align:center;margin-top:.3rem"><button style="font-size:.5rem;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;padding:.2rem" onclick="dwSkipForever('${esc(item.name)}')">Don't ask again for this player</button></div>`;
   }
   else if (item.type === 'free_agent') {
     const canResign = (phase === 'free_agency' || phase === 'training_camp');
@@ -5053,12 +5059,12 @@ function dwAction(action) {
   if (item.type === 'team_option') {
     if (action === 'pickup') doOption(item.name, 'pickup');
     else if (action === 'decline') doOption(item.name, 'decline');
-    _dwDecided.add(item.name);
+    _dwDecided.add(item.name); STATE.dwSkipped.add(item.name);
   }
   else if (item.type === 'player_option') {
     if (action === 'exercise') doOption(item.name, 'exercise');
     else if (action === 'decline') doOption(item.name, 'decline');
-    _dwDecided.add(item.name);
+    _dwDecided.add(item.name); STATE.dwSkipped.add(item.name);
   }
   else if (item.type === 'non_guaranteed') {
     if (action === 'guarantee') {
@@ -5069,7 +5075,7 @@ function dwAction(action) {
     }
     else if (action === 'waive') doWaive(item.name);
     else if (action === 'trade') { closeDW(); openTradeModal(item.name); return; }
-    _dwDecided.add(item.name);
+    _dwDecided.add(item.name); STATE.dwSkipped.add(item.name);
   }
   else if (item.type === 'partial_guaranteed') {
     if (action === 'guarantee') {
@@ -5080,36 +5086,36 @@ function dwAction(action) {
     }
     else if (action === 'waive') doWaive(item.name);
     else if (action === 'trade') { closeDW(); openTradeModal(item.name); return; }
-    _dwDecided.add(item.name);
+    _dwDecided.add(item.name); STATE.dwSkipped.add(item.name);
   }
   else if (item.type === 'under_contract' || item.type === 'signed') {
     if (action === 'trade') { closeDW(); openTradeModal(item.name); return; }
     else if (action === 'waive') doWaive(item.name);
     else if (action === 'extend') {
-      _dwDecided.add(item.name);
+      _dwDecided.add(item.name); STATE.dwSkipped.add(item.name);
       closeDW();
       window._dwPendingReopen = true;
       openExtModal(item.name);
       return;
     }
-    _dwDecided.add(item.name);
+    _dwDecided.add(item.name); STATE.dwSkipped.add(item.name);
   }
   else if (item.type === 'free_agent') {
     if (action === 'renounce') doRenounce(item.name);
     else if (action === 'resign') {
       // Mark decided, keep DW state, open sign modal — wizard continues after
-      _dwDecided.add(item.name);
+      _dwDecided.add(item.name); STATE.dwSkipped.add(item.name);
       closeDW();
       window._dwPendingReopen = true;
       openSignModal(item.name, true);
       return;
     }
-    _dwDecided.add(item.name);
+    _dwDecided.add(item.name); STATE.dwSkipped.add(item.name);
   }
   else if (item.type === 'draft_pick') {
     const pickKey = 'PICK_' + item.draftRnk;
     if (action === 'sign') {
-      _dwDecided.add(pickKey);
+      _dwDecided.add(pickKey); STATE.dwSkipped.add(pickKey);
       closeDW();
       window._dwPendingReopen = true;
       openSignDraftPick(item.draftRnk, item.name);
@@ -5123,7 +5129,7 @@ function dwAction(action) {
       render();
     }
     else if (action === 'trade') { closeDW(); openTradeModal(); return; }
-    _dwDecided.add(pickKey);
+    _dwDecided.add(pickKey); STATE.dwSkipped.add(pickKey);
   }
 
   setTimeout(dwNext, 200);
@@ -5364,6 +5370,8 @@ function confirmExtension() {
 
 // ======================== FREE AGENCY SIGNING ========================
 function openSignModal(faName, isResign) {
+  window._signModalFaName = faName || null;
+  window._signModalIsResign = !!isResign;
   // Read and immediately clear draft pick flags
   const isDraftPick = !!window._isDraftPickSign;
   const draftPickNum = window._draftPickNum || 0;
@@ -5492,11 +5500,14 @@ function openSignModal(faName, isResign) {
       detailText = exc.unavailNote ? `Not available — ${exc.unavailNote}` : 'Not available';
     } else if (exc.remaining !== undefined) {
       detailText = `Remaining: ${fmtMoneyFull(exc.remaining)}`;
+    } else if (exc.potentialAmount && exc.potentialAmount > exc.amount) {
+      detailText = `Up to ${fmtMoneyFull(exc.potentialAmount)} (${fmtMoneyFull(exc.amount)} now + ${fmtMoneyFull(exc.faHoldsAmount || 0)} if FA holds cleared)`;
     } else {
       detailText = `Up to ${fmtMoneyFull(exc.amount)}`;
     }
     if (exc.used) detailText += ` (used ${fmtMoneyFull(exc.used)})`;
-    h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
+    const excClickAmount = exc.potentialAmount || exc.remaining || exc.amount;
+    h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${excClickAmount})"` : ''}>`;
     h += `<div class="exc-name">${exc.name}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
     h += `<div class="exc-detail">${detailText}</div>`;
     h += `</div>`;
@@ -5517,7 +5528,7 @@ function openSignModal(faName, isResign) {
         h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.15rem 0;font-size:.55rem">`;
         h += `<span>${hold.name}</span>`;
         h += `<span style="display:flex;align-items:center;gap:.3rem"><span>${fmtMoney(hold.capHold)}</span>`;
-        h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--orange);background:rgba(245,158,11,.1);color:var(--orange);cursor:pointer" onclick="doRenounce('${esc(hold.name)}');openSignModal(${faName ? "'" + esc(faName) + "'" : ''},${!!isResign})">Ren</button>`;
+        h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--orange);background:rgba(245,158,11,.1);color:var(--orange);cursor:pointer" onclick="signModalRenounce('${esc(hold.name)}')">Ren</button>`;
         h += `</span></div>`;
       }
       h += `</div>`;
@@ -5658,6 +5669,20 @@ function closeSignModal() {
   }
 }
 
+function signModalRenounce(name) {
+  // Renounce without full render — then reopen sign modal with updated cap info
+  STATE.renounced.add(name);
+  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
+  STATE.moves.push({ action: 'Renounced', detail: `${name} (freed ${fmtMoney(p?.capHold || 0)} cap hold)`, undo: { type: 'renounce', name } });
+  saveState();
+  showToast(`Renounced ${name} — freed ${fmtMoney(p?.capHold || 0)}`, 'warning');
+  // Reopen sign modal with same context
+  const fa = window._signModalFaName;
+  const re = window._signModalIsResign;
+  document.getElementById('signOverlay').style.display = 'none';
+  setTimeout(() => openSignModal(fa, re), 150);
+}
+
 function isProjectedFA(p) {
   // Already a free agent (expiring contract)
   if (p.category === 'free_agent' || !p.sal27) return true;
@@ -5737,12 +5762,15 @@ function selectSignPlayer(name) {
       detailText = exc.unavailNote ? `Not available — ${exc.unavailNote}` : 'Not available';
     } else if (exc.remaining !== undefined) {
       detailText = `Remaining: ${fmtMoneyFull(exc.remaining)}`;
+    } else if (exc.potentialAmount && exc.potentialAmount > exc.amount) {
+      detailText = `Up to ${fmtMoneyFull(exc.potentialAmount)} (${fmtMoneyFull(exc.amount)} now + ${fmtMoneyFull(exc.faHoldsAmount || 0)} if FA holds cleared)`;
     } else {
       detailText = `Up to ${fmtMoneyFull(exc.amount)}`;
     }
     if (exc.used) detailText += ` (used ${fmtMoneyFull(exc.used)})`;
     const cls = exc.available ? '' : 'unavailable';
-    excHtml += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${exc.name.replace(/'/g,"\\'")}', ${exc.remaining !== undefined ? exc.remaining : exc.amount})"` : ''}>`;
+    const excClickAmt = exc.potentialAmount || exc.remaining || exc.amount;
+    excHtml += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${exc.name.replace(/'/g,"\\'")}', ${excClickAmt})"` : ''}>`;
     excHtml += `<div class="exc-name">${exc.name}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
     excHtml += `<div class="exc-detail">${detailText}</div>`;
     excHtml += `</div>`;
