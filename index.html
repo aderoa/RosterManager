@@ -774,7 +774,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v6.1 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v6.2 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +784,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v6.1</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v6.2</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1504,22 +1504,28 @@ function parseAllPlayers(csv) {
 }
 
 function calcCapHold(priorSalary, exception) {
-  const maxSalary = Math.round(T.cap * 0.35); // absolute max for any player
+  const maxSalary = Math.round(T.cap * 0.35);
   if (!priorSalary) return MIN_SALARY_CAP_HOLD;
   let hold;
   const exc = exception.toLowerCase();
   if (exc.includes('bird') && !exc.includes('early') && !exc.includes('non')) {
-    hold = Math.round(priorSalary * (priorSalary > EST_AVG_SALARY ? 2.50 : 1.90));
+    // Full Bird rights: 150% if above average salary, 190% if below
+    hold = priorSalary > EST_AVG_SALARY
+      ? Math.round(priorSalary * 1.50)
+      : Math.round(priorSalary * 1.90);
   } else if (exc.includes('early bird')) {
+    // Early Bird: greater of 190% of salary or 130% of estimated average salary
     hold = Math.max(Math.round(priorSalary * 1.90), Math.round(EST_AVG_SALARY * 1.30));
   } else if (exc.includes('non-bird') || exc.includes('non bird')) {
-    hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
+    // Non-Bird: 120% of prior salary
+    hold = Math.max(Math.round(priorSalary * 1.20), MIN_SALARY_CAP_HOLD);
   } else if (exc.includes('minimum')) {
     hold = MIN_SALARY_CAP_HOLD;
+  } else if (exc.includes('rookie')) {
+    // Qualifying Veteran FA (completed rookie scale): 250% of prior salary
+    hold = Math.round(priorSalary * 2.50);
   } else if (exc.includes('mid-level') || exc.includes('taxpayer') || exc.includes('room')) {
     hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
-  } else if (exc.includes('rookie')) {
-    hold = Math.round(priorSalary * 1.90);
   } else {
     hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
   }
@@ -1748,9 +1754,10 @@ function calcCapSheet(team) {
     excUsage[exc] = (excUsage[exc] || 0) + sig.salary;
   }
 
-  // Determine if team is hard-capped (used Non-Tax MLE → capped at 1st apron)
+  // Determine if team is hard-capped (used Non-Tax MLE → capped at 1st apron, OR acquired player via S&T)
   const usedNTMLE = (excUsage['Non-Tax MLE'] || 0) > 0;
-  const isHardCapped = usedNTMLE;
+  const acquiredViaSAT = (STATE.signings || []).some(s => s.isSignAndTrade);
+  const isHardCapped = usedNTMLE || acquiredViaSAT;
 
   const exceptions = [];
   // Calculate FA-only cap holds for potential cap space
@@ -1825,7 +1832,7 @@ function calcCapSheet(team) {
     roster, activeSalaries, capHolds, deadMoney, incompleteCharge, draftCapHolds,
     teamSalary, capSpace, taxRoom, apron1Room, apron2Room,
     rosterCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2,
-    isHardCapped, hardCapRoom
+    isHardCapped, hardCapRoom, usedNTMLE, acquiredViaSAT
   };
 }
 
@@ -2306,14 +2313,14 @@ function dcActions(p) {
   if (phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'signed')) {
     btns += `<button class="dc-btn waive" onclick="event.stopPropagation();openWaiveModal('${esc(p.name)}')">Waive</button>`;
   }
-  // Trade — gray out for recently signed FAs and traded-in players (trade restriction)
-  const canTrade = p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised';
-  const cantTradeReason = (p._signed || p.status === 'signed') ? 'Recently signed' : p.status === 'traded_in' ? 'Recently acquired' : '';
-  if (phase !== 'draft' && (canTrade || p.status === 'traded_in' || p.status === 'signed')) {
+  // Trade — check trade restrictions
+  const tradeRestrictReason = isTradeRestricted(p.name) || (p.status === 'traded_in' ? 'Recently acquired' : '');
+  const canTrade = !tradeRestrictReason && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'signed');
+  if (phase !== 'draft' && (p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised' || p.status === 'traded_in' || p.status === 'signed')) {
     if (canTrade) {
       btns += `<button class="dc-btn trade" onclick="event.stopPropagation();openTradeModal('${esc(p.name)}')">Trade</button>`;
     } else {
-      btns += `<button class="dc-btn" style="opacity:.35;cursor:not-allowed;color:var(--muted);border-color:var(--border)" title="${cantTradeReason} — can't trade yet">Trade</button>`;
+      btns += `<button class="dc-btn" style="opacity:.35;cursor:not-allowed;color:var(--muted);border-color:var(--border)" title="${tradeRestrictReason} — can't trade yet">Trade</button>`;
     }
   }
   // Extend
@@ -2331,6 +2338,16 @@ function dcActions(p) {
   const ext = (STATE.extensions || []).find(e => e.name === p.name);
   if (ext) btns += `<span style="font-size:.45rem;color:var(--accent);font-weight:700">EXT thru ${ext.endYear}</span>`;
   return btns ? `<div style="display:flex;gap:.2rem;flex-wrap:nowrap">${btns}</div>` : '';
+}
+
+function isTradeRestricted(playerName) {
+  // Check if player was recently signed with trade restriction
+  const sig = (STATE.signings || []).find(s => s.name === playerName);
+  if (sig && sig.tradeRestricted) return 'Recently signed';
+  // Check if player was recently extended
+  const ext = (STATE.extensions || []).find(e => e.name === playerName && e.tradeRestricted);
+  if (ext) return 'Recently extended';
+  return null;
 }
 
 function dcCard(p) {
@@ -4037,7 +4054,10 @@ function renderCapPanel(cap) {
   h += capRowDelta('Tax Room', cap.taxRoom);
   h += capRow('1st Apron', T.apron1);
   h += capRowDelta('1st Apron Room', cap.apron1Room);
-  if (cap.isHardCapped) h += `<div style="font-size:.6rem;color:var(--orange);margin:.2rem 0;font-weight:600">⚠️ HARD-CAPPED at 1st Apron (used Non-Tax MLE)</div>`;
+  if (cap.isHardCapped) {
+    const hcReason = cap.acquiredViaSAT && !cap.usedNTMLE ? 'acquired player via S&T' : cap.usedNTMLE && !cap.acquiredViaSAT ? 'used Non-Tax MLE' : 'used Non-Tax MLE + S&T';
+    h += `<div style="font-size:.6rem;color:var(--orange);margin:.2rem 0;font-weight:600">⚠️ HARD-CAPPED at 1st Apron (${hcReason})</div>`;
+  }
   h += capRow('2nd Apron', T.apron2);
   h += capRowDelta('2nd Apron Room', cap.apron2Room);
   h += `</div>`;
@@ -4307,12 +4327,19 @@ function advancePhase() {
     // Can't leave training camp without compliant roster
     if (STATE.phase === 'training_camp') {
       const cap = calcCapSheet(STATE.team);
-      if (cap.rosterCount > 18) {
-        alert(`Roster has ${cap.rosterCount} players — must cut to 18 or fewer (including two-way) to start the season.`);
+      const twoWayCount = (STATE.signings || []).filter(s => s.contractType === 'two-way' && !STATE.waived.has(s.name)).length
+        + allPlayers.filter(p => p.isTwoWay && p.sal27 && p.team === STATE.team && !STATE.waived.has(p.name)).length;
+      if (cap.rosterCount > 15) {
+        alert(`Roster has ${cap.rosterCount} standard contracts — must cut to 15 or fewer to start the season.`);
         return;
       }
-      if (cap.rosterCount < 14) {
-        alert(`Roster has ${cap.rosterCount} players — need at least 14 to start the season.`);
+      if (twoWayCount > 3) {
+        alert(`${twoWayCount} two-way contracts — maximum is 3.`);
+        return;
+      }
+      const totalPlayers = cap.rosterCount + twoWayCount;
+      if (totalPlayers < 14) {
+        alert(`Roster has ${totalPlayers} players — need at least 14 to start the season.`);
         return;
       }
     }
@@ -4987,12 +5014,22 @@ function renderDWCard() {
         h += dwOpt('green', '📝', 'Extend', 'Negotiate contract extension', `dwAction('extend')`);
       }
     }
-    h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
+    const _tr = isTradeRestricted(item.name);
+    if (_tr) {
+      h += dwOpt('muted', '🔄', 'Trade', `🔒 ${_tr} — can't trade yet`, '');
+    } else {
+      h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
+    }
     h += dwOpt('red', '🗑️', 'Waive', 'Release player', `dwAction('waive')`);
     h += dwOpt('green', '✅', 'Keep', 'Keep on roster', `dwDecideAndNext('${esc(item.name)}')`);
   }
   else if (item.type === 'signed') {
-    h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
+    const _tr = isTradeRestricted(item.name);
+    if (_tr) {
+      h += dwOpt('muted', '🔄', 'Trade', `🔒 ${_tr} — can't trade yet`, '');
+    } else {
+      h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
+    }
     h += dwOpt('red', '🗑️', 'Waive', 'Release player', `dwAction('waive')`);
     h += dwOpt('green', '✅', 'Keep', 'Keep on roster', `dwDecideAndNext('${esc(item.name)}')`);
   }
@@ -5389,7 +5426,8 @@ function confirmExtension() {
     extStartYear: ctx.extStartYear,
     breakdown: calc.breakdown,
     total: calc.total,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    tradeRestricted: true // Extensions carry 6-month trade restriction
   };
 
   STATE.extensions.push(extension);
@@ -5860,10 +5898,16 @@ function selectSignException(excName, maxAmount) {
   let minYrs = 1, maxYrs = 5;
   if (excName === 'Sign-and-Trade') { minYrs = 3; maxYrs = 4; }
   else if (excName === 'Two-Way' || excName === 'Exhibit 10') { minYrs = 1; maxYrs = 2; }
-  else if (excName === 'Minimum') { maxYrs = 3; }
+  else if (excName === 'Minimum') { maxYrs = 2; }
   else if (excName === 'Bird Exception') { maxYrs = 5; }
   else if (excName === 'Early Bird Exception') { maxYrs = 4; }
   else if (excName === 'Non-Bird Exception') { maxYrs = 4; }
+  else if (excName === 'Non-Tax MLE') { maxYrs = 4; }
+  else if (excName === 'Room MLE') { maxYrs = 2; }
+  else if (excName === 'Tax MLE') { maxYrs = 2; }
+  else if (excName === 'BAE') { maxYrs = 2; }
+  else if (excName === 'Cap Space') { maxYrs = 4; }
+  else if (excName === 'Second Round Exception') { maxYrs = 4; }
 
   // Rebuild years dropdown
   let yrsHtml = '';
@@ -6123,6 +6167,39 @@ function confirmSigning() {
     }
   }
 
+  // Hard-cap check for already hard-capped teams (NTMLE or S&T)
+  if (excName !== 'Two-Way' && excName !== 'Minimum' && excName !== 'Exhibit 10') {
+    const cap = calcCapSheet(STATE.team);
+    if (cap.isHardCapped) {
+      const newTotal = cap.teamSalary + salary;
+      if (newTotal > T.apron1) {
+        alert(`Team is hard-capped at 1st apron (${fmtMoneyFull(T.apron1)}). This signing would put you at ${fmtMoneyFull(newTotal)}.`);
+        return;
+      }
+    }
+  }
+
+  // Roster limit check
+  {
+    const cap = calcCapSheet(STATE.team);
+    const isTW = (excName === 'Two-Way');
+    const phase = STATE.phase;
+    if (isTW) {
+      const twCount = (STATE.signings || []).filter(s => s.contractType === 'two-way' && !STATE.waived.has(s.name)).length
+        + allPlayers.filter(p => p.isTwoWay && p.sal27 && p.team === STATE.team && !STATE.waived.has(p.name)).length;
+      if (twCount >= 3) {
+        alert('Maximum 3 two-way contracts per team.');
+        return;
+      }
+    } else {
+      const maxStandard = (phase === 'training_camp' || phase === 'season_ready') ? 15 : 21;
+      if (cap.rosterCount >= maxStandard) {
+        alert(`Roster already has ${cap.rosterCount} standard contracts (max ${maxStandard} in ${phase === 'training_camp' ? 'regular season' : 'offseason'}).`);
+        return;
+      }
+    }
+  }
+
   // Build year structure from the preview table
   const yearStructure = [];
   const isMin = excName === 'Minimum' || excName === 'Two-Way' || excName === 'Exhibit 10';
@@ -6176,7 +6253,11 @@ function confirmSigning() {
     contractType,
     guaranteedPct: 100,
     isSignAndTrade,
-    yearStructure
+    yearStructure,
+    // Trade restriction: FA signings restricted until ~3 months after signing
+    // Rookie scale signings exempt (1 month restriction, FA phase > 1 month)
+    tradeRestricted: !window._signIsDraftPick && (STATE.phase === 'free_agency' || STATE.phase === 'training_camp'),
+    signedPhase: STATE.phase
   };
   if (isSignAndTrade) {
     signing.fromTeam = window._signPlayerContext?.team || '';
