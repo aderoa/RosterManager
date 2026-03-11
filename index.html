@@ -5966,6 +5966,9 @@ async function init() {
   let pendingTradeData = null;
   const urlParams = new URLSearchParams(window.location.search);
   const tradeParam = urlParams.get('rmtrade');
+  
+  // DIAGNOSTIC — visible banner for mobile debugging (remove after fixing)
+  
   if (tradeParam) {
     try {
       pendingTradeData = JSON.parse(decodeURIComponent(escape(atob(tradeParam))));
@@ -5989,8 +5992,21 @@ async function init() {
     window.name = '';
   }
   
+  // DIAGNOSTIC — visible on page for mobile debugging (remove after fixing)
+  const _dbg = [];
+  _dbg.push('RT:' + (returnTeam || 'null'));
+  _dbg.push('H:' + (window.location.hash ? window.location.hash.substring(0, 30) + '...' : 'none'));
+  if (pendingTradeData) _dbg.push('TRADE:' + pendingTradeData.team);
+  else _dbg.push('TRADE:null');
+  const _dbgDiv = document.createElement('div');
+  _dbgDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#222;color:#0f0;padding:6px 10px;font:10px monospace;word-break:break-all';
+  _dbgDiv.textContent = _dbg.join(' | ');
+  document.body.appendChild(_dbgDiv);
+  setTimeout(() => _dbgDiv.remove(), 15000); // auto-remove after 15s
+  
   if (returnTeam || pendingTradeData) {
     const team = returnTeam || (pendingTradeData ? pendingTradeData.team : null);
+    console.log('[RM-INIT] Processing return. team:', team, 'hasTrade:', !!pendingTradeData, 'tradeTeam:', pendingTradeData?.team);
     if (!team) { renderLandingPage(); return; }
     // Coming back from TM — with or without a trade
     const scrollY = parseInt(localStorage.getItem('rm_return_scroll') || '0');
@@ -6009,6 +6025,7 @@ async function init() {
       setTimeout(() => {
         try {
           const data = pendingTradeData;
+          console.log('[RM-INIT] Processing trade. type:', data.type, 'team:', data.team, 'STATE.team:', STATE?.team, 'TEAMS[STATE.team]:', STATE ? TEAMS[STATE.team] : 'no state');
           if (data.type === 'ROSTER_MANAGER_TRADE' && STATE) {
             const teamAbbrev = TEAMS[STATE.team];
             if (data.team === teamAbbrev) {
