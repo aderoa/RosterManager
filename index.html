@@ -774,7 +774,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
     <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v5.2 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v5.3 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +784,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.2</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v5.3</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -3310,11 +3310,11 @@ function renderRoster(cap) {
     const tradeBadge = STATE.trades?.length ? ` <span style="font-size:.55rem;background:var(--cyan);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.25rem">${STATE.trades.length}</span>` : '';
     h += `<button class="action-btn trade" style="font-size:.7rem;padding:.35rem .75rem" onclick="openTradeModal()">🔄 Trade Machine${tradeBadge}</button>`;
   }
-  // Take Decisions button — show outside draft phases if there are pending decisions
+  // Take Decisions button — show outside draft phases
   if (phase !== 'draft_lottery' && phase !== 'draft') {
     const dwCount = getDecisionQueue().length;
     if (dwCount > 0) {
-      h += `<button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(245,158,11,.1);border-color:var(--orange);color:var(--orange);animation:needsAction 2s ease-out infinite" onclick="openDW()">📋 Take Decisions <span style="font-size:.55rem;background:var(--orange);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.2rem">${dwCount}</span></button>`;
+      h += `<button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(245,158,11,.08);border-color:var(--orange);color:var(--orange)" onclick="openDW()">📋 Roster Review <span style="font-size:.55rem;background:var(--orange);color:white;padding:.1rem .35rem;border-radius:8px;margin-left:.2rem">${dwCount}</span></button>`;
     }
   }
   if (phase === 'free_agency' || phase === 'training_camp') {
@@ -4757,6 +4757,8 @@ function rejectPendingTrade() {
 // ======================== DECISION WIZARD ========================
 let _dwIndex = 0;
 let _dwQueue = [];
+let _dwDecided = new Set(); // tracks names decided in this wizard session
+let _dwTotal = 0; // total players at wizard open
 
 function getDecisionQueue() {
   if (!STATE) return [];
@@ -4765,43 +4767,64 @@ function getDecisionQueue() {
   const phase = STATE.phase;
   const queue = [];
   const tradedOutNames = new Set((STATE.trades || []).flatMap(t => (t.out || []).map(p => p.name)));
+  const added = new Set();
+  const push = (item) => { if (!added.has(item.name)) { added.add(item.name); queue.push(item); } };
 
-  // Team Options (pending)
+  // 1. Team Options (pending) — top priority
   for (const p of cap.roster.under_contract) {
-    if (p.status === 'pending_to' && !tradedOutNames.has(p.name)) {
-      queue.push({ type: 'team_option', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, capHold: p.capHold || 0 });
+    if (p.status === 'pending_to' && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name)) {
+      push({ type: 'team_option', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, capHold: p.capHold || 0 });
     }
   }
-  // Player Options (pending)
+  // 2. Player Options (pending)
   for (const p of cap.roster.under_contract) {
-    if (p.status === 'pending_po' && !tradedOutNames.has(p.name)) {
-      queue.push({ type: 'player_option', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, capHold: p.capHold || 0 });
+    if (p.status === 'pending_po' && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name)) {
+      push({ type: 'player_option', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, capHold: p.capHold || 0 });
     }
   }
-  // Non-guaranteed (not yet waived, not yet guaranteed)
+  // 3. Non-guaranteed (not yet waived, not yet guaranteed)
   for (const p of cap.roster.non_guaranteed) {
-    if (p.status === 'active' && !tradedOutNames.has(p.name) && !STATE.guaranteed.has(p.name)) {
-      queue.push({ type: 'non_guaranteed', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0 });
+    if (p.status === 'active' && !tradedOutNames.has(p.name) && !STATE.guaranteed.has(p.name) && !_dwDecided.has(p.name)) {
+      push({ type: 'non_guaranteed', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0 });
     }
   }
-  // Partial guaranteed
+  // 4. Partial guaranteed
   for (const p of cap.roster.partial_guaranteed) {
-    if (p.status === 'active' && !tradedOutNames.has(p.name) && !STATE.guaranteed.has(p.name)) {
-      queue.push({ type: 'partial_guaranteed', name: p.name, sal27: p.sal27, ch27: p.ch27 || 0, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0 });
+    if (p.status === 'active' && !tradedOutNames.has(p.name) && !STATE.guaranteed.has(p.name) && !_dwDecided.has(p.name)) {
+      push({ type: 'partial_guaranteed', name: p.name, sal27: p.sal27, ch27: p.ch27 || 0, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0 });
     }
   }
-  // Free agents (held, not renounced, not re-signed)
+  // 5. Under contract (guaranteed, picked up, exercised) — review/trade/waive
+  for (const p of cap.roster.under_contract) {
+    if ((p.status === 'active' || p.status === 'picked_up' || p.status === 'exercised') && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name)) {
+      push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: p.status });
+    }
+  }
+  // 5b. Already-guaranteed non-guaranteed/partial
+  for (const p of [...cap.roster.non_guaranteed, ...cap.roster.partial_guaranteed]) {
+    if (p.status === 'active' && !tradedOutNames.has(p.name) && STATE.guaranteed.has(p.name) && !_dwDecided.has(p.name)) {
+      push({ type: 'under_contract', name: p.name, sal27: p.sal27, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, contractStatus: 'guaranteed' });
+    }
+  }
+  // 6. Free agents (held)
   for (const p of cap.roster.free_agent) {
-    if (p.status === 'held' && !tradedOutNames.has(p.name)) {
-      queue.push({ type: 'free_agent', name: p.name, capHold: p.capHold, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, exception: p.exception || '', fromOption: p.fromOption || '' });
+    if (p.status === 'held' && !tradedOutNames.has(p.name) && !_dwDecided.has(p.name)) {
+      push({ type: 'free_agent', name: p.name, capHold: p.capHold, headshot: p.headshot, pos: p.pos || '', rat365: p.rat365 || 0, exception: p.exception || '', fromOption: p.fromOption || '' });
     }
   }
-  // Draft picks (unsigned, not renounced) — only from free_agency onward
+  // 7. Signed players (from STATE.signings)
+  for (const sig of (STATE.signings || [])) {
+    if (!STATE.waived.has(sig.name) && !tradedOutNames.has(sig.name) && !_dwDecided.has(sig.name) && !added.has(sig.name)) {
+      push({ type: 'signed', name: sig.name, sal27: sig.salary, headshot: sig.headshot || '', pos: sig.pos || '', rat365: 0, contractType: sig.contractType || '' });
+    }
+  }
+  // 8. Draft picks (unsigned, not renounced) — from free_agency onward
   if (phase === 'free_agency' || phase === 'training_camp') {
+    const signedDraftPicks = new Set((STATE.signings || []).filter(s => s.isDraftPick).map(s => s.draftPick));
     for (const pick of cap.roster.draft_picks) {
-      const signedDraftPicks = new Set((STATE.signings || []).filter(s => s.isDraftPick).map(s => s.draftPick));
-      if (!signedDraftPicks.has(pick.draftRnk) && !STATE.renounced.has('PICK_' + pick.draftRnk)) {
-        queue.push({ type: 'draft_pick', name: pick.selectedProspect || pick.prospect, draftRnk: pick.draftRnk, capHold: pick.capHold, headshot: '' });
+      const pickKey = 'PICK_' + pick.draftRnk;
+      if (!signedDraftPicks.has(pick.draftRnk) && !STATE.renounced.has(pickKey) && !_dwDecided.has(pickKey)) {
+        push({ type: 'draft_pick', name: pick.selectedProspect || pick.prospect, draftRnk: pick.draftRnk, capHold: pick.capHold, headshot: '' });
       }
     }
   }
@@ -4809,8 +4832,10 @@ function getDecisionQueue() {
 }
 
 function openDW() {
+  _dwDecided = new Set(); // reset session decisions
   _dwQueue = getDecisionQueue();
-  if (!_dwQueue.length) { showToast('No pending decisions', 'info'); return; }
+  if (!_dwQueue.length) { showToast('No players to review', 'info'); return; }
+  _dwTotal = _dwQueue.length;
   _dwIndex = 0;
   document.getElementById('dwOverlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
@@ -4823,17 +4848,15 @@ function closeDW() {
 }
 
 function dwNext() {
-  // Refresh queue (decision may have removed items)
   _dwQueue = getDecisionQueue();
-  if (!_dwQueue.length) { closeDW(); showToast('All decisions made!', 'success'); return; }
-  if (_dwIndex >= _dwQueue.length) _dwIndex = 0;
+  if (!_dwQueue.length) { closeDW(); showToast('All players reviewed!', 'success'); return; }
+  _dwIndex = 0; // always show first remaining
   renderDWCard();
 }
 
-function dwSkip() {
-  _dwIndex = (_dwIndex + 1) % Math.max(_dwQueue.length, 1);
-  if (_dwQueue.length === 0) { closeDW(); return; }
-  renderDWCard();
+function dwDecideAndNext(name) {
+  _dwDecided.add(name);
+  dwNext();
 }
 
 function getCapHoldsInfo() {
@@ -4850,50 +4873,18 @@ function getCapHoldsInfo() {
   return { holds, capSpace: cap.capSpace, capSpaceNoHolds: cap.capSpace + totalHolds };
 }
 
-function findRenounceCombos(holds, needed) {
-  // Find minimal combos of cap holds that free at least 'needed' space
-  if (needed <= 0) return [];
-  const results = [];
-  // Single holds that cover it
-  for (const h of holds) {
-    if (h.capHold >= needed) results.push([h]);
-  }
-  // Two-hold combos
-  for (let i = 0; i < holds.length; i++) {
-    for (let j = i + 1; j < holds.length; j++) {
-      if (holds[i].capHold + holds[j].capHold >= needed) {
-        results.push([holds[i], holds[j]]);
-      }
-    }
-  }
-  // Three-hold combos (if needed)
-  if (!results.length) {
-    for (let i = 0; i < holds.length; i++) {
-      for (let j = i + 1; j < holds.length; j++) {
-        for (let k = j + 1; k < holds.length; k++) {
-          if (holds[i].capHold + holds[j].capHold + holds[k].capHold >= needed) {
-            results.push([holds[i], holds[j], holds[k]]);
-          }
-        }
-      }
-    }
-  }
-  // Sort by fewest holds, then least total cap freed
-  results.sort((a, b) => a.length - b.length || a.reduce((s, h) => s + h.capHold, 0) - b.reduce((s, h) => s + h.capHold, 0));
-  return results.slice(0, 3); // top 3 options
-}
-
 function renderDWCard() {
   const item = _dwQueue[_dwIndex];
   if (!item) { closeDW(); return; }
   const phase = STATE.phase;
+  const decided = _dwDecided.size;
   const remaining = _dwQueue.length;
   const card = document.getElementById('dwCard');
 
-  // Header
+  // Header with progress
   let h = `<div class="dw-hdr">
-    <h3>📋 Take Decisions</h3>
-    <span class="dw-progress">${_dwIndex + 1} of ${remaining}</span>
+    <h3>📋 Roster Review</h3>
+    <span class="dw-progress">${decided} of ${_dwTotal} done · ${remaining} left</span>
     <button class="dw-close" onclick="closeDW()">✕ Close</button>
   </div>`;
 
@@ -4915,38 +4906,50 @@ function renderDWCard() {
   h += `<div class="dw-opts">`;
 
   if (item.type === 'team_option') {
-    h += dwOpt('green', '✅', 'Pick Up Option', `Keep ${item.name} at ${fmtMoney(item.sal27)} for 26-27`, `dwAction('pickup')`);
-    h += dwOpt('red', '❌', 'Decline Option', `${item.name} becomes a free agent`, `dwAction('decline')`);
-    h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwSkip()`);
+    h += dwOpt('green', '✅', 'Pick Up Option', `Keep at ${fmtMoney(item.sal27)} for 26-27`, `dwAction('pickup')`);
+    h += dwOpt('red', '❌', 'Decline Option', 'Becomes a free agent', `dwAction('decline')`);
+    h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwDecideAndNext('${esc(item.name)}')`);
   }
   else if (item.type === 'player_option') {
-    h += dwOpt('green', '✅', 'Player Exercises', `${item.name} stays at ${fmtMoney(item.sal27)} for 26-27`, `dwAction('exercise')`);
-    h += dwOpt('red', '❌', 'Player Declines', `${item.name} becomes a free agent`, `dwAction('decline')`);
-    h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwSkip()`);
+    h += dwOpt('green', '✅', 'Player Exercises', `Stays at ${fmtMoney(item.sal27)} for 26-27`, `dwAction('exercise')`);
+    h += dwOpt('red', '❌', 'Player Declines', 'Becomes a free agent', `dwAction('decline')`);
+    h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwDecideAndNext('${esc(item.name)}')`);
   }
   else if (item.type === 'non_guaranteed') {
-    h += dwOpt('green', '✅', 'Guarantee Contract', `Keep ${item.name} at ${fmtMoney(item.sal27)}`, `dwAction('guarantee')`);
+    h += dwOpt('green', '✅', 'Guarantee Contract', `Keep at ${fmtMoney(item.sal27)}`, `dwAction('guarantee')`);
     h += dwOpt('red', '🗑️', 'Waive', 'Release with no dead cap', `dwAction('waive')`);
-    h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwSkip()`);
+    h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
+    h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwDecideAndNext('${esc(item.name)}')`);
   }
   else if (item.type === 'partial_guaranteed') {
-    h += dwOpt('green', '✅', 'Guarantee Contract', `Keep ${item.name} at ${fmtMoney(item.sal27)}`, `dwAction('guarantee')`);
+    h += dwOpt('green', '✅', 'Guarantee Contract', `Keep at ${fmtMoney(item.sal27)}`, `dwAction('guarantee')`);
     h += dwOpt('red', '🗑️', 'Waive', `Release — ${fmtMoney(item.ch27 || 0)} dead cap`, `dwAction('waive')`);
-    h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwSkip()`);
+    h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
+    h += dwOpt('muted', '⏸️', 'Stay Put', 'Decide later', `dwDecideAndNext('${esc(item.name)}')`);
+  }
+  else if (item.type === 'under_contract') {
+    h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
+    h += dwOpt('red', '🗑️', 'Waive', 'Release player', `dwAction('waive')`);
+    h += dwOpt('muted', '⏸️', 'Stay Put', 'Keep as-is', `dwDecideAndNext('${esc(item.name)}')`);
+  }
+  else if (item.type === 'signed') {
+    h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine', `dwAction('trade')`);
+    h += dwOpt('red', '🗑️', 'Waive', 'Release player', `dwAction('waive')`);
+    h += dwOpt('muted', '⏸️', 'Stay Put', 'Keep as-is', `dwDecideAndNext('${esc(item.name)}')`);
   }
   else if (item.type === 'free_agent') {
     const canResign = (phase === 'free_agency' || phase === 'training_camp');
     if (canResign) {
-      h += dwOpt('green', '✍️', 'Re-Sign', `Open signing dialog for ${item.name}`, `dwAction('resign')`);
+      h += dwOpt('green', '✍️', 'Re-Sign', `Open signing dialog`, `dwAction('resign')`);
     }
     h += dwOpt('red', '👋', 'Renounce', `Give up rights — frees ${fmtMoney(item.capHold)} cap hold`, `dwAction('renounce')`);
-    h += dwOpt('muted', '⏸️', 'Stay Put', `Keep rights (${fmtMoney(item.capHold)} cap hold remains)`, `dwSkip()`);
+    h += dwOpt('muted', '⏸️', 'Stay Put', `Keep rights (${fmtMoney(item.capHold)} cap hold remains)`, `dwDecideAndNext('${esc(item.name)}')`);
   }
   else if (item.type === 'draft_pick') {
-    h += dwOpt('green', '✍️', 'Sign', `Sign #${item.draftRnk} pick ${item.name} to rookie contract`, `dwAction('sign')`);
-    h += dwOpt('orange', '🌍', 'Stash', 'Player stays overseas — cap hold removed', `dwAction('stash')`);
+    h += dwOpt('green', '✍️', 'Sign', `Sign #${item.draftRnk} pick to rookie contract`, `dwAction('sign')`);
+    h += dwOpt('orange', '⏳', 'Won\'t Sign This Season', 'Player won\'t sign — cap hold lifted', `dwAction('stash')`);
     h += dwOpt('blue', '🔄', 'Trade', 'Open Trade Machine with draft rights', `dwAction('trade')`);
-    h += dwOpt('muted', '⏸️', 'Stay Put', `Keep rights (${fmtMoney(item.capHold)} cap hold)`, `dwSkip()`);
+    h += dwOpt('muted', '⏸️', 'Stay Put', `Keep rights (${fmtMoney(item.capHold)} cap hold)`, `dwDecideAndNext('PICK_${item.draftRnk}')`);
   }
 
   h += `</div>`; // end dw-opts
@@ -4960,8 +4963,6 @@ function renderDWCard() {
     h += `<div class="dw-cap-row"><span>If all cap holds cleared</span><span style="color:var(--green)"><strong>${fmtMoney(capInfo.capSpaceNoHolds)}</strong></span></div>`;
     const totalHolds = capInfo.holds.reduce((s, h) => s + h.capHold, 0);
     h += `<div class="dw-cap-row warn"><span>Total cap holds</span><span>${fmtMoney(totalHolds)}</span></div>`;
-
-    // Show individual cap holds with quick-renounce
     h += `<div style="margin-top:.4rem;font-size:.55rem;color:var(--muted)">Cap holds you can renounce:</div>`;
     for (const hold of capInfo.holds) {
       const isThis = hold.name === item.name;
@@ -4981,12 +4982,6 @@ function renderDWCard() {
   }
 
   h += `</div>`; // end dw-body
-
-  // Navigation footer
-  h += `<div style="padding:.6rem 1.2rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">`;
-  h += `<button style="font-size:.6rem;padding:.3rem .8rem;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer" onclick="dwSkip()">Skip →</button>`;
-  h += `<span style="font-size:.5rem;color:var(--muted)">${remaining} decision${remaining !== 1 ? 's' : ''} remaining</span>`;
-  h += `</div>`;
 
   card.innerHTML = h;
 }
@@ -5008,7 +5003,9 @@ function typeLabel(item) {
     non_guaranteed: 'Non-Guaranteed',
     partial_guaranteed: 'Partial Guarantee',
     free_agent: item.fromOption ? (item.fromOption === 'TO' ? 'Free Agent (declined TO)' : 'Free Agent (declined PO)') : 'Free Agent',
-    draft_pick: 'Draft Pick #' + (item.draftRnk || '')
+    draft_pick: 'Draft Pick #' + (item.draftRnk || ''),
+    under_contract: item.contractStatus === 'picked_up' ? 'Under Contract (option picked up)' : item.contractStatus === 'exercised' ? 'Under Contract (option exercised)' : item.contractStatus === 'guaranteed' ? 'Under Contract (guaranteed)' : 'Under Contract',
+    signed: item.contractType ? 'Signed (' + item.contractType + ')' : 'Signed'
   };
   return labels[item.type] || item.type;
 }
@@ -5020,74 +5017,68 @@ function dwAction(action) {
   if (item.type === 'team_option') {
     if (action === 'pickup') doOption(item.name, 'pickup');
     else if (action === 'decline') doOption(item.name, 'decline');
+    _dwDecided.add(item.name);
   }
   else if (item.type === 'player_option') {
     if (action === 'exercise') doOption(item.name, 'exercise');
     else if (action === 'decline') doOption(item.name, 'decline');
+    _dwDecided.add(item.name);
   }
   else if (item.type === 'non_guaranteed') {
     if (action === 'guarantee') {
       STATE.guaranteed.add(item.name);
       STATE.moves.push({ action: 'Guaranteed', detail: `${item.name}'s non-guaranteed contract (${fmtMoney(item.sal27)})`, undo: { type: 'guarantee', name: item.name } });
-      saveState();
+      saveState(); render();
       showToast(`Guaranteed ${item.name}'s contract`, 'success');
-      render();
     }
     else if (action === 'waive') doWaive(item.name);
+    else if (action === 'trade') { closeDW(); openTradeModal(item.name); return; }
+    _dwDecided.add(item.name);
   }
   else if (item.type === 'partial_guaranteed') {
     if (action === 'guarantee') {
       STATE.guaranteed.add(item.name);
       STATE.moves.push({ action: 'Guaranteed', detail: `${item.name}'s partially guaranteed contract (${fmtMoney(item.sal27)})`, undo: { type: 'guarantee', name: item.name } });
-      saveState();
+      saveState(); render();
       showToast(`Guaranteed ${item.name}'s contract`, 'success');
-      render();
     }
     else if (action === 'waive') doWaive(item.name);
+    else if (action === 'trade') { closeDW(); openTradeModal(item.name); return; }
+    _dwDecided.add(item.name);
+  }
+  else if (item.type === 'under_contract' || item.type === 'signed') {
+    if (action === 'trade') { closeDW(); openTradeModal(item.name); return; }
+    else if (action === 'waive') doWaive(item.name);
+    _dwDecided.add(item.name);
   }
   else if (item.type === 'free_agent') {
     if (action === 'renounce') doRenounce(item.name);
-    else if (action === 'resign') {
-      closeDW();
-      openSignModal(item.name, true);
-      return; // Don't advance — user is in sign modal
-    }
+    else if (action === 'resign') { closeDW(); openSignModal(item.name, true); return; }
+    _dwDecided.add(item.name);
   }
   else if (item.type === 'draft_pick') {
-    if (action === 'sign') {
-      closeDW();
-      // Open sign modal for draft pick
-      openSignDraftPick(item.draftRnk, item.name);
-      return;
-    }
+    const pickKey = 'PICK_' + item.draftRnk;
+    if (action === 'sign') { closeDW(); openSignDraftPick(item.draftRnk, item.name); return; }
     else if (action === 'stash') {
-      // Renounce pick to remove cap hold
-      STATE.renounced.add('PICK_' + item.draftRnk);
-      STATE.moves.push({ action: 'Stashed', detail: `#${item.draftRnk} ${item.name} (overseas — freed ${fmtMoney(item.capHold)} cap hold)`, undo: { type: 'renounce', name: 'PICK_' + item.draftRnk } });
+      STATE.renounced.add(pickKey);
+      STATE.moves.push({ action: 'Won\'t Sign', detail: `#${item.draftRnk} ${item.name} — won't sign this season (freed ${fmtMoney(item.capHold)} cap hold)`, undo: { type: 'renounce', name: pickKey } });
       saveState();
-      showToast(`Stashed #${item.draftRnk} ${item.name} overseas`, 'info');
+      showToast(`#${item.draftRnk} ${item.name} won't sign this season`, 'info');
       render();
     }
-    else if (action === 'trade') {
-      closeDW();
-      // Open TM with draft rights. Since full trade-machine draft rights integration is complex,
-      // open TM normally and let user build the trade
-      openTradeModal();
-      return;
-    }
+    else if (action === 'trade') { closeDW(); openTradeModal(); return; }
+    _dwDecided.add(pickKey);
   }
 
-  // Advance to next decision
   setTimeout(dwNext, 200);
 }
 
 function dwQuickRenounce(name) {
   doRenounce(name);
-  // Refresh the current card to show updated cap
+  _dwDecided.add(name);
   _dwQueue = getDecisionQueue();
-  if (_dwIndex >= _dwQueue.length) _dwIndex = Math.max(0, _dwQueue.length - 1);
   if (_dwQueue.length) renderDWCard();
-  else { closeDW(); showToast('All decisions made!', 'success'); }
+  else { closeDW(); showToast('All players reviewed!', 'success'); }
 }
 
 function dwQuickRenouncePick(pickRnk) {
@@ -5096,13 +5087,12 @@ function dwQuickRenouncePick(pickRnk) {
   const pick = (teamDraftPicks[TEAMS[STATE.team]] || []).find(p => p.draftRnk === pickRnk);
   const name = pick ? (pick.selectedProspect || pick.prospect) : '#' + pickRnk;
   STATE.moves.push({ action: 'Renounced', detail: `Draft rights to #${pickRnk} ${name} (freed ${fmtMoney(pick?.capHold || 0)} cap hold)`, undo: { type: 'renounce', name: key } });
-  saveState();
+  saveState(); render();
   showToast(`Renounced draft rights to #${pickRnk} ${name}`, 'warning');
-  render();
+  _dwDecided.add(key);
   _dwQueue = getDecisionQueue();
-  if (_dwIndex >= _dwQueue.length) _dwIndex = Math.max(0, _dwQueue.length - 1);
   if (_dwQueue.length) renderDWCard();
-  else { closeDW(); showToast('All decisions made!', 'success'); }
+  else { closeDW(); showToast('All players reviewed!', 'success'); }
 }
 
 function openSignDraftPick(pickRnk, name) {
