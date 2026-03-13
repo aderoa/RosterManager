@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://hoopsmatic.com" crossorigin>
 <link rel="dns-prefetch" href="https://hoopsmatic.com">
-<title>Roster Manager – HoopsMatic</title>
+<title>NBA Roster Manager – HoopsMatic</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -31,14 +31,19 @@ body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-seri
   40%{box-shadow:0 0 0 6px rgba(52,199,89,0)}
   100%{box-shadow:0 0 0 0 rgba(52,199,89,0)}
 }
-.dc-card.needs-action{animation:needsAction 2s ease-out infinite;border-color:var(--orange)}
-.dc-card.needs-action-fa{animation:needsActionFA 2s ease-out infinite;border-color:var(--green)}
-.player-row.needs-action{animation:needsAction 2s ease-out infinite;border-left:3px solid var(--orange)}
-.player-row.needs-action-fa{animation:needsActionFA 2s ease-out infinite;border-left:3px solid var(--green)}
+.dc-card.needs-action{animation:needsAction 2s ease-out infinite;border-color:var(--orange);border-width:2px;box-shadow:0 0 8px rgba(245,158,11,.25)}
+.dc-card.needs-action-fa{animation:needsActionFA 2s ease-out infinite;border-color:var(--green);border-width:2px;box-shadow:0 0 8px rgba(52,199,89,.25)}
+.player-row.needs-action{animation:needsAction 2s ease-out infinite;border-left:4px solid var(--orange);background:rgba(245,158,11,.04)}
+.player-row.needs-action-fa{animation:needsActionFA 2s ease-out infinite;border-left:4px solid var(--green);background:rgba(52,199,89,.04)}
+.dc-card.ct-po{border-left:3px solid #33cccc}
+.dc-card.ct-to{border-left:3px solid #ff0000}
+.dc-card.ct-ng{border-left:3px solid #e0e000}
+.dc-card.ct-2w{border-left:3px solid #ffb6c1}
+.dc-card.ct-fa{border-left:3px solid #ffd580}
 a{color:var(--accent);text-decoration:none}
 
 /* Header */
-.header{background:linear-gradient(135deg,var(--team1),var(--team2));padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100;transition:background .4s}
+.header{background:var(--team1);padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100;transition:background .4s}
 
 /* === MOBILE: FORCE LANDSCAPE + AUTO-FIT === */
 @media(max-width:1024px) and (orientation:portrait){
@@ -288,7 +293,7 @@ a{color:var(--accent);text-decoration:none}
 .dc-card .dc-btn.trade{border-color:var(--cyan);color:var(--cyan)}
 .dc-card .dc-btn.waive{border-color:var(--red);color:var(--red)}
 .dc-card .dc-btn.opt{border-color:var(--orange);color:var(--orange)}
-.dc-card .dc-opt-badge{position:absolute;top:2px;right:4px;font-size:.45rem;padding:.1rem .25rem;border-radius:2px;font-weight:700}
+.dc-card .dc-opt-badge{position:absolute;top:2px;right:4px;font-size:.4rem;padding:.1rem .25rem;border-radius:2px;font-weight:700;white-space:nowrap;max-width:70px;overflow:hidden;text-overflow:ellipsis}
 .dc-card .dc-opt-badge.to{background:rgba(180,83,9,.15);color:var(--orange)}
 .dc-card .dc-opt-badge.po{background:rgba(14,165,233,.15);color:var(--cyan)}
 .dc-card .dc-opt-badge.ng{background:rgba(255,69,58,.15);color:var(--red)}
@@ -729,6 +734,10 @@ a{color:var(--accent);text-decoration:none}
 .team-card img{width:48px;height:48px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.1))}
 .team-card .tc-abbr{font-size:.75rem;font-weight:700;color:var(--text)}
 .team-card .tc-name{font-size:.6rem;color:var(--muted);line-height:1.2}
+@media(min-width:901px){body{font-size:129%}}
+.color-key{display:flex;flex-wrap:wrap;gap:.5rem .75rem;padding:.4rem .75rem;font-size:.55rem;font-weight:700;align-items:center}
+.color-key span{display:flex;align-items:center;gap:.2rem}
+.color-key .ck-dot{width:8px;height:8px;border-radius:2px;display:inline-block}
 </style>
 </head>
 <body>
@@ -773,8 +782,8 @@ a{color:var(--accent);text-decoration:none}
 <div id="landingPage" class="landing">
   <div class="landing-hdr">
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="landing-sub">HoopsMatic GM Simulator · 2026-27 Offseason</div>
-    <div class="landing-badge">v6.2 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
+    <div class="landing-badge">v6.3 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -784,7 +793,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">HoopsMatic GM Simulator · <span id="appVersion" style="opacity:.7">v6.2</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v6.3</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -2271,8 +2280,8 @@ function saveDepthOrder() {
 }
 
 function dcBadge(p) {
-  if (p.status === 'pending_to') return '<span class="dc-opt-badge to">TO</span>';
-  if (p.status === 'pending_po') return '<span class="dc-opt-badge po">PO</span>';
+  if (p.status === 'pending_to') return '<span class="dc-opt-badge to">Team Option</span>';
+  if (p.status === 'pending_po') return '<span class="dc-opt-badge po">Player Option</span>';
   if (p.status === 'picked_up') return '<span class="dc-opt-badge" style="background:rgba(52,199,89,.15);color:var(--green)">✓TO</span>';
   if (p.status === 'exercised') return '<span class="dc-opt-badge" style="background:rgba(52,199,89,.15);color:var(--green)">✓PO</span>';
   if (p._signed && p.isSignAndTrade) return '<span class="dc-opt-badge" style="background:rgba(0,199,190,.15);color:var(--cyan)">S&T</span>';
@@ -2281,8 +2290,8 @@ function dcBadge(p) {
   if (p._signed) return '<span class="dc-opt-badge signed">FA</span>';
   if (p.status === 'traded_in') return '<span class="dc-opt-badge traded">TRD</span>';
   if (p.isTwoWay || p.contractType === 'two-way') return '<span class="dc-opt-badge" style="background:rgba(110,110,115,.15);color:var(--muted)">2W</span>';
-  if (p.category === 'non_guaranteed' || p.contractType === 'non-guaranteed') return '<span class="dc-opt-badge ng">NG</span>';
-  if (p.category === 'partial_guaranteed' || p.contractType === 'partial-guaranteed') return '<span class="dc-opt-badge pg">PG</span>';
+  if (p.category === 'non_guaranteed' || p.contractType === 'non-guaranteed') return '<span class="dc-opt-badge ng">Non-Guaranteed</span>';
+  if (p.category === 'partial_guaranteed' || p.contractType === 'partial-guaranteed') return '<span class="dc-opt-badge pg">Partial</span>';
   return '';
 }
 
@@ -2330,13 +2339,13 @@ function dcActions(p) {
     const _extPhaseOk = _isRSE ? (phase === 'free_agency' || phase === 'training_camp') : (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa');
     if (_extPhaseOk) {
       if (!(STATE.extensions || []).some(e => e.name === p.name)) {
-        btns += `<button class="dc-btn opt" onclick="event.stopPropagation();openExtModal('${esc(p.name)}')">Ext</button>`;
+        btns += `<button class="dc-btn opt" onclick="event.stopPropagation();openExtModal('${esc(p.name)}')">Extend</button>`;
       }
     }
   }
   // Extension badge
   const ext = (STATE.extensions || []).find(e => e.name === p.name);
-  if (ext) btns += `<span style="font-size:.45rem;color:var(--accent);font-weight:700">EXT thru ${ext.endYear}</span>`;
+  if (ext) btns += `<span style="font-size:.45rem;color:var(--accent);font-weight:700">Extended thru ${ext.endYear}</span>`;
   return btns ? `<div style="display:flex;gap:.2rem;flex-wrap:nowrap">${btns}</div>` : '';
 }
 
@@ -2361,6 +2370,12 @@ function dcCard(p) {
   if (p.status === 'pending_to' || p.status === 'pending_po') extraClass = ' needs-action';
   else if (p.status === 'non_guaranteed' || p.status === 'partial_guaranteed') extraClass = ' needs-action';
   else if (p.category === 'free_agent' && p.status === 'held' && (STATE.phase === 'pre_fa' || STATE.phase === 'free_agency' || STATE.phase === 'training_camp')) extraClass = ' needs-action-fa';
+  // Contract type color coding
+  if (p.status === 'pending_po' || p.category === 'player_option') extraClass += ' ct-po';
+  else if (p.status === 'pending_to' || p.category === 'team_option') extraClass += ' ct-to';
+  else if (p.category === 'non_guaranteed' || p.category === 'partial_guaranteed') extraClass += ' ct-ng';
+  else if (p.isTwoWay || p.st27 === 'TWO-WAY') extraClass += ' ct-2w';
+  else if (p.category === 'free_agent') extraClass += ' ct-fa';
   return `<div class="dc-card${extraClass}" draggable="true" data-player="${p.name}" onmouseenter="showPlayerCard(event,'${esc}')" onmouseleave="hidePlayerCard()">
     ${dcBadge(p)}
     <div class="dc-top">${hs}<div class="dc-name">${p.name}</div><div class="dc-sal">${fmtMoney(p.sal27 || 0)}</div></div>
@@ -3179,7 +3194,7 @@ function renderDraftBoard() {
     
     h += `<div style="margin-bottom:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">`;
     if (!isUserTurn && nextUserPick) {
-      h += `<button class="action-btn" style="font-size:.7rem;padding:.4rem .9rem;background:var(--accent);color:#fff;border:none;font-weight:600" onclick="skipToNextPick()">⏭ Skip to Pick #${nextUserPick}</button>`;
+      h += `<button class="action-btn" style="font-size:.7rem;padding:.4rem .9rem;background:var(--accent);color:#fff;border:none;font-weight:600" onclick="skipToNextPick()">⏭ Skip to your next pick</button>`;
     }
     h += `<button class="action-btn" style="font-size:.65rem;padding:.35rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Simulate All</button>`;
     h += `</div>`;
@@ -3191,7 +3206,7 @@ function renderDraftBoard() {
         fb.id = 'draftFloatBtns';
         fb.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:150;display:flex;gap:.5rem;background:var(--surface);padding:.5rem .75rem;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);border:1px solid var(--border)';
         let btns = '';
-        if (nextUserPick) btns += `<button style="font-size:.75rem;padding:.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer" onclick="skipToNextPick()">⏭ Skip to Pick #${nextUserPick}</button>`;
+        if (nextUserPick) btns += `<button style="font-size:.75rem;padding:.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer" onclick="skipToNextPick()">⏭ Skip to your next pick</button>`;
         btns += `<button style="font-size:.65rem;padding:.5rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Sim All</button>`;
         fb.innerHTML = btns;
         document.body.appendChild(fb);
@@ -3388,6 +3403,15 @@ function renderRoster(cap) {
     else if (total < 14) h += `<div class="camp-warning"><h4>⚠️ Roster Under Minimum</h4><p>You have ${total} contracts — need at least 14 for opening night.</p></div>`;
     else h += `<div class="camp-ok"><h4>✅ Roster Compliant</h4><p>${total}/18 contracts</p></div>`;
   }
+
+  // ======== COLOR KEY ========
+  h += `<div class="color-key">`;
+  h += `<span><span class="ck-dot" style="background:#33cccc"></span> Player Option</span>`;
+  h += `<span><span class="ck-dot" style="background:#ff0000"></span> Team Option</span>`;
+  h += `<span><span class="ck-dot" style="background:#e0e000"></span> Not Guaranteed</span>`;
+  h += `<span><span class="ck-dot" style="background:#ffb6c1"></span> Two-Way</span>`;
+  h += `<span><span class="ck-dot" style="background:#ffd580"></span> Free Agent</span>`;
+  h += `</div>`;
 
   // ======== DEPTH CHART ========
   const depthPlayers = getDepthPlayers(cap);
@@ -4131,10 +4155,10 @@ function capRowDelta(label, value) {
 }
 
 function shortExc(e) {
-  return { 'Bird Exception': 'Bird', 'Early Bird Exception': 'Early Bird', 'Non-Bird Exception': 'Non-Bird',
-    'Mid-Level Exception': 'MLE', 'Taxpayer Mid-Level Exception': 'Tax MLE', 'Room Mid-Level Exception': 'Room MLE',
-    'Biannual Exception': 'BAE', 'Minimum Salary Exception': 'Min', 'Rookie Exception': 'Rookie',
-    'Second Round Exception': '2nd Rnd' }[e] || e || '';
+  return { 'Bird Exception': 'Bird Rights', 'Early Bird Exception': 'Early Bird', 'Non-Bird Exception': 'Non-Bird',
+    'Mid-Level Exception': 'Mid-Level', 'Taxpayer Mid-Level Exception': 'Tax Mid-Level', 'Room Mid-Level Exception': 'Room Mid-Level',
+    'Biannual Exception': 'Biannual', 'Minimum Salary Exception': 'Minimum', 'Rookie Exception': 'Rookie',
+    'Second Round Exception': '2nd Round' }[e] || e || '';
 }
 
 function esc(s) { return s.replace(/'/g, "\\'"); }
@@ -5609,7 +5633,7 @@ function openSignModal(faName, isResign) {
         h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.15rem 0;font-size:.55rem">`;
         h += `<span>${hold.name}</span>`;
         h += `<span style="display:flex;align-items:center;gap:.3rem"><span>${fmtMoney(hold.capHold)}</span>`;
-        h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--orange);background:rgba(245,158,11,.1);color:var(--orange);cursor:pointer" onclick="signModalRenounce('${esc(hold.name)}')">Ren</button>`;
+        h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--orange);background:rgba(245,158,11,.1);color:var(--orange);cursor:pointer" onclick="signModalRenounce('${esc(hold.name)}')">Renounce</button>`;
         h += `</span></div>`;
       }
       h += `</div>`;
@@ -6932,7 +6956,7 @@ function renderShareCard() {
   ctx.fillText(`${STATE.team} — 2026-27 Projected Roster`, 20, 35);
   ctx.font = '12px system-ui, sans-serif';
   ctx.fillStyle = 'rgba(255,255,255,.7)';
-  ctx.fillText(`Salary: ${fmtMoney(cap.teamSalary)} · ${cap.rosterCount} players · HoopsMatic Roster Manager`, 20, 58);
+  ctx.fillText(`Salary: ${fmtMoney(cap.teamSalary)} · ${cap.rosterCount} players · NBA Roster Manager`, 20, 58);
 
   // Columns
   const colW = (W - 40) / 5;
@@ -6969,7 +6993,7 @@ function renderShareCard() {
   // Footer
   ctx.fillStyle = 'rgba(255,255,255,.3)';
   ctx.font = '10px system-ui, sans-serif';
-  ctx.fillText('Generated by HoopsMatic Roster Manager · hoopsmatic.com', 20, H - 12);
+  ctx.fillText('Generated by NBA Roster Manager · hoopsmatic.com', 20, H - 12);
 
   // Moves summary
   const moves = STATE.moves.filter(m => m.action !== 'Phase');
