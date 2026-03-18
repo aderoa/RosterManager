@@ -785,7 +785,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 NBA ROSTER MANAGER</h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v6.7 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v7.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -795,7 +795,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 NBA ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v6.7</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v7.1</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -929,17 +929,16 @@ const THRESHOLDS = {
   '2027-2028': {cap:174300000,tax:211775000,apron1:220812000,apron2:234200000,bae:5787000,ntmle:15896000,tmle:6407000,rmle:9897000},
 };
 const T = THRESHOLDS['2026-2027'];
-const MIN_SALARY_0YOS = 1366314; // 2026-27 minimum for 0 YOS (projected)
-const MIN_SALARY_CAP_HOLD = Math.round(MIN_SALARY_0YOS * 1.5); // ~$2.05M
+const MIN_SALARY_0YOS = 1366314; // 2026-27 minimum for 0 YOS
+const MIN_SALARY_CAP_HOLD = Math.round(MIN_SALARY_0YOS * 1.5); // ~$2.05M floor for non-minimum cap holds
 const TWO_WAY_SALARY = Math.round(MIN_SALARY_0YOS / 2); // ~$683K
 const EST_AVG_SALARY = 13200000; // approximate
 
-// YOS-based salary bounds (NBA CBA)
-// Min salary escalates by ~$100K per YOS; max % of cap by tiers
+// YOS-based minimum salaries for 2026-27 (NBA CBA)
 const MIN_SALARY_BY_YOS = [
-  1366314,1729368,1943840,2018015,2168293,2318571,2468848,2619126,2769404,2919682,
+  1366314,2198879,2464849,2553508,2642165,2863807,3085455,3307099,3528745,3546312,
   3900945
-]; // Index 0-9 = specific YOS, Index 10 = 10+ year veteran minimum (all 10+ get same amount)
+]; // Index 0-9 = specific YOS, Index 10 = 10+ year veteran minimum
 function getPlayerYOS(p) {
   // Use actual YOS from spreadsheet (column AM) if available
   if (p?.yos !== undefined && p.yos !== null && p.yos >= 0) return p.yos;
@@ -1476,7 +1475,8 @@ function parseAllPlayers(csv) {
     if (!sal27 && !st27) {
       // No 2026-27 salary = expiring (or two-way expiring), becomes free agent
       category = 'free_agent';
-      capHold = calcCapHold(sal26, exception);
+      const _estYos = Math.max(0, Math.floor(parseFloat(age) || 22) - 20);
+      capHold = calcCapHold(sal26, exception, _estYos);
     } else if (st27 === 'TEAM OPT') {
       category = 'team_option';
     } else if (st27 === 'PLAYER OPT') {
@@ -1517,7 +1517,7 @@ function parseAllPlayers(csv) {
   return players;
 }
 
-function calcCapHold(priorSalary, exception) {
+function calcCapHold(priorSalary, exception, yos) {
   const maxSalary = Math.round(T.cap * 0.35);
   if (!priorSalary) return MIN_SALARY_CAP_HOLD;
   let hold;
@@ -1534,7 +1534,8 @@ function calcCapHold(priorSalary, exception) {
     // Non-Bird: 120% of prior salary
     hold = Math.max(Math.round(priorSalary * 1.20), MIN_SALARY_CAP_HOLD);
   } else if (exc.includes('minimum')) {
-    hold = MIN_SALARY_CAP_HOLD;
+    // CBA: min salary FA cap hold = 1-yr min if 0-1 YOS, otherwise 2-yr vet minimum
+    hold = (yos !== undefined && yos >= 0) ? getMinSalaryForYOS(Math.min(yos, 2)) : MIN_SALARY_BY_YOS[2];
   } else if (exc.includes('rookie')) {
     // Qualifying Veteran FA (completed rookie scale): 250% of prior salary
     hold = Math.round(priorSalary * 2.50);
@@ -1598,7 +1599,8 @@ function calcCapSheet(team) {
         rosterCount++;
         roster.under_contract.push({ ...p, status: 'picked_up', fromOption: 'TO' });
       } else if (optDecision === 'decline') {
-        const hold = calcCapHold(p.sal26, p.exception);
+        const _yos = Math.max(0, Math.floor(parseFloat(p.age) || 22) - 20);
+        const hold = calcCapHold(p.sal26, p.exception, _yos);
         if (renounced) {
           roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, fromOption: 'TO' });
         } else {
@@ -1621,7 +1623,8 @@ function calcCapSheet(team) {
         rosterCount++;
         roster.under_contract.push({ ...p, status: 'exercised', fromOption: 'PO' });
       } else if (optDecision === 'decline') {
-        const hold = calcCapHold(p.sal26, p.exception);
+        const _yos = Math.max(0, Math.floor(parseFloat(p.age) || 22) - 20);
+        const hold = calcCapHold(p.sal26, p.exception, _yos);
         if (renounced) {
           roster.free_agent.push({ ...p, status: 'renounced', capHold: hold, fromOption: 'PO' });
         } else {
@@ -1979,16 +1982,16 @@ function renderOverview() {
     const heldFas = fas.filter(p => p.status === 'held');
     const totalHolds = heldFas.reduce((s,p) => s + (p.capHold||0), 0);
     h += `<div class="dc-section-label">🔓 Free Agents <span class="dc-badge" style="background:rgba(59,130,246,.12);color:var(--accent)">${heldFas.length} held</span><span class="dc-badge" style="background:rgba(59,130,246,.12);color:var(--accent)">${fmtMoney(totalHolds)} cap holds</span></div>`;
-    h += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem;margin-bottom:1rem">`;
+    h += `<div class="section"><div class="section-body">`;
     for (const p of heldFas.sort((a,b) => (b.capHold||0) - (a.capHold||0))) {
-      h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:var(--surface);border-radius:8px;border:1px solid var(--border);border-left:3px solid #ffd580">`;
-      h += p.headshot ? `<img src="${p.headshot}" style="width:32px;height:24px;border-radius:3px;object-fit:cover" onerror="this.style.display='none'">` : '';
-      h += `<div style="flex:1;min-width:0"><div style="font-size:.65rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>`;
-      h += `<div style="font-size:.5rem;color:var(--muted)">${shortExc(p.exception || '')}</div></div>`;
-      h += `<div style="font-size:.6rem;font-weight:600;color:var(--accent);white-space:nowrap">${fmtMoney(p.capHold)}</div>`;
+      h += `<div class="player-row">`;
+      h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
+      h += `<div class="info"><div class="pname">${p.name}${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(110,110,115,.15);color:var(--muted)">2W</span>' : ''}</div>`;
+      h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}</div></div>`;
+      h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
       h += `</div>`;
     }
-    h += `</div>`;
+    h += `</div></div>`;
   }
 
   // ======== DRAFT PICKS ========
