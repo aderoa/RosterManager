@@ -785,7 +785,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 NBA ROSTER MANAGER</h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v6.5 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v6.7 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -795,7 +795,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 NBA ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v6.5</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v6.7</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1114,7 +1114,7 @@ const TRADE_MACHINE_URL = 'https://hoopsmatic.com';
 const MIN_SALARY_2ND_RD = 1157379; // 2nd round minimum cap hold
 
 function defaultState(team) {
-  return { team, phase: 'pre_lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), guaranteed: new Set(), dwSkipped: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0, _overviewSeen: false };
+  return { team, phase: 'pre_lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), guaranteed: new Set(), dwSkipped: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], tpes: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0, _overviewSeen: false };
 }
 
 function saveState() {
@@ -1144,6 +1144,7 @@ function loadState(team) {
       s.trades = s.trades || [];
       s.signings = s.signings || [];
       s.extensions = s.extensions || [];
+      s.tpes = s.tpes || [];
       s.depthOrder = s.depthOrder || {};
       s.lotteryResults = s.lotteryResults || null;
       s.draftResults = s.draftResults || [];
@@ -1779,8 +1780,11 @@ function calcCapSheet(team) {
   if (hasCapSpace) {
     exceptions.push({ name: 'Cap Space', amount: capSpace, potentialAmount: potentialCapSpace > capSpace ? potentialCapSpace : capSpace, faHoldsAmount: faCapHolds, available: true });
     exceptions.push({ name: 'Room MLE', amount: T.rmle, available: true });
+    exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false, unavailNote: 'Team has cap space (use Room MLE)' });
+    exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: false, unavailNote: 'Team has cap space' });
   } else {
     exceptions.push({ name: 'Cap Space', amount: 0, available: false });
+    exceptions.push({ name: 'Room MLE', amount: T.rmle, available: false, unavailNote: 'Team over cap' });
   }
   // MLE logic per 2023 CBA:
   // Below 1st apron: Non-Tax MLE available (using it hard-caps at 1st apron)
@@ -1788,13 +1792,11 @@ function calcCapSheet(team) {
   // Above 2nd apron: No MLE at all
   if (!hasCapSpace) {
     if (belowApron1) {
-      // Check if hard-capped and signing would breach apron
       exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: true, hardCapNote: '⚠️ Hard-caps team at 1st apron' });
     } else if (belowApron2) {
       exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false, unavailNote: 'Above 1st apron' });
       exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: true });
     } else {
-      // Above 2nd apron: no MLE
       exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false, unavailNote: 'Above 2nd apron' });
       exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: false, unavailNote: 'Above 2nd apron' });
     }
@@ -1806,6 +1808,8 @@ function calcCapSheet(team) {
     } else {
       exceptions.push({ name: 'BAE', amount: T.bae, available: false, unavailNote: 'Above 2nd apron' });
     }
+  } else {
+    exceptions.push({ name: 'BAE', amount: T.bae, available: false, unavailNote: 'Team has cap space' });
   }
   exceptions.push({ name: 'Minimum', amount: MIN_SALARY_BY_YOS[MIN_SALARY_BY_YOS.length - 1], available: true, isMinimum: true, note: 'YOS-based salary' });
   // Two-Way: up to 3 two-way contracts per team (don't count against cap)
@@ -2036,6 +2040,10 @@ function renderOverview() {
     if (!_showExcOv.has(exc.name)) continue;
     h += `<div class="exc-chip ${exc.available ? 'available' : 'unavailable'}">${exc.name}: ${fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount)}</div>`;
   }
+  for (const tpe of (STATE.tpes || [])) {
+    if (tpe.used) continue;
+    h += `<div class="exc-chip available">Trade Exception: ${fmtMoney(tpe.amount)}</div>`;
+  }
   h += `</div></div>`;
 
   // Begin button
@@ -2140,6 +2148,10 @@ function updateMobileCapPill() {
       const icon = exc.available ? '✓' : '✗';
       const color = exc.available ? 'var(--green)' : 'var(--muted)';
       h += `<div style="font-size:.55rem;padding:.15rem 0;color:${color}">${icon} ${exc.name}: ${fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount)}${exc.unavailNote ? ' — ' + exc.unavailNote : ''}</div>`;
+    }
+    for (const tpe of (STATE.tpes || [])) {
+      if (tpe.used) continue;
+      h += `<div style="font-size:.55rem;padding:.15rem 0;color:var(--green)">✓ Trade Exception: ${fmtMoney(tpe.amount)}</div>`;
     }
     content.innerHTML = h;
   }
@@ -4260,6 +4272,14 @@ function renderCapPanel(cap) {
     const noteLabel = exc.note ? ` · ${exc.note}` : '';
     h += `<div class="exc-chip ${exc.available ? 'available' : 'unavailable'}">${exc.name}: ${fmtMoney(exc.remaining !== undefined ? exc.remaining : exc.amount)}${usedLabel}${noteLabel}</div>`;
   }
+  // Show TPEs
+  if ((STATE.tpes || []).length) {
+    for (const tpe of STATE.tpes) {
+      if (tpe.used) continue;
+      const tpeAvail = cap.belowApron2 || tpe.amount <= MIN_SALARY_0YOS; // Above 2nd apron: only min-salary TPEs
+      h += `<div class="exc-chip ${tpeAvail ? 'available' : 'unavailable'}">Trade Exception: ${fmtMoney(tpe.amount)} · from ${tpe.fromPlayers}</div>`;
+    }
+  }
   h += `</div></div>`;
 
   // Trade History
@@ -4573,7 +4593,12 @@ function undoLast() {
       STATE.phase = last.undo.prev;
     }
     if (last.undo.type === 'trade') {
+      const removedTradeIdx = STATE.trades.length - 1;
       STATE.trades.pop();
+      // Remove any TPE created by this trade
+      if (STATE.tpes) {
+        STATE.tpes = STATE.tpes.filter(t => t.tradeIdx !== removedTradeIdx);
+      }
       // Restore any S&T signings that were removed when the trade was confirmed
       if (last.undo.removedSATSignings) {
         for (const sig of last.undo.removedSATSignings) {
@@ -4955,6 +4980,20 @@ function confirmPendingTrade() {
   }
   
   STATE.trades.push(_pendingTrade);
+  
+  // Generate TPE if outgoing salary > incoming salary
+  const tpeSalOut = (_pendingTrade.out || []).reduce((s,p) => s + (p.salary || 0), 0);
+  const tpeSalIn = (_pendingTrade.in || []).reduce((s,p) => s + (p.salary || 0), 0);
+  if (tpeSalOut > tpeSalIn) {
+    const tpeAmount = tpeSalOut - tpeSalIn;
+    if (!STATE.tpes) STATE.tpes = [];
+    STATE.tpes.push({
+      amount: tpeAmount,
+      fromPlayers: (_pendingTrade.out || []).map(p => p.name).join(', '),
+      phase: STATE.phase,
+      tradeIdx: STATE.trades.length - 1
+    });
+  }
   
   const outNames = _pendingTrade.out.map(p => p.name).join(', ') || 'none';
   const inNames = _pendingTrade.in.map(p => `${p.name}${p.fromTeam ? ' (' + p.fromTeam + ')' : ''}`).join(', ') || 'none';
