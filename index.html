@@ -785,7 +785,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 NBA ROSTER MANAGER</h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v7.2 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v7.3 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -795,7 +795,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 NBA ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v7.2</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v7.3</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1957,6 +1957,7 @@ function renderOverview() {
 
   // ======== DEPTH CHART ========
   h += `<div class="dc-section-label">📋 Current Roster</div>`;
+  h += `<div style="font-size:.65rem;color:var(--muted);line-height:1.5;margin-bottom:.75rem;padding:0 .25rem">Every player under contract for 2026-27. You can decide to keep them or release them, via trade or waivers. In some cases, you'll also be able to extend their contract, while player and team options will have to be decided before free agency starts.</div>`;
   const depthPlayers = getDepthPlayers(cap);
   const byPos = buildDepthPositions(depthPlayers);
   const POS = ['PG','SG','SF','PF','C'];
@@ -1983,11 +1984,15 @@ function renderOverview() {
     const heldFas = fas.filter(p => p.status === 'held');
     const totalHolds = heldFas.reduce((s,p) => s + (p.capHold||0), 0);
     h += `<div class="dc-section-label">🔓 Free Agents <span class="dc-badge" style="background:rgba(59,130,246,.12);color:var(--accent)">${heldFas.length} held</span><span class="dc-badge" style="background:rgba(59,130,246,.12);color:var(--accent)">${fmtMoney(totalHolds)} cap holds</span></div>`;
+    h += `<div style="font-size:.65rem;color:var(--muted);line-height:1.5;margin-bottom:.75rem;padding:0 .25rem">Players bound to hit free agency on July 1. You'll have a chance to re-sign them, while also making a decision on whether to keep or renounce their cap holds.</div>`;
     h += `<div class="section"><div class="section-body">`;
     for (const p of heldFas.sort((a,b) => (b.capHold||0) - (a.capHold||0))) {
+      const isRFA = p.exception && /rookie/i.test(p.exception);
+      const faType = isRFA ? 'RFA' : 'UFA';
+      const faTypeColor = isRFA ? 'var(--orange)' : 'var(--muted)';
       h += `<div class="player-row">`;
       h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
-      h += `<div class="info"><div class="pname">${p.name}${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(110,110,115,.15);color:var(--muted)">2W</span>' : ''}</div>`;
+      h += `<div class="info"><div class="pname">${p.name} <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:${isRFA ? 'rgba(245,158,11,.12)' : 'rgba(110,110,115,.1)'};color:${faTypeColor};font-weight:700">${faType}</span>${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(110,110,115,.15);color:var(--muted)">2W</span>' : ''}</div>`;
       h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}</div></div>`;
       h += `<div><div class="sal" style="color:var(--accent)">${fmtMoney(p.capHold)}</div><div class="ch">cap hold</div></div>`;
       h += `</div>`;
@@ -1999,6 +2004,7 @@ function renderOverview() {
   const picks = cap.roster.draft_picks;
   if (picks.length) {
     h += `<div class="dc-section-label">🏀 Draft Picks <span class="dc-badge" style="background:rgba(180,83,9,.12);color:var(--orange)">${picks.length} picks</span></div>`;
+    h += `<div style="font-size:.65rem;color:var(--muted);line-height:1.5;margin-bottom:.75rem;padding:0 .25rem">On June 25, you'll have a chance to decide who your team will select in the upcoming draft. As of now, here are the picks you currently own.</div>`;
     h += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem;margin-bottom:1rem">`;
     for (const p of picks) {
       const isFirstRd = p.draftRnk <= 30;
@@ -2014,25 +2020,52 @@ function renderOverview() {
 
   // ======== SALARY OVERVIEW ========
   h += `<div class="dc-section-label">💰 Salary Overview</div>`;
+  h += `<div style="font-size:.65rem;color:var(--muted);line-height:1.5;margin-bottom:.75rem;padding:0 .25rem">This shows the flexibility you have for the upcoming offseason. Choose wisely between cap space and trade exceptions to add the best available players.</div>`;
   h += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;margin-bottom:1.5rem">`;
   const _twOv = (STATE.signings || []).filter(s => s.contractType === 'two-way' && !STATE.waived.has(s.name)).length
     + allPlayers.filter(p => p.isTwoWay && p.sal27 && p.team === STATE.team && !STATE.waived.has(p.name)).length;
-  const salItems = [
-    { label: 'Team Salary', value: fmtMoney(cap.teamSalary), color: 'var(--text)' },
-    { label: 'Salary Cap', value: fmtMoney(T.cap), color: 'var(--muted)' },
-    { label: 'Cap Space', value: cap.capSpace > 0 ? fmtMoney(cap.capSpace) : '—', color: cap.capSpace > 0 ? 'var(--green)' : 'var(--muted)' },
-    { label: 'Tax Line', value: fmtMoney(T.tax), color: 'var(--muted)' },
-    { label: 'Tax Room', value: cap.taxRoom > 0 ? fmtMoney(cap.taxRoom) : fmtMoney(Math.abs(cap.taxRoom)) + ' over', color: cap.taxRoom > 0 ? 'var(--green)' : 'var(--red)' },
-    { label: '1st Apron Room', value: cap.apron1Room > 0 ? fmtMoney(cap.apron1Room) : fmtMoney(Math.abs(cap.apron1Room)) + ' over', color: cap.apron1Room > 0 ? 'var(--green)' : 'var(--red)' },
-    { label: 'Standard Contracts', value: cap.rosterCount + '/15', color: 'var(--text)' },
-    { label: 'Two-Way Contracts', value: _twOv + '/3', color: 'var(--text)' },
-  ];
-  for (const item of salItems) {
-    h += `<div style="padding:.6rem .75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)">`;
-    h += `<div style="font-size:.55rem;color:var(--muted);margin-bottom:.2rem">${item.label}</div>`;
-    h += `<div style="font-size:.85rem;font-weight:700;color:${item.color}">${item.value}</div>`;
-    h += `</div>`;
+
+  // Team Salary box (with cap line integrated)
+  h += `<div style="padding:.6rem .75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)">`;
+  h += `<div style="font-size:.55rem;color:var(--muted);margin-bottom:.2rem">Team Salary</div>`;
+  h += `<div style="font-size:.85rem;font-weight:700">${fmtMoney(cap.teamSalary)}</div>`;
+  h += `<div style="font-size:.5rem;color:var(--muted);margin-top:.15rem">Salary Cap: ${fmtMoney(T.cap)}</div>`;
+  h += `</div>`;
+
+  // Cap Space box (show negative for over-cap teams)
+  h += `<div style="padding:.6rem .75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)">`;
+  h += `<div style="font-size:.55rem;color:var(--muted);margin-bottom:.2rem">Cap Space</div>`;
+  if (cap.capSpace > 0) {
+    h += `<div style="font-size:.85rem;font-weight:700;color:var(--green)">${fmtMoney(cap.capSpace)}</div>`;
+  } else {
+    h += `<div style="font-size:.85rem;font-weight:700;color:var(--red)">${fmtMoney(cap.capSpace)}</div>`;
   }
+  h += `</div>`;
+
+  // Tax Room box (with tax line integrated)
+  h += `<div style="padding:.6rem .75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)">`;
+  h += `<div style="font-size:.55rem;color:var(--muted);margin-bottom:.2rem">Tax Room</div>`;
+  h += `<div style="font-size:.85rem;font-weight:700;color:${cap.taxRoom > 0 ? 'var(--green)' : 'var(--red)'}">${cap.taxRoom > 0 ? fmtMoney(cap.taxRoom) : fmtMoney(Math.abs(cap.taxRoom)) + ' over'}</div>`;
+  h += `<div style="font-size:.5rem;color:var(--muted);margin-top:.15rem">Tax Line: ${fmtMoney(T.tax)}</div>`;
+  h += `</div>`;
+
+  // 1st Apron Room
+  h += `<div style="padding:.6rem .75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)">`;
+  h += `<div style="font-size:.55rem;color:var(--muted);margin-bottom:.2rem">1st Apron Room</div>`;
+  h += `<div style="font-size:.85rem;font-weight:700;color:${cap.apron1Room > 0 ? 'var(--green)' : 'var(--red)'}">${cap.apron1Room > 0 ? fmtMoney(cap.apron1Room) : fmtMoney(Math.abs(cap.apron1Room)) + ' over'}</div>`;
+  h += `</div>`;
+
+  // Standard + Two-Way Contracts
+  h += `<div style="padding:.6rem .75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)">`;
+  h += `<div style="font-size:.55rem;color:var(--muted);margin-bottom:.2rem">Standard Contracts</div>`;
+  h += `<div style="font-size:.85rem;font-weight:700">${cap.rosterCount}/15</div>`;
+  h += `</div>`;
+
+  h += `<div style="padding:.6rem .75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)">`;
+  h += `<div style="font-size:.55rem;color:var(--muted);margin-bottom:.2rem">Two-Way Contracts</div>`;
+  h += `<div style="font-size:.85rem;font-weight:700">${_twOv}/3</div>`;
+  h += `</div>`;
+
   h += `</div>`;
 
   // Available exceptions
@@ -3791,7 +3824,10 @@ function renderRoster(cap) {
       const faClass = !acted ? ' needs-action-fa' : '';
       h += `<div class="player-row${faClass}">`;
       h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
-      h += `<div class="info"><div class="pname">${p.name}${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(110,110,115,.15);color:var(--muted)">2W</span>' : ''}</div>`;
+      const _isRFA = p.exception && /rookie/i.test(p.exception);
+      const _faType = _isRFA ? 'RFA' : 'UFA';
+      const _faCol = _isRFA ? 'var(--orange)' : 'var(--muted)';
+      h += `<div class="info"><div class="pname">${p.name} <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:${_isRFA ? 'rgba(245,158,11,.12)' : 'rgba(110,110,115,.1)'};color:${_faCol};font-weight:700">${_faType}</span>${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(110,110,115,.15);color:var(--muted)">2W</span>' : ''}</div>`;
       h += `<div class="pdet">${p.exception ? shortExc(p.exception) : ''}</div></div>`;
       if (acted) {
         h += `<div><div class="sal" style="color:var(--muted);text-decoration:line-through">${fmtMoney(p.capHold)}</div><div class="ch">renounced</div></div>`;
