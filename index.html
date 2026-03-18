@@ -785,7 +785,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 NBA ROSTER MANAGER</h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v7.3 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v7.4 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -795,7 +795,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 NBA ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v7.3</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v7.4</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -5799,7 +5799,15 @@ function openSignModal(faName, isResign) {
 
   for (const exc of cap.exceptions) {
     // Hide S&T for re-signing own FAs and for draft picks
-    if (exc.isSAT) continue; // S&T handled via Trade Machine
+    if (exc.isSAT) {
+      let satCls = "unavailable", satDetail = "";
+      if (window._signIsResign) satDetail = "Not available — Sign-and-Trade is for signing other teams' free agents";
+      else if (window._signIsDraftPick) satDetail = "Not available for draft picks";
+      else if (!exc.available) satDetail = "Not available — " + (exc.unavailNote || "team above 1st apron");
+      else { satCls = ""; satDetail = exc.note || "Max 4yr · Bird max · Hard-caps at 1st apron"; }
+      h += `<div class="sign-exc-option ${satCls}"><div class="exc-name">${exc.name}</div><div class="exc-detail">${satDetail}</div></div>`;
+      continue;
+    }
     // Bird rights: only show for re-signing own FAs, show best matching type
     if (exc.isBirdRights) {
       if (!window._signIsResign) continue;
@@ -5920,12 +5928,14 @@ function buildFAListHTML(fas, undrafted) {
     else if (p.category === 'player_option') reason = 'Player Option decline projection';
     const ini = p.name.split(' ').map(w => w[0]).join('');
     const hs = p.headshot
-      ? `<img src="${p.headshot}" style="width:28px;height:21px;border-radius:3px;object-fit:cover;background:var(--surface)" onerror="this.outerHTML='<span style=\\'display:inline-block;width:28px;text-align:center;font-size:.5rem;color:var(--muted)\\'>${ini}</span>'">`
-      : `<span style="display:inline-block;width:28px;text-align:center;font-size:.5rem;color:var(--muted)">${ini}</span>`;
-    h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(p.name)}')" style="display:flex;align-items:center;gap:.4rem">`;
+      ? `<img src="${p.headshot}" style="width:32px;height:24px;border-radius:4px;object-fit:cover;background:var(--surface)" onerror="this.outerHTML='<span style=\\'display:inline-flex;align-items:center;justify-content:center;width:32px;height:24px;border-radius:4px;background:var(--bg);font-size:.45rem;color:var(--muted)\\'>${ini}</span>'">`
+      : `<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:24px;border-radius:4px;background:var(--bg);font-size:.45rem;color:var(--muted)">${ini}</span>`;
+    h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(p.name)}')" style="display:flex;align-items:center;gap:.5rem">`;
     h += hs;
-    h += `<span class="name" style="flex:1">${p.name}</span>`;
-    h += `<span class="assigned" style="font-size:.6rem">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoneyFull(p.sal26)} · ${reason}</span>`;
+    h += `<div style="flex:1;min-width:0">`;
+    h += `<div style="font-weight:600;font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>`;
+    h += `<div style="font-size:.55rem;color:var(--muted)">${TEAMS[p.team] || p.team} · ${p.pos || ''} · ${fmtMoneyFull(p.sal26)} · ${reason}</div>`;
+    h += `</div>`;
     h += `</div>`;
   }
   // Undrafted prospects
@@ -5933,10 +5943,9 @@ function buildFAListHTML(fas, undrafted) {
     h += `<div style="padding:.4rem .5rem;font-size:.6rem;font-weight:700;color:var(--orange);border-bottom:1px solid var(--border);margin-top:.3rem">UNDRAFTED FREE AGENTS</div>`;
     for (const name of undrafted) {
       const ini = name.split(' ').map(w => w[0]).join('');
-      h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(name)}')" style="display:flex;align-items:center;gap:.4rem">`;
-      h += `<span style="display:inline-block;width:28px;text-align:center;font-size:.5rem;color:var(--muted)">${ini}</span>`;
-      h += `<span class="name" style="flex:1">${name}</span>`;
-      h += `<span class="assigned" style="font-size:.6rem">UDFA · min salary</span>`;
+      h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(name)}')" style="display:flex;align-items:center;gap:.5rem">`;
+      h += `<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:24px;border-radius:4px;background:var(--bg);font-size:.45rem;color:var(--muted)">${ini}</span>`;
+      h += `<div style="flex:1"><div style="font-weight:600;font-size:.75rem">${name}</div><div style="font-size:.55rem;color:var(--muted)">UDFA · minimum salary</div></div>`;
       h += `</div>`;
     }
   }
@@ -6089,7 +6098,12 @@ function selectSignPlayer(name) {
   const cap2 = calcCapSheet(STATE.team);
   let excHtml = `<h4 style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Choose Exception</h4>`;
   for (const exc of cap2.exceptions) {
-    if (exc.isSAT) continue; // S&T handled via Trade Machine
+    if (exc.isSAT) {
+      let satDetail = !exc.available ? ('Not available — ' + (exc.unavailNote || 'team above 1st apron')) : (exc.note || 'Max 4yr · Bird max · Hard-caps at 1st apron');
+      let satCls = exc.available ? '' : 'unavailable';
+      excHtml += `<div class="sign-exc-option ${satCls}"><div class="exc-name">${exc.name}</div><div class="exc-detail">${satDetail}</div></div>`;
+      continue;
+    }
     if (exc.isBirdRights) continue; // Bird only for re-signs
     let detailText;
     if (exc.isMinimum && exc.available) {
