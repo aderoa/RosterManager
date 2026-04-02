@@ -3810,7 +3810,50 @@ function renderRoster(cap) {
       }
       h += `</tr>`;
     }
-    h += `</tbody></table></div>`;
+    // ── Totals + cap comparison rows ──
+    const yearTotals = Array(6).fill(0);
+    const yearGuaranteed = Array(6).fill(0);
+    for (const p of contractPlayers) {
+      const cd = synthContracts[p.name] || contractsMap[p.name];
+      if (cd && cd.yrs) {
+        cd.yrs.forEach((yr, i) => { if (yr && yr.sal) { yearTotals[i] += yr.sal; yearGuaranteed[i] += (yr.ch || 0); } });
+      } else {
+        if (showPreFa && p.sal26) { yearTotals[0] += p.sal26; yearGuaranteed[0] += (p.ch26 || 0); }
+        if (p.sal27) { yearTotals[1] += p.sal27; yearGuaranteed[1] += (p.ch27 || 0); }
+      }
+    }
+    h += `</tbody><tfoot>`;
+    h += `<tr style="border-top:2px solid var(--border)"><td style="font-weight:700;font-size:.65rem">Total Committed</td>`;
+    CONTRACT_YEARS.forEach((yr, i) => {
+      if (yr.preFaOnly && !showPreFa) return;
+      h += `<td style="font-weight:700;font-size:.65rem">${yearTotals[i] ? fmtMoney(yearTotals[i]) : '—'}</td>`;
+    });
+    h += `<td style="font-weight:700;font-size:.65rem">${fmtMoney(yearGuaranteed.reduce((a,b)=>a+b,0))}</td></tr>`;
+    const _thrMap = [
+      { key: '2025-2026', idx: 0 },
+      { key: '2026-2027', idx: 1 },
+      { key: '2027-2028', idx: 2 },
+    ];
+    h += `<tr><td style="font-size:.55rem;color:var(--muted)">vs Cap</td>`;
+    CONTRACT_YEARS.forEach((yr, i) => {
+      if (yr.preFaOnly && !showPreFa) return;
+      const thr = _thrMap.find(t => t.idx === i);
+      if (thr && THRESHOLDS[thr.key] && yearTotals[i]) {
+        const diff = THRESHOLDS[thr.key].cap - yearTotals[i];
+        h += `<td style="font-size:.55rem;color:${diff >= 0 ? 'var(--green)' : 'var(--red)'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</td>`;
+      } else h += `<td style="font-size:.55rem;color:var(--muted)">—</td>`;
+    });
+    h += `<td></td></tr>`;
+    h += `<tr><td style="font-size:.55rem;color:var(--muted)">vs Tax</td>`;
+    CONTRACT_YEARS.forEach((yr, i) => {
+      if (yr.preFaOnly && !showPreFa) return;
+      const thr = _thrMap.find(t => t.idx === i);
+      if (thr && THRESHOLDS[thr.key] && yearTotals[i]) {
+        const diff = THRESHOLDS[thr.key].tax - yearTotals[i];
+        h += `<td style="font-size:.55rem;color:${diff >= 0 ? 'var(--green)' : 'var(--red)'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</td>`;
+      } else h += `<td style="font-size:.55rem;color:var(--muted)">—</td>`;
+    });
+    h += `<td></td></tr></tfoot></table></div>`;
   }
 
   // ======== FREE AGENTS ========
@@ -4991,7 +5034,26 @@ function showTradeConfirm(trade) {
   if (STATE) {
     const cap = calcCapSheet(STATE.team);
     const newCapSpace = cap.capSpace - delta;
+    const newTaxRoom = cap.taxRoom - delta;
+    const newApron1Room = cap.apron1Room - delta;
     h += `<div style="display:flex;justify-content:space-between;font-size:.65rem;margin-top:.3rem;opacity:.7"><span>Projected cap space</span><span style="color:${newCapSpace >= 0 ? 'var(--green)' : 'var(--red)'}">~ ${fmtMoney(newCapSpace)}</span></div>`;
+    h += `<div style="display:flex;justify-content:space-between;font-size:.65rem;opacity:.7"><span>Projected tax room</span><span style="color:${newTaxRoom >= 0 ? 'var(--green)' : 'var(--red)'}">~ ${fmtMoney(newTaxRoom)}</span></div>`;
+    // Apron status change warning
+    const wasBelow1 = cap.apron1Room >= 0, willBeBelow1 = newApron1Room >= 0;
+    if (wasBelow1 && !willBeBelow1) {
+      h += `<div style="font-size:.6rem;color:var(--orange);margin-top:.3rem;font-weight:600">⚠️ This trade pushes team above 1st Apron — limits future flexibility (no S&T, aggregation restricted)</div>`;
+    } else if (!wasBelow1 && willBeBelow1) {
+      h += `<div style="font-size:.6rem;color:var(--green);margin-top:.3rem;font-weight:600">✅ This trade brings team below 1st Apron — enables S&T and trade exceptions</div>`;
+    }
+    const wasBelow2 = cap.apron2Room >= 0, willBeBelow2 = (cap.apron2Room - delta) >= 0;
+    if (wasBelow2 && !willBeBelow2) {
+      h += `<div style="font-size:.6rem;color:var(--red);margin-top:.2rem;font-weight:600">🚨 Crosses 2nd Apron — cash-in trades only, no buyout signings, restricted draft picks</div>`;
+    }
+    // S&T hard cap warning
+    const hasSAT = trade.in.some(p => p.isSAT);
+    if (hasSAT) {
+      h += `<div style="font-size:.6rem;color:var(--orange);margin-top:.3rem;font-weight:600">⚠️ Sign-and-Trade: team will be hard-capped at 1st Apron (${fmtMoney(T.apron1)})</div>`;
+    }
   }
   h += `</div>`;
   
@@ -5803,6 +5865,28 @@ function openSignModal(faName, isResign) {
     h += `</div>`;
   }
 
+  // Determine recommended exception based on cap situation
+  const _recExc = (() => {
+    if (window._signIsDraftPick && window._signDraftPickNum > 30) return 'Second Round Exception';
+    const ctx = window._signPlayerContext;
+    if (window._signIsResign && ctx?.exception) {
+      const pExc = ctx.exception.toLowerCase();
+      if (pExc.includes('bird') && !pExc.includes('non-bird') && !pExc.includes('non bird') && !pExc.includes('early')) return 'Bird Exception';
+      if (pExc.includes('early bird') || pExc.includes('early-bird')) return 'Early Bird Exception';
+      if (pExc.includes('non-bird') || pExc.includes('non bird')) return 'Non-Bird Exception';
+    }
+    if (cap.capSpace > MIN_SALARY_0YOS * 2) return 'Cap Space';
+    const ntmle = cap.exceptions.find(e => e.name === 'Non-Tax MLE');
+    if (ntmle?.available && ntmle.remaining > 0) return 'Non-Tax MLE';
+    const tmle = cap.exceptions.find(e => e.name === 'Tax MLE');
+    if (tmle?.available && tmle.remaining > 0) return 'Tax MLE';
+    const bae = cap.exceptions.find(e => e.name === 'BAE');
+    if (bae?.available && bae.remaining > 0) return 'BAE';
+    const rmle = cap.exceptions.find(e => e.name === 'Room MLE');
+    if (rmle?.available && rmle.remaining > 0) return 'Room MLE';
+    return 'Minimum';
+  })();
+
   for (const exc of cap.exceptions) {
     // Hide S&T for re-signing own FAs and for draft picks
     if (exc.isSAT) {
@@ -5855,7 +5939,8 @@ function openSignModal(faName, isResign) {
     if (exc.used) detailText += ` (used ${fmtMoneyFull(exc.used)})`;
     const excClickAmount = exc.potentialAmount || exc.remaining || exc.amount;
     h += `<div class="sign-exc-option ${cls}" ${exc.available ? `onclick="selectSignException('${esc(exc.name)}', ${excClickAmount})"` : ''}>`;
-    h += `<div class="exc-name">${exc.name}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
+    const _isRec = exc.available && exc.name === _recExc;
+    h += `<div class="exc-name">${exc.name}${_isRec ? ' <span style="font-size:.55rem;padding:.1rem .4rem;border-radius:4px;background:rgba(59,130,246,.1);color:var(--accent);font-weight:700">★ Recommended</span>' : ''}${exc.hardCapNote ? ` <span style="font-size:.55rem;color:var(--orange)">${exc.hardCapNote}</span>` : ''}${exc.note ? ` <span style="font-size:.55rem;color:var(--muted)">(${exc.note})</span>` : ''}</div>`;
     h += `<div class="exc-detail">${detailText}</div>`;
     h += `</div>`;
   }
