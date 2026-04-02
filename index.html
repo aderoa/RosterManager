@@ -204,9 +204,40 @@ a{color:var(--accent);text-decoration:none}
 
   /* 16. HOVER CARD — disabled on touch */
   .player-hover-card{display:none!important}
+
+  /* 17. FAB (Floating Action Button) */
+  .fab{display:flex!important}
+  .fab-menu{display:none;position:fixed;bottom:72px;right:16px;z-index:151;flex-direction:column;gap:6px;animation:fabIn .2s ease}
+  .fab-menu.open{display:flex}
+  .fab-item{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:.7rem;font-weight:600;color:var(--text);box-shadow:0 2px 12px rgba(0,0,0,.15);cursor:pointer;white-space:nowrap;font-family:inherit}
+  .fab-item:active{transform:scale(.95)}
+  .fab-item .fab-emoji{font-size:.85rem}
+  .fab-scrim{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:149;background:rgba(0,0,0,.3)}
+  .fab-scrim.open{display:block}
+  @keyframes fabIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  /* 18. STICKY BOTTOM BAR */
+  .mobile-bottom-bar{display:flex!important}
+  .roster-panel{padding-bottom:100px!important}
+
+  /* 19. CONFETTI */
+  @keyframes confettiFall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(120vh) rotate(720deg);opacity:0}}
+  .confetti-piece{position:fixed;top:-10px;width:8px;height:8px;z-index:9999;animation:confettiFall 2.5s ease-in forwards;border-radius:2px}
+
+  /* 20. PHASE PROGRESS BADGE */
+  .phase-progress{font-size:.5rem;padding:.15rem .4rem;border-radius:8px;background:rgba(59,130,246,.1);color:var(--accent);font-weight:700;margin-left:.3rem}
 }
 
 /* Roster Panel */
+.fab{display:none;position:fixed;bottom:56px;right:16px;z-index:150;width:48px;height:48px;border-radius:50%;background:var(--accent);color:#fff;border:none;align-items:center;justify-content:center;font-size:1.4rem;box-shadow:0 4px 16px rgba(59,130,246,.4);cursor:pointer;transition:transform .2s,background .2s;font-family:inherit}
+.fab:active{transform:scale(.9)}
+.fab.open{background:#1d4ed8;transform:rotate(45deg)}
+.mobile-bottom-bar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:140;background:var(--surface);border-top:1px solid var(--border);padding:6px 12px;justify-content:space-around;align-items:center;box-shadow:0 -2px 10px rgba(0,0,0,.08);font-size:.6rem;gap:4px}
+.mbb-stat{display:flex;flex-direction:column;align-items:center;gap:1px}
+.mbb-val{font-weight:800;font-size:.75rem}
+.mbb-label{font-size:.45rem;text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
+.mbb-next{padding:6px 12px;border-radius:8px;background:var(--green);color:#fff;border:none;font-size:.6rem;font-weight:700;cursor:pointer;font-family:inherit}
+.mbb-next:active{transform:scale(.95)}
 .roster-panel{display:flex;flex-direction:column;gap:.75rem}
 .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .section-hdr{padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);background:var(--bg)}
@@ -784,7 +815,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 NBA ROSTER MANAGER</h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v7.5 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v8.0 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -794,7 +825,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 NBA ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v7.5</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.0</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -815,6 +846,14 @@ a{color:var(--accent);text-decoration:none}
     <div class="cap-panel" id="capPanel"></div>
   </div>
 </div>
+
+<!-- Mobile FAB -->
+<div class="fab-scrim" id="fabScrim" onclick="toggleFAB()"></div>
+<div class="fab-menu" id="fabMenu"></div>
+<button class="fab" id="fabBtn" onclick="toggleFAB()">+</button>
+
+<!-- Mobile Bottom Bar -->
+<div class="mobile-bottom-bar" id="mobileBottomBar"></div>
 
 <div id="loadingState" class="loading" style="display:none">
   <div class="spin"></div>
@@ -2110,6 +2149,7 @@ function render() {
     renderOverview();
     updateHeaderCapBar(calcCapSheet(STATE.team));
     updateMobileCapPill();
+    updateMobileBottomBar();
     return;
   }
 
@@ -2147,6 +2187,7 @@ function render() {
     updateHeaderCapBar(cap);
   }
   updateMobileCapPill();
+  updateMobileBottomBar();
 }
 
 function updateMobileCapPill() {
@@ -2249,11 +2290,14 @@ function updateHeaderCapBar(cap) {
 function renderPhaseBar() {
   const bar = document.getElementById('phaseBar');
   const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
+  const progress = getPhaseProgress();
   let h = '';
   PHASES.forEach((phase, i) => {
     if (i > 0) h += `<span class="phase-arrow">▶</span>`;
     const cls = i === currentIdx ? 'active' : i < currentIdx ? 'completed' : 'locked';
-    h += `<div class="phase-step ${cls}" onclick="${i <= currentIdx ? `setPhase('${phase.id}')` : ''}">${phase.icon} ${phase.label}</div>`;
+    h += `<div class="phase-step ${cls}" onclick="${i <= currentIdx ? `setPhase('${phase.id}')` : ''}">${phase.icon} ${phase.label}`;
+    if (i === currentIdx && progress.label) h += `<span class="phase-progress">${progress.label}</span>`;
+    h += `</div>`;
   });
   if (currentIdx < PHASES.length - 1) {
     const next = PHASES[currentIdx + 1];
@@ -4449,6 +4493,7 @@ function doOption(name, decision) {
   STATE.moves.push({ action: label, detail: `${name}'s option (${fmtMoney(p?.sal27 || 0)})`, undo: { type: 'option', name } });
   saveState();
   showToast(`${label} ${name}'s option`, decision === 'decline' ? 'warning' : 'success');
+  showWhatsNext('option');
   render();
 }
 
@@ -4498,6 +4543,7 @@ function doWaive(name, stretch = false) {
   STATE.moves.push({ action: stretch ? 'Waived & Stretched' : 'Waived', detail, undo: { type: 'waive', name } });
   saveState();
   showToast(`${stretch ? 'Waived & stretched' : 'Waived'} ${name}`, 'error');
+  showWhatsNext('waive');
   render();
 }
 
@@ -4662,6 +4708,7 @@ function advancePhase() {
 
     // Collect detailed recap of moves in this phase only
     if (phaseMoves.length) showPhaseRecap(prevPhase.label, nextPhase.label, phaseMoves);
+    fireConfetti();
 
     render();
     window.scrollTo(0, 0);
@@ -5136,6 +5183,7 @@ function confirmPendingTrade() {
   if (tmIframe) { tmIframe.src = 'about:blank'; tmIframe.dataset.ready = '0'; }
   _tmPreloaded = false;
   showToast(`Trade completed! Acquired ${inNames}`, 'success');
+  showWhatsNext('trade');
   render();
   // Preload fresh TM in background
   setTimeout(preloadTradeMachine, 500);
@@ -6713,6 +6761,7 @@ function confirmSigning() {
   saveState();
   closeSignModal();
   showToast(`Signed ${name} · ${fmtMoney(totalValue)}/${years}yr via ${excName}`, 'success');
+  showWhatsNext('signing');
 
   if (isSignAndTrade) {
     render();
@@ -6986,6 +7035,153 @@ function resetDraftPick(slot) {
   });
   saveState();
   render();
+}
+
+// ======================== MOBILE UX ENHANCEMENTS ========================
+
+// --- FAB (Floating Action Button) ---
+function toggleFAB() {
+  const menu = document.getElementById('fabMenu');
+  const btn = document.getElementById('fabBtn');
+  const scrim = document.getElementById('fabScrim');
+  const isOpen = menu.classList.contains('open');
+  menu.classList.toggle('open');
+  btn.classList.toggle('open');
+  scrim.classList.toggle('open');
+  if (!isOpen) buildFABMenu();
+}
+
+function buildFABMenu() {
+  if (!STATE) return;
+  const menu = document.getElementById('fabMenu');
+  const phase = STATE.phase;
+  const items = [];
+  // Always available actions based on phase
+  if (phase !== 'season_ready' && phase !== 'lottery' && phase !== 'draft') {
+    items.push({ emoji:'🔄', label:'Trade', action:'openTradeModal()' });
+  }
+  if (phase === 'free_agency' || phase === 'training_camp') {
+    items.push({ emoji:'✍️', label:'Sign Free Agent', action:'openSignModal()' });
+  }
+  if (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa') {
+    items.push({ emoji:'📋', label:'Decision Wizard', action:'openDW()' });
+  }
+  const currentIdx = PHASES.findIndex(p => p.id === phase);
+  if (currentIdx < PHASES.length - 1) {
+    const next = PHASES[currentIdx + 1];
+    items.push({ emoji:'▶️', label:`→ ${next.label}`, action:'advancePhase()' });
+  }
+  items.push({ emoji:'💾', label:'Save Scenario', action:'openSaveModal()' });
+  menu.innerHTML = items.map(it =>
+    `<div class="fab-item" onclick="toggleFAB();${it.action}"><span class="fab-emoji">${it.emoji}</span>${it.label}</div>`
+  ).join('');
+}
+
+// --- MOBILE BOTTOM BAR ---
+function updateMobileBottomBar() {
+  const bar = document.getElementById('mobileBottomBar');
+  if (!bar || !STATE) return;
+  const cap = calcCapSheet(STATE.team);
+  const phase = STATE.phase;
+  const capColor = cap.capSpace >= 0 ? 'var(--green)' : 'var(--red)';
+  const taxColor = cap.taxRoom >= 0 ? 'var(--green)' : 'var(--red)';
+
+  let nextAction = '';
+  const info = getPhaseProgress();
+  if (info.pending > 0) {
+    nextAction = `<button class="mbb-next" onclick="openDW()">${info.pending} to decide</button>`;
+  } else {
+    const ci = PHASES.findIndex(p => p.id === phase);
+    if (ci < PHASES.length - 1) {
+      nextAction = `<button class="mbb-next" onclick="advancePhase()">▶ ${PHASES[ci+1].label}</button>`;
+    }
+  }
+
+  bar.innerHTML = `
+    <div class="mbb-stat"><span class="mbb-val">${cap.rosterCount}/15</span><span class="mbb-label">Roster</span></div>
+    <div class="mbb-stat"><span class="mbb-val" style="color:${capColor}">${fmtMoney(cap.capSpace)}</span><span class="mbb-label">Cap Space</span></div>
+    <div class="mbb-stat"><span class="mbb-val" style="color:${taxColor}">${fmtMoney(cap.taxRoom)}</span><span class="mbb-label">Tax Room</span></div>
+    ${nextAction}
+  `;
+}
+
+// --- PHASE PROGRESS ---
+function getPhaseProgress() {
+  if (!STATE) return { pending: 0, total: 0, label: '' };
+  const phase = STATE.phase;
+  const teamPlayers = allPlayers.filter(p => p.team === STATE.team);
+  const tradedOut = new Set();
+  for (const t of (STATE.trades || [])) for (const p of (t.out || [])) tradedOut.add(p.name);
+
+  let pending = 0, total = 0;
+
+  if (phase === 'pre_lottery' || phase === 'pre_draft' || phase === 'pre_fa') {
+    // Count undecided options
+    const toDecide = teamPlayers.filter(p =>
+      (p.category === 'team_option' || p.category === 'player_option') &&
+      !STATE.optionDecisions[p.name] && !tradedOut.has(p.name) && !STATE.waived.has(p.name)
+    );
+    pending = toDecide.length;
+    total = teamPlayers.filter(p => p.category === 'team_option' || p.category === 'player_option').length;
+    if (pending > 0) return { pending, total, label: `${total - pending}/${total} options` };
+  }
+  if (phase === 'draft') {
+    const teamPicks = Object.keys(STATE.draftSelections || {}).length;
+    // Count available picks (this is approximate)
+    return { pending: 0, total: teamPicks, label: `${teamPicks} picks made` };
+  }
+  return { pending: 0, total: 0, label: '' };
+}
+
+// --- CONFETTI ---
+function fireConfetti() {
+  const colors = ['#3b82f6','#16a34a','#f59e0b','#dc2626','#8b5cf6','#06b6d4'];
+  for (let i = 0; i < 40; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDelay = Math.random() * 0.8 + 's';
+    el.style.animationDuration = (2 + Math.random() * 1.5) + 's';
+    el.style.width = (6 + Math.random() * 6) + 'px';
+    el.style.height = (6 + Math.random() * 6) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+}
+
+// --- "WHAT'S NEXT?" PROMPTS ---
+function showWhatsNext(actionType) {
+  if (!STATE) return;
+  const info = getPhaseProgress();
+  const phase = STATE.phase;
+  let msg = '';
+
+  if (actionType === 'phase_advance') {
+    fireConfetti();
+    return; // The phase advance already shows a recap
+  }
+  if (actionType === 'trade') {
+    if (info.pending > 0) msg = `${info.pending} option${info.pending > 1 ? 's' : ''} still to decide`;
+    else msg = 'Looking good! Consider advancing to the next phase';
+  }
+  if (actionType === 'signing') {
+    const cap = calcCapSheet(STATE.team);
+    if (cap.rosterCount >= 15) msg = 'Full roster! Ready for the next phase?';
+    else msg = `${15 - cap.rosterCount} roster spot${15 - cap.rosterCount > 1 ? 's' : ''} remaining`;
+  }
+  if (actionType === 'option') {
+    if (info.pending > 0) msg = `${info.pending} more option${info.pending > 1 ? 's' : ''} to decide`;
+    else msg = '✅ All options decided! Ready to advance';
+  }
+  if (actionType === 'waive') {
+    const cap = calcCapSheet(STATE.team);
+    msg = `Cap space: ${fmtMoney(cap.capSpace)}`;
+  }
+
+  if (msg) {
+    setTimeout(() => showToast(msg, 'info'), 1500);
+  }
 }
 
 // ======================== INIT ========================
