@@ -18,7 +18,7 @@
   --team1:#3b82f6;--team2:#2563eb;--team1-dim:rgba(59,130,246,.1);--team2-dim:rgba(37,99,235,.1);
   --green-dim:rgba(52,199,89,.15);--red-dim:rgba(255,69,58,.15);--accent-dim:rgba(59,130,246,.15);
 }
-body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;max-width:100vw;line-height:1.5;font-size:112%}
+body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;max-width:100vw;line-height:1.5;font-size:123%}
 
 /* Beating effect for cards needing action */
 @keyframes needsAction{
@@ -323,7 +323,7 @@ a{color:var(--accent);text-decoration:none}
 .contract-table td{padding:.35rem .5rem;border-bottom:1px solid var(--border)}
 .contract-table td:not(:first-child){text-align:right}
 .contract-table tr:hover td{background:var(--bg)}
-.contract-table .sal-g{color:var(--green)}.contract-table .sal-to{color:var(--orange)}.contract-table .sal-po{color:var(--cyan)}.contract-table .sal-ng{color:var(--red)}.contract-table .sal-pg{color:var(--yellow)}
+.contract-table .sal-g{color:var(--text)}.contract-table .sal-to{color:#dc2626;background:rgba(220,38,38,.08);border-radius:4px;padding:1px 4px}.contract-table .sal-po{color:#3b82f6;background:rgba(59,130,246,.08);border-radius:4px;padding:1px 4px}.contract-table .sal-ng{color:var(--red);background:rgba(220,38,38,.06);border-radius:4px;padding:1px 4px}.contract-table .sal-pg{color:#d97706;background:rgba(217,119,6,.08);border-radius:4px;padding:1px 4px}.contract-table .sal-tw{color:#8b5cf6;background:rgba(139,92,246,.1);border-radius:4px;padding:1px 4px}.contract-table .sal-qo{color:#16a34a;background:rgba(22,163,74,.08);border-radius:4px;padding:1px 4px}
 .contract-table .player-cell{display:flex;align-items:center;gap:.4rem}
 .contract-table .ct-hs{width:28px;height:21px;border-radius:3px;object-fit:cover;background:var(--bg)}
 .contract-table .ct-ini{width:28px;height:21px;border-radius:3px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:.45rem;color:var(--muted)}
@@ -1919,7 +1919,7 @@ function getPhaseIntro(phase) {
   const notes = {
     pre_lottery: "To start the offseason, you can technically waive players, extend them, exercise Team Options, renounce Bird Rights and, if your team is out of contention, trade players. But at this point, we recommend you take your time to explore your roster outlook. Usually, nothing big happens here on the market.",
     lottery: "The most stressful night of the year for some teams and, at least for one of them, the happiest of them all. You can live the draft lottery from the perspective of the executives locked in the actual drawing room, enjoy it as if you were watching on TV, or just get the immediate results.",
-    pre_draft: "We're now in business. The NBA Finals are over and it's time to take action. All the options besides (legally) reaching deals with free agents are now on the table. It may not be the best time to make bold moves until the draft clears things out, but if you have a clear vision of what to do, it can never be too soon.",
+    pre_draft: "We're now in business. The NBA Finals are over and it's time to take action. All the options besides (legally) reaching deals with free agents are now on the table. It may not be the best time to make bold moves until the draft sorts things out, but if you have a clear vision of what to do, it's never too soon.",
     draft: "Whether you're looking for your next franchise player, someone to improve your rotation, or a diamond in the rough, here's the moment to test your scouting skills. Use your draft picks to select the best players you can get.",
     pre_fa: "Time to focus on the market. Before July arrives, make sure to decide on every team option and get your strategy ready for free agency.",
     free_agency: "All bets are off. Re-sign your favorite players and snap up the best free agents on the market if your salary situation allows. Sign-and-trades could be an option if you're strapped for cap space. Use your salary exceptions wisely, and always remember — getting into the apron zone is rarely a good situation for GMs. Teams can carry up to 21 players under contract during this period.",
@@ -1953,6 +1953,7 @@ function renderOverview() {
   h += `<div style="text-align:center;margin-bottom:1rem">`;
   h += `<div style="font-size:1.1rem;font-weight:700;margin-bottom:.25rem">${teamName} — 2026-27 Offseason Overview</div>`;
   h += `<div style="font-size:.7rem;color:var(--muted)">Review your team's current situation before making moves</div>`;
+  h += `<button onclick="dismissOverview()" style="margin-top:.6rem;font-size:.85rem;padding:.6rem 2rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(59,130,246,.3)">🚀 Begin Offseason →</button>`;
   h += `</div>`;
 
   // ======== DEPTH CHART ========
@@ -2082,11 +2083,6 @@ function renderOverview() {
     h += `<div class="exc-chip available">Trade Exception: ${fmtMoney(tpe.amount)}</div>`;
   }
   h += `</div></div>`;
-
-  // Begin button
-  h += `<div style="text-align:center;padding:1rem 0">`;
-  h += `<button onclick="dismissOverview()" style="font-size:.85rem;padding:.6rem 2rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(59,130,246,.3)">🚀 Begin Offseason →</button>`;
-  h += `</div>`;
 
   panel.innerHTML = h;
   setupDragAndDrop();
@@ -2581,13 +2577,14 @@ function dcCard(p) {
 // =============== CONTRACT TABLE ===============
 function contractSalCell(yr) {
   if (!yr || (!yr.sal && !yr.st)) return '<td><span style="color:var(--muted)">—</span></td>';
-  const cls = {'GUARANTEED':'sal-g','PARTIAL G':'sal-pg','NOT G':'sal-ng','TEAM OPT':'sal-to','PLAYER OPT':'sal-po','TWO-WAY':'sal-g','TO':'sal-to','PO':'sal-po','ETO':'sal-po'}[yr.st] || 'sal-g';
+  const cls = {'GUARANTEED':'sal-g','PARTIAL G':'sal-pg','NOT G':'sal-ng','TEAM OPT':'sal-to','PLAYER OPT':'sal-po','TWO-WAY':'sal-tw','TO':'sal-to','PO':'sal-po','ETO':'sal-po','QO':'sal-qo'}[yr.st] || 'sal-g';
   let inner = `<span class="${cls}">${fmtMoney(yr.sal)}</span>`;
-  if (yr.st === 'PARTIAL G' && yr.ch && yr.ch !== yr.sal) inner += `<div style="font-size:.55rem;color:var(--yellow)">G: ${fmtMoney(yr.ch)}</div>`;
+  if (yr.st === 'PARTIAL G' && yr.ch && yr.ch !== yr.sal) inner += `<div style="font-size:.55rem;color:#d97706">G: ${fmtMoney(yr.ch)}</div>`;
   else if (yr.st === 'NOT G') inner += `<div style="font-size:.55rem;color:var(--red)">G: ${yr.ch ? fmtMoney(yr.ch) : '$0'}</div>`;
-  else if (yr.st === 'PLAYER OPT' || yr.st === 'PO') inner += `<div style="font-size:.55rem;color:var(--cyan)">PO</div>`;
-  else if (yr.st === 'TEAM OPT' || yr.st === 'TO') inner += `<div style="font-size:.55rem;color:var(--orange)">TO</div>`;
-  else if (yr.st === 'ETO') inner += `<div style="font-size:.55rem;color:var(--cyan)">ETO</div>`;
+  else if (yr.st === 'PLAYER OPT' || yr.st === 'PO') inner += `<div style="font-size:.55rem;color:#3b82f6">PO</div>`;
+  else if (yr.st === 'TEAM OPT' || yr.st === 'TO') inner += `<div style="font-size:.55rem;color:#dc2626">TO</div>`;
+  else if (yr.st === 'ETO') inner += `<div style="font-size:.55rem;color:#3b82f6">ETO</div>`;
+  else if (yr.st === 'TWO-WAY') inner += `<div style="font-size:.55rem;color:#8b5cf6">TW</div>`;
   return `<td>${inner}</td>`;
 }
 
@@ -3602,11 +3599,11 @@ function renderRoster(cap) {
 
   // ======== COLOR KEY ========
   h += `<div class="color-key">`;
-  h += `<span><span class="ck-dot" style="background:#33cccc"></span> Player Option</span>`;
-  h += `<span><span class="ck-dot" style="background:#ff0000"></span> Team Option</span>`;
-  h += `<span><span class="ck-dot" style="background:#e0e000"></span> Not Guaranteed</span>`;
-  h += `<span><span class="ck-dot" style="background:#ffb6c1"></span> Two-Way</span>`;
-  h += `<span><span class="ck-dot" style="background:#ffd580"></span> Free Agent</span>`;
+  h += `<span>Key:</span>`;
+  h += `<span><span class="ck-dot" style="background:#3b82f6"></span> P -<span style="color:#3b82f6;background:rgba(59,130,246,.08);padding:0 4px;border-radius:3px">Player Option</span></span>`;
+  h += `<span><span class="ck-dot" style="background:#dc2626"></span> T -<span style="color:#dc2626;background:rgba(220,38,38,.08);padding:0 4px;border-radius:3px">Team Option</span></span>`;
+  h += `<span><span class="ck-dot" style="background:#16a34a"></span> Q -<span style="color:#16a34a;background:rgba(22,163,74,.08);padding:0 4px;border-radius:3px">Qualifying Offer</span></span>`;
+  h += `<span><span class="ck-dot" style="background:#8b5cf6"></span> TW -<span style="color:#8b5cf6;background:rgba(139,92,246,.1);padding:0 4px;border-radius:3px">Two-Way Contract</span></span>`;
   h += `</div>`;
 
   // ======== DEPTH CHART ========
