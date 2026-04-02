@@ -108,9 +108,8 @@ a{color:var(--accent);text-decoration:none}
   .cap-mini-bar{height:4px}
   .team-dropdown{min-width:100px;font-size:.65rem;padding:.3rem .5rem}
 
-  /* 2. PHASE BAR — hide on scroll down, show on scroll up */
-  .phase-bar{padding:.35rem .5rem;gap:.25rem;font-size:.6rem;transition:transform .25s ease}
-  .phase-bar.mobile-hidden{transform:translateY(-100%);pointer-events:none}
+  /* 2. PHASE BAR — non-sticky on mobile to save screen space */
+  .phase-bar{padding:.35rem .5rem;gap:.25rem;font-size:.6rem;position:static;z-index:auto;box-shadow:none}
   .phase-bar .phase-step{font-size:.5rem;padding:.2rem .4rem}
   .phase-bar .phase-advance{font-size:.55rem;padding:.25rem .5rem}
 
@@ -925,8 +924,11 @@ try { screen.orientation.lock('landscape').catch(()=>{}); } catch(e) {}
 const SEASON = '2026-27';
 const THRESHOLDS = {
   '2025-2026': {cap:154647000,tax:187895000,apron1:195945000,apron2:207824000,bae:5134000,ntmle:14104000,tmle:5685000,rmle:8781000},
-  '2026-2027': {cap:166000000,tax:201690000,apron1:210690000,apron2:223690000,bae:5511000,ntmle:15139000,tmle:6102000,rmle:9425000},
-  '2027-2028': {cap:174300000,tax:211775000,apron1:220812000,apron2:234200000,bae:5787000,ntmle:15896000,tmle:6407000,rmle:9897000},
+  '2026-2027': {cap:165000000,tax:201000000,apron1:209000000,apron2:222000000,bae:5478000,ntmle:15048000,tmle:6065000,rmle:9369000},
+  '2027-2028': {cap:173250000,tax:210499000,apron1:219481000,apron2:232789000,bae:5752000,ntmle:15800000,tmle:6369000,rmle:9837000},
+  '2028-2029': {cap:181913000,tax:221024000,apron1:230455000,apron2:244428000,bae:6040000,ntmle:16590000,tmle:6687000,rmle:10329000},
+  '2029-2030': {cap:191009000,tax:232076000,apron1:241979000,apron2:256651000,bae:6341000,ntmle:17420000,tmle:7021000,rmle:10845000},
+  '2030-2031': {cap:200559000,tax:243679000,apron1:254077000,apron2:269482000,bae:6659000,ntmle:18291000,tmle:7372000,rmle:11388000},
 };
 const T = THRESHOLDS['2026-2027'];
 const MIN_SALARY_0YOS = 1366314; // 2026-27 minimum for 0 YOS
@@ -1771,10 +1773,17 @@ function calcCapSheet(team) {
     excUsage[exc] = (excUsage[exc] || 0) + sig.salary;
   }
 
-  // Determine if team is hard-capped (used Non-Tax MLE → capped at 1st apron, OR acquired player via S&T)
+  // Determine hard-cap status per 2023 CBA:
+  // - Using Non-Tax MLE → hard-capped at 1st apron
+  // - Using BAE → hard-capped at 1st apron
+  // - Acquiring player via S&T → hard-capped at 1st apron
+  // - Using Tax MLE → hard-capped at 2nd apron
   const usedNTMLE = (excUsage['Non-Tax MLE'] || 0) > 0;
+  const usedBAE = (excUsage['BAE'] || 0) > 0;
+  const usedTMLE = (excUsage['Tax MLE'] || 0) > 0;
   const acquiredViaSAT = (STATE.signings || []).some(s => s.isSignAndTrade);
-  const isHardCapped = usedNTMLE || acquiredViaSAT;
+  const isHardCapped = usedNTMLE || usedBAE || acquiredViaSAT; // hard-capped at 1st apron
+  const isHardCapped2 = usedTMLE; // hard-capped at 2nd apron
 
   const exceptions = [];
   // Calculate FA-only cap holds for potential cap space
@@ -1791,25 +1800,25 @@ function calcCapSheet(team) {
   }
   // MLE logic per 2023 CBA:
   // Below 1st apron: Non-Tax MLE available (using it hard-caps at 1st apron)
-  // Between 1st and 2nd apron: Tax MLE available (no hard cap)
+  // Between 1st and 2nd apron: Tax MLE available (using it hard-caps at 2nd apron)
   // Above 2nd apron: No MLE at all
   if (!hasCapSpace) {
     if (belowApron1) {
       exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: true, hardCapNote: '⚠️ Hard-caps team at 1st apron' });
     } else if (belowApron2) {
       exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false, unavailNote: 'Above 1st apron' });
-      exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: true });
+      exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: true, hardCapNote: '⚠️ Hard-caps team at 2nd apron' });
     } else {
       exceptions.push({ name: 'Non-Tax MLE', amount: T.ntmle, available: false, unavailNote: 'Above 2nd apron' });
       exceptions.push({ name: 'Tax MLE', amount: T.tmle, available: false, unavailNote: 'Above 2nd apron' });
     }
   }
-  // BAE: available when over cap and below 2nd apron
+  // BAE per 2023 CBA: available below 1st apron only (using it hard-caps at 1st apron)
   if (!hasCapSpace) {
-    if (belowApron2) {
-      exceptions.push({ name: 'BAE', amount: T.bae, available: true });
+    if (belowApron1) {
+      exceptions.push({ name: 'BAE', amount: T.bae, available: true, hardCapNote: '⚠️ Hard-caps team at 1st apron' });
     } else {
-      exceptions.push({ name: 'BAE', amount: T.bae, available: false, unavailNote: 'Above 2nd apron' });
+      exceptions.push({ name: 'BAE', amount: T.bae, available: false, unavailNote: 'Above 1st apron' });
     }
   } else {
     exceptions.push({ name: 'BAE', amount: T.bae, available: false, unavailNote: 'Team has cap space' });
@@ -1845,14 +1854,14 @@ function calcCapSheet(team) {
     }
   }
 
-  // If hard-capped, check how much room left under apron1
-  const hardCapRoom = isHardCapped ? (T.apron1 - teamSalary) : Infinity;
+  // If hard-capped, check how much room left under apron1 (or apron2 for TMLE)
+  const hardCapRoom = isHardCapped ? (T.apron1 - teamSalary) : (isHardCapped2 ? (T.apron2 - teamSalary) : Infinity);
 
   return {
     roster, activeSalaries, capHolds, deadMoney, incompleteCharge, draftCapHolds,
     teamSalary, capSpace, taxRoom, apron1Room, apron2Room,
     rosterCount, exceptions, hasCapSpace, belowTax, belowApron1, belowApron2,
-    isHardCapped, hardCapRoom, usedNTMLE, acquiredViaSAT
+    isHardCapped, isHardCapped2, hardCapRoom, usedNTMLE, usedBAE, usedTMLE, acquiredViaSAT
   };
 }
 
@@ -3830,6 +3839,9 @@ function renderRoster(cap) {
       { key: '2025-2026', idx: 0 },
       { key: '2026-2027', idx: 1 },
       { key: '2027-2028', idx: 2 },
+      { key: '2028-2029', idx: 3 },
+      { key: '2029-2030', idx: 4 },
+      { key: '2030-2031', idx: 5 },
     ];
     h += `<tr><td style="font-size:.55rem;color:var(--muted)">vs Cap</td>`;
     CONTRACT_YEARS.forEach((yr, i) => {
@@ -4328,8 +4340,14 @@ function renderCapPanel(cap) {
   h += capRow('1st Apron', T.apron1);
   h += capRowDelta('1st Apron Room', cap.apron1Room);
   if (cap.isHardCapped) {
-    const hcReason = cap.acquiredViaSAT && !cap.usedNTMLE ? 'acquired player via S&T' : cap.usedNTMLE && !cap.acquiredViaSAT ? 'used Non-Tax MLE' : 'used Non-Tax MLE + S&T';
-    h += `<div style="font-size:.6rem;color:var(--orange);margin:.2rem 0;font-weight:600">⚠️ HARD-CAPPED at 1st Apron (${hcReason})</div>`;
+    const hcReasons = [];
+    if (cap.usedNTMLE) hcReasons.push('used Non-Tax MLE');
+    if (cap.usedBAE) hcReasons.push('used BAE');
+    if (cap.acquiredViaSAT) hcReasons.push('acquired player via S&T');
+    h += `<div style="font-size:.6rem;color:var(--orange);margin:.2rem 0;font-weight:600">⚠️ HARD-CAPPED at 1st Apron (${hcReasons.join(' + ')})</div>`;
+  }
+  if (cap.isHardCapped2) {
+    h += `<div style="font-size:.6rem;color:var(--red);margin:.2rem 0;font-weight:600">🚨 HARD-CAPPED at 2nd Apron (used Tax MLE)</div>`;
   }
   h += capRow('2nd Apron', T.apron2);
   h += capRowDelta('2nd Apron Room', cap.apron2Room);
@@ -5567,7 +5585,7 @@ function dwSkipForever(name) {
 }
 
 // ======================== EXTENSION ENGINE ========================
-const EXT_CAP = 166000000; // 2026-27 projected salary cap
+const EXT_CAP = 165000000; // 2026-27 projected salary cap
 const EXT_RAISE_PCT = 0.08; // 8% annual raises for extensions
 
 function parseExtCode(code) {
