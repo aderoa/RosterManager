@@ -94,8 +94,8 @@ a{color:var(--accent);text-decoration:none}
 .main.overview-mode .cap-panel{display:none}
 @media(max-width:900px){.main{grid-template-columns:1fr}}
 @media(max-width:768px){
-  /* 1. COMPACT HEADER */
-  .header{padding:.5rem .75rem;gap:.4rem;position:sticky;top:0;z-index:100;flex-wrap:nowrap}
+  /* 1. COMPACT HEADER — fixed to prevent lateral movement on horizontal scroll */
+  .header{padding:.5rem .75rem;gap:.4rem;position:fixed;top:0;left:0;right:0;width:100%;z-index:100;flex-wrap:nowrap;box-sizing:border-box}
   .header h1{font-size:.85rem;display:none}
   .header .subtitle{display:none}
   .header .season-badge{font-size:.6rem;padding:.2rem .5rem}
@@ -108,8 +108,8 @@ a{color:var(--accent);text-decoration:none}
   .cap-mini-bar{height:4px}
   .team-dropdown{min-width:100px;font-size:.65rem;padding:.3rem .5rem}
 
-  /* 2. PHASE BAR — non-sticky on mobile to save screen space */
-  .phase-bar{padding:.35rem .5rem;gap:.25rem;font-size:.6rem;position:static;z-index:auto;box-shadow:none}
+  /* 2. PHASE BAR — non-sticky, offset for fixed header */
+  .phase-bar{padding:.35rem .5rem;gap:.25rem;font-size:.6rem;position:static;z-index:auto;box-shadow:none;margin-top:44px}
   .phase-bar .phase-step{font-size:.5rem;padding:.2rem .4rem}
   .phase-bar .phase-advance{font-size:.55rem;padding:.25rem .5rem}
 
@@ -2261,9 +2261,9 @@ window.addEventListener('scroll', () => {
     if (phaseBar) {
       const currentY = window.scrollY;
       if (currentY > _lastScrollY && currentY > 80) {
-        phaseBar.classList.add('mobile-hidden');
+        phaseBar.style.display = 'none';
       } else {
-        phaseBar.classList.remove('mobile-hidden');
+        phaseBar.style.display = '';
       }
       _lastScrollY = currentY;
     }
