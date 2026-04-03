@@ -346,9 +346,17 @@ a{color:var(--accent);text-decoration:none}
   .dc-card .dc-btn{font-size:.5rem;padding:.25rem .4rem}
 }
 @media(max-width:768px) and (orientation:portrait){
+  /* Contain ALL horizontal overflow */
+  html,body{overflow-x:clip!important;max-width:100vw!important;overscroll-behavior:none}
+  .main,.roster-panel,.section,#rosterPanel{max-width:100vw!important;overflow-x:hidden!important;box-sizing:border-box!important}
+  .contract-wrap{max-width:calc(100vw - 1rem)!important}
+
+  /* Depth chart: vertical stacked positions */
   .depth-chart{display:block!important;overflow-x:visible!important;-webkit-overflow-scrolling:auto!important;padding:.4rem!important;scroll-behavior:auto!important}
   .pos-col{min-width:0!important;flex:none!important;width:100%!important;display:grid!important;grid-template-columns:1fr 1fr;gap:.3rem;margin-bottom:.6rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
   .pos-col:last-child{border-bottom:none;margin-bottom:0}
+
+  /* Position headers: full names, 15% bigger */
   .pos-hdr{grid-column:1/-1;text-align:left!important;font-size:0!important;padding:.35rem .6rem;margin-bottom:0;background:var(--accent-dim,rgba(59,130,246,.06));border-radius:6px;border-bottom:none!important;position:static!important;color:transparent}
   .pos-hdr::before{font-size:.86rem;font-weight:700;color:var(--accent);letter-spacing:-.01em}
   .pos-col[data-position="PG"] .pos-hdr::before{content:"Point Guards"}
@@ -356,6 +364,8 @@ a{color:var(--accent);text-decoration:none}
   .pos-col[data-position="SF"] .pos-hdr::before{content:"Small Forwards"}
   .pos-col[data-position="PF"] .pos-hdr::before{content:"Power Forwards"}
   .pos-col[data-position="C"] .pos-hdr::before{content:"Centers"}
+
+  /* Compact cards */
   .dc-card{padding:.35rem!important;min-height:auto!important}
   .dc-card .dc-top{gap:.2rem;margin-bottom:.15rem;flex-wrap:nowrap!important}
   .dc-card .dc-hs,.dc-card .dc-ini{width:24px!important;height:18px!important;font-size:.35rem!important;border-radius:3px;flex-shrink:0}
@@ -364,8 +374,17 @@ a{color:var(--accent);text-decoration:none}
   .dc-card .dc-actions{gap:.15rem;margin-top:.1rem}
   .dc-card .dc-btn{font-size:.45rem!important;padding:.2rem .3rem!important;min-height:22px}
   .dc-card .dc-opt-badge{font-size:.35rem!important;padding:.05rem .15rem!important}
+
+  /* Compact other elements */
   .color-key{font-size:.5rem!important;gap:.25rem!important}
   .dc-section-label{font-size:.75rem!important;margin:.5rem 0 .3rem!important}
+  .action-btn{font-size:.6rem!important;padding:.3rem .5rem!important}
+  .player-row{flex-wrap:wrap}
+  .player-row .pname{max-width:55%;overflow:hidden;text-overflow:ellipsis}
+  .camp-warning,.camp-ok{font-size:.6rem!important}
+
+  /* Fix scroll bounce at bottom */
+  .roster-panel{-webkit-overflow-scrolling:auto!important;padding-bottom:100px!important}
 }
 /* Landscape: fit 5 columns in ~450px */
 @media(max-width:768px) and (orientation:landscape){
