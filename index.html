@@ -2048,7 +2048,7 @@ function renderOverview() {
   const POS = ['PG','SG','SF','PF','C'];
   h += `<div class="depth-chart">`;
   POS.forEach(pos => {
-    h += `<div class="pos-col"><div class="pos-hdr">${pos}</div>`;
+    h += `<div class="pos-col" data-position="${pos}"><div class="pos-hdr">${pos}</div>`;
     (byPos[pos] || []).forEach(p => { h += dcCard(p); });
     h += `</div>`;
   });
