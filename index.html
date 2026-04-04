@@ -889,7 +889,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1>🏀 NBA ROSTER MANAGER</h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v8.2 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v8.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -899,7 +899,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1>🏀 NBA ROSTER MANAGER</h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.2</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.1</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1296,7 +1296,7 @@ function fmtMoneyFull(n) {
 
 async function fetchData() {
   try {
-    const r = await fetch('/api/rm-roster');
+    const r = await fetch('https://hoopsmatic.com/api/rm-roster');
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
     if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('HTML response');
@@ -1309,7 +1309,7 @@ async function fetchData() {
 
 async function fetchDraftPicks() {
   try {
-    const r = await fetch('/api/rm-draft');
+    const r = await fetch('https://hoopsmatic.com/api/rm-draft');
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
     if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('HTML response');
@@ -1407,7 +1407,7 @@ function normContractSt(s) {
 async function fetchContracts() {
   contractsMap = {};
   try {
-    const r = await fetch('/api/rm-contracts');
+    const r = await fetch('https://hoopsmatic.com/api/rm-contracts');
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
     if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('HTML response');
@@ -1440,7 +1440,7 @@ async function fetchContracts() {
 async function fetchTradeValues() {
   tradeValueMap = {};
   try {
-    const r = await fetch('/api/rm-tv');
+    const r = await fetch('https://hoopsmatic.com/api/rm-tv');
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
     if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('HTML response');
