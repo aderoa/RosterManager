@@ -2764,13 +2764,67 @@ function runLotterySimulation() {
   return results;
 }
 
+// ===== PICK PROTECTIONS (2025-26 offseason) =====
+const PICK_PROTECTIONS = [
+  // { from, to, condition: (pickNum) => boolean, label }
+  { from: 'WAS', to: 'NYK', condition: pick => pick > 8, label: 'WAS pick not top 8 → NYK' },
+  { from: 'IND', to: 'LAC', condition: pick => pick >= 4 && pick <= 9, label: 'IND pick 4-9 → LAC' },
+  { from: 'UTA', to: 'OKC', condition: pick => pick > 8, label: 'UTA pick not top 8 → OKC' },
+];
+// MIL/NOP swap: if MIL picks ahead of NOP, ATL gets MIL pick, MIL gets NOP pick
+const MIL_NOP_SWAP = { mil: 'MIL', nop: 'NOP', beneficiary: 'ATL' };
+
+function applyPickProtections(results) {
+  if (!results) return [];
+  const transfers = [];
+  const pickMap = {}; // team → pick number
+  for (const r of results) pickMap[r.team] = r.pick;
+
+  // Standard protections
+  for (const prot of PICK_PROTECTIONS) {
+    const pick = pickMap[prot.from];
+    if (pick !== undefined && prot.condition(pick)) {
+      // Transfer: find the slot and reassign
+      const slot = allPickSlots[pick];
+      if (slot && slot.team === prot.from) {
+        allPickSlots[pick] = { ...slot, team: prot.to };
+        transfers.push({ pick, from: prot.from, to: prot.to, label: prot.label });
+      }
+    }
+  }
+
+  // MIL/NOP conditional swap
+  const milPick = pickMap[MIL_NOP_SWAP.mil];
+  const nopPick = pickMap[MIL_NOP_SWAP.nop];
+  if (milPick !== undefined && nopPick !== undefined && milPick < nopPick) {
+    // MIL has better pick → ATL gets MIL's pick, MIL gets NOP's pick
+    const milSlot = allPickSlots[milPick];
+    const nopSlot = allPickSlots[nopPick];
+    if (milSlot) allPickSlots[milPick] = { ...milSlot, team: MIL_NOP_SWAP.beneficiary };
+    if (nopSlot) allPickSlots[nopPick] = { ...nopSlot, team: MIL_NOP_SWAP.mil };
+    transfers.push({ pick: milPick, from: 'MIL', to: 'ATL', label: `MIL (#${milPick}) ahead of NOP (#${nopPick}) → ATL gets #${milPick}, MIL gets #${nopPick}` });
+  }
+
+  return transfers;
+}
+
 function applyLotteryResults(results) {
   if (!results) return;
+  // Step 1: Assign lottery positions
   for (const r of results) {
     if (allPickSlots[r.pick]) {
       allPickSlots[r.pick] = { ...allPickSlots[r.pick], team: r.team };
     }
   }
+  // Step 2: Apply pick protections/transfers
+  const transfers = applyPickProtections(results);
+  if (transfers.length) {
+    STATE._lotteryTransfers = transfers;
+    console.log('[Lottery] Pick transfers:', transfers.map(t => t.label).join('; '));
+  } else {
+    STATE._lotteryTransfers = [];
+  }
+  // Step 3: Rebuild teamDraftPicks
   const picks = {};
   for (const [slot, info] of Object.entries(allPickSlots)) {
     const s = parseInt(slot);
@@ -3221,6 +3275,18 @@ function renderLottery() {
       h += `<td>${move}</td></tr>`;
     }
     h += `</tbody></table></div>`;
+
+    // Show pick transfers from protections
+    const transfers = STATE._lotteryTransfers || [];
+    if (transfers.length) {
+      h += `<div style="margin-top:.75rem;padding:.6rem .75rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:8px">`;
+      h += `<div style="font-size:.75rem;font-weight:700;color:var(--orange);margin-bottom:.35rem">📋 Pick Protections Triggered</div>`;
+      for (const t of transfers) {
+        h += `<div style="font-size:.65rem;color:var(--text);padding:.15rem 0">• ${t.label}</div>`;
+      }
+      h += `</div>`;
+    }
+
     h += `<div style="text-align:center;margin-top:1rem">`;
     h += `<button class="waive-cancel" onclick="doRunLottery()" style="font-size:.8rem;padding:.5rem 1.5rem;border:1px solid var(--orange);color:var(--orange)">🔄 Reshuffle Lottery</button>`;
     h += `</div>`;
