@@ -106,7 +106,7 @@ a{color:var(--accent);text-decoration:none}
   .cap-mini-label{font-size:.45rem}
   .cap-mini-vals{font-size:.45rem}
   .cap-mini-bar{height:4px}
-  .team-dropdown{min-width:100px;font-size:.65rem;padding:.3rem .5rem}
+  .team-dropdown{min-width:60px;font-size:.65rem;padding:.3rem .4rem}
 
   /* 2. PHASE BAR — non-sticky, offset for fixed header */
   .phase-bar{padding:.35rem .5rem;gap:.25rem;font-size:.6rem;position:static;z-index:auto;box-shadow:none;margin-top:44px}
@@ -391,6 +391,19 @@ a{color:var(--accent);text-decoration:none}
 
   /* Fix scroll bounce at bottom */
   .roster-panel{-webkit-overflow-scrolling:auto!important;padding-bottom:100px!important}
+
+  /* Save modal: constrain to viewport */
+  .save-modal{width:90vw!important;max-width:90vw!important;box-sizing:border-box!important}
+  .save-modal-body{overflow-x:hidden!important}
+  .save-modal-body input,.save-modal-body button{max-width:100%!important;box-sizing:border-box!important}
+  .save-slot{max-width:100%!important;overflow:hidden!important}
+  .save-slot .slot-team,.save-slot .slot-info{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* Toast: prevent animation from expanding viewport */
+  .toast-container{overflow:hidden!important}
+  .toast{max-width:100%!important}
+  @keyframes toastIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-10px)}}
 }
 /* Landscape: fit 5 columns in ~450px */
 @media(max-width:768px) and (orientation:landscape){
@@ -891,6 +904,7 @@ a{color:var(--accent);text-decoration:none}
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-left:auto">
+    <button onclick="openSaveModal()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;padding:.25rem .6rem;border-radius:6px;font-size:.6rem;cursor:pointer;font-family:inherit;font-weight:600" id="saveLoadBtn" title="Save/Load Scenarios">💾</button>
     <select id="teamSelect" class="team-dropdown" onchange="if(this.value)selectTeam(this.value)">
       <option value="">Select team...</option>
     </select>
@@ -1968,11 +1982,12 @@ function calcCapSheet(team) {
 function renderTeamDropdown() {
   const sel = document.getElementById('teamSelect');
   const sorted = Object.entries(TEAMS).sort((a,b) => a[0].localeCompare(b[0]));
+  const isMobile = window.innerWidth <= 768;
   sel.innerHTML = '<option value="">Select team...</option>';
   for (const [full, abbr] of sorted) {
     const opt = document.createElement('option');
     opt.value = full;
-    opt.textContent = `${abbr} — ${full}`;
+    opt.textContent = isMobile ? abbr : `${abbr} — ${full}`;
     if (STATE && STATE.team === full) opt.selected = true;
     sel.appendChild(opt);
   }
@@ -2008,7 +2023,7 @@ function selectTeam(team) {
   banner.innerHTML = '';
   // Update header team info
   const hdrTeam = document.getElementById('hdrTeamInfo');
-  hdrTeam.innerHTML = `${logo ? `<img src="${logo}" alt="${abbr}">` : ''}<div><div class="hdr-team-name">${abbr}</div></div>`;
+  hdrTeam.innerHTML = `${logo ? `<img src="${logo}" alt="${abbr}">` : ''}<div><div class="hdr-team-name">${team}</div><div class="hdr-team-sub">${abbr} · 2026-27</div></div>`;
   hdrTeam.style.display = 'flex';
   // Update breadcrumb
   updateBreadcrumb();
@@ -7132,6 +7147,8 @@ function buildFABMenu() {
     items.push({ emoji:'▶️', label:`→ ${next.label}`, action:'advancePhase()' });
   }
   items.push({ emoji:'💾', label:'Save Scenario', action:'openSaveModal()' });
+  items.push({ emoji:'📂', label:'Load Scenario', action:'openSaveModal()' });
+  items.push({ emoji:'🗑️', label:'Reset All', action:'resetTeam()' });
   menu.innerHTML = items.map(it =>
     `<div class="fab-item" onclick="toggleFAB();${it.action}"><span class="fab-emoji">${it.emoji}</span>${it.label}</div>`
   ).join('');
