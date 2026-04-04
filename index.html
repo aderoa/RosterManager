@@ -2770,6 +2770,8 @@ const PICK_PROTECTIONS = [
   { from: 'WAS', to: 'NYK', condition: pick => pick > 8, label: 'WAS pick not top 8 → NYK' },
   { from: 'IND', to: 'LAC', condition: pick => pick >= 4 && pick <= 9, label: 'IND pick 4-9 → LAC' },
   { from: 'UTA', to: 'OKC', condition: pick => pick > 8, label: 'UTA pick not top 8 → OKC' },
+  { from: 'PHI', to: 'OKC', condition: pick => pick > 4, label: 'PHI pick not top 4 → OKC' },
+  { from: 'ORL', to: 'MEM', condition: () => true, label: 'ORL pick → MEM (unprotected)' },
 ];
 // MIL/NOP swap: if MIL picks ahead of NOP, ATL gets MIL pick, MIL gets NOP pick
 const MIL_NOP_SWAP = { mil: 'MIL', nop: 'NOP', beneficiary: 'ATL' };
@@ -3256,28 +3258,44 @@ function renderLottery() {
   } else {
     // Show results
     if (STATE.lotteryResults) applyLotteryResults(STATE.lotteryResults);
+    const transfers = STATE._lotteryTransfers || [];
+    const transferMap = {};
+    for (const t of transfers) transferMap[t.pick] = t;
+
     h += `<div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">Lottery complete! Top 4 picks have been drawn.</div>`;
     h += `<div class="contract-wrap"><table class="contract-table"><thead><tr>`;
     h += `<th>Pick</th><th>Team</th><th>Original</th><th>Movement</th>`;
     h += `</tr></thead><tbody>`;
     for (const r of results) {
-      const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === r.team)] || '';
-      const isUser = r.team === teamAbbrev;
+      const xfer = transferMap[r.pick];
+      const actualTeam = xfer ? xfer.to : r.team;
+      const logo = teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === actualTeam)] || '';
+      const origLogo = xfer ? (teamLogos[Object.keys(TEAMS).find(k => TEAMS[k] === r.team)] || '') : '';
+      const isUser = actualTeam === teamAbbrev || r.team === teamAbbrev;
       const diff = r.originalSlot - r.pick;
       const move = diff > 0 ? `<span style="color:var(--green);font-weight:700">▲ ${diff}</span>` : diff < 0 ? `<span style="color:var(--red);font-weight:700">▼ ${Math.abs(diff)}</span>` : `<span style="color:var(--muted)">—</span>`;
-      const rowStyle = isUser ? ' style="background:rgba(59,130,246,.1)"' : '';
+      const rowStyle = isUser ? ' style="background:rgba(59,130,246,.1)"' : xfer ? ' style="background:rgba(245,158,11,.06)"' : '';
       const isTop4 = r.pick <= 4;
       h += `<tr${rowStyle}><td style="font-weight:700;color:${isTop4?'var(--orange)':'var(--text)'}">`;
       h += `${isTop4?'🏆 ':''}#${r.pick}</td>`;
-      h += `<td><div style="display:flex;align-items:center;gap:.4rem">${logo ? `<img src="${logo}" style="width:20px;height:20px">` : ''}`;
-      h += `<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${r.team}</span></div></td>`;
+      if (xfer) {
+        h += `<td><div style="display:flex;align-items:center;gap:.3rem;flex-wrap:wrap">`;
+        h += origLogo ? `<img src="${origLogo}" style="width:16px;height:16px;opacity:.4">` : '';
+        h += `<span style="color:var(--muted);text-decoration:line-through;font-size:.65rem">${r.team}</span>`;
+        h += `<span style="color:var(--orange);font-weight:800;font-size:.8rem">→</span>`;
+        h += logo ? `<img src="${logo}" style="width:20px;height:20px">` : '';
+        h += `<span style="font-weight:700;color:var(--orange)">${actualTeam}</span>`;
+        h += `</div></td>`;
+      } else {
+        h += `<td><div style="display:flex;align-items:center;gap:.4rem">${logo ? `<img src="${logo}" style="width:20px;height:20px">` : ''}`;
+        h += `<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}"> ${r.team}</span></div></td>`;
+      }
       h += `<td style="color:var(--muted)">#${r.originalSlot}</td>`;
       h += `<td>${move}</td></tr>`;
     }
     h += `</tbody></table></div>`;
 
-    // Show pick transfers from protections
-    const transfers = STATE._lotteryTransfers || [];
+    // Show pick transfers summary
     if (transfers.length) {
       h += `<div style="margin-top:.75rem;padding:.6rem .75rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:8px">`;
       h += `<div style="font-size:.75rem;font-weight:700;color:var(--orange);margin-bottom:.35rem">📋 Pick Protections Triggered</div>`;
