@@ -1614,14 +1614,14 @@ function calcCapHold(priorSalary, exception, yos) {
       ? Math.round(priorSalary * 1.50)
       : Math.round(priorSalary * 1.90);
   } else if (exc.includes('early bird')) {
-    // Early Bird: greater of 190% of salary or 130% of estimated average salary
-    hold = Math.max(Math.round(priorSalary * 1.90), Math.round(EST_AVG_SALARY * 1.30));
+    // Early Bird: greater of 130% of prior salary or estimated average salary (CBA Art VII 4(d)(3))
+    hold = Math.max(Math.round(priorSalary * 1.30), EST_AVG_SALARY);
   } else if (exc.includes('non-bird') || exc.includes('non bird')) {
     // Non-Bird: 120% of prior salary
     hold = Math.max(Math.round(priorSalary * 1.20), MIN_SALARY_CAP_HOLD);
   } else if (exc.includes('minimum')) {
-    // CBA: min salary FA cap hold = 1-yr min if 0-1 YOS, otherwise 2-yr vet minimum
-    hold = (yos !== undefined && yos >= 0) ? getMinSalaryForYOS(Math.min(yos, 2)) : MIN_SALARY_BY_YOS[2];
+    // CBA 4(d)(4): min salary FA cap hold = minimum for 2 YOS regardless of actual YOS
+    hold = MIN_SALARY_BY_YOS[2];
   } else if (exc.includes('rookie')) {
     // Qualifying Veteran FA (completed rookie scale): 300% if below avg salary, 250% if above (CBA)
     const pct = priorSalary < EST_AVG_SALARY ? 3.00 : 2.50;
