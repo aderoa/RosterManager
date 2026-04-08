@@ -3549,8 +3549,19 @@ function renderDraftBoard() {
       h += `<tr${rowStyle}>`;
       h += `<td style="font-weight:700;color:var(--muted)">#${pick}</td>`;
       h += `<td><div style="display:flex;align-items:center;gap:.3rem">${logo?`<img src="${logo}" style="width:18px;height:18px">`:''}<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${pickTeam}</span></div></td>`;
-      h += `<td style="color:var(--muted)">—</td>`;
-      h += `<td></td>`;
+      const slotInfo = allPickSlots[pick];
+      const prospect = slotInfo ? slotInfo.defaultProspect : '';
+      const bio = prospect ? prospectBioMap[prospect] : null;
+      h += `<td style="color:var(--muted);font-size:.7rem">${prospect || '—'}</td>`;
+      if (bio) {
+        const parts = [];
+        if (bio.position) parts.push(bio.position);
+        if (bio.preDraftTeam) parts.push(bio.preDraftTeam);
+        if (bio.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) parts.push(age + 'y'); }
+        h += `<td style="font-size:.58rem;color:var(--muted)">${parts.join(' · ')}</td>`;
+      } else {
+        h += `<td></td>`;
+      }
       h += `</tr>`;
     }
     h += `</tbody></table></div>`;
@@ -3709,21 +3720,21 @@ function buildDraftProspectList(filter) {
     // Show projected pick info
     let proj = '';
     for (const [s, info] of Object.entries(allPickSlots)) {
-      if (info.defaultProspect === name) { proj = `projection #${s}`; break; }
+      if (info.defaultProspect === name) { proj = `#${s}`; break; }
     }
-    h += `<div class="draft-pick-option" onclick="userDraftPick('${esc(name)}')">`;
-    h += `<span class="rank">${rank}</span>`;
-    h += `<span class="name">${name}</span>`;
     const bio = prospectBioMap[name];
+    h += `<div class="draft-pick-option" onclick="userDraftPick('${esc(name)}')" style="flex-wrap:wrap;row-gap:.15rem">`;
+    h += `<span class="rank">${rank}</span>`;
+    if (bio?.position) h += `<span style="font-size:.55rem;font-weight:700;padding:.1rem .35rem;border-radius:3px;background:rgba(59,130,246,.1);color:var(--accent);min-width:22px;text-align:center">${bio.position}</span>`;
+    h += `<span class="name">${name}</span>`;
     if (bio) {
-      const parts = [];
-      if (bio.position) parts.push(bio.position);
-      if (bio.preDraftTeam) parts.push(`🏫 ${bio.preDraftTeam}`);
-      if (bio.country && bio.country !== 'USA') parts.push(`🌍 ${bio.country}`);
-      if (bio.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) parts.push(`${age} yrs`); }
-      if (parts.length) h += `<span style="font-size:.55rem;color:var(--muted);margin-left:.25rem">${parts.join(' · ')}</span>`;
+      let detail = '';
+      if (bio.preDraftTeam) detail += bio.preDraftTeam;
+      if (bio.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) detail += (detail ? ' · ' : '') + age + ' yrs'; }
+      if (bio.country && bio.country !== 'United States' && bio.country !== 'USA') detail += (detail ? ' · ' : '') + bio.country;
+      if (detail) h += `<span style="font-size:.58rem;color:var(--muted)">${detail}</span>`;
     }
-    if (proj) h += `<span class="assigned">${proj}</span>`;
+    if (proj) h += `<span class="assigned">proj ${proj}</span>`;
     h += `</div>`;
   }
   if (!h) h = '<div style="padding:.5rem;text-align:center;color:var(--muted);font-size:.7rem">No prospects available</div>';
@@ -4384,6 +4395,45 @@ function renderSeasonReady() {
   // Share button
   h += `<div style="text-align:center;margin-bottom:1rem"><button onclick="openShareCard()" style="padding:.45rem 1.25rem;border-radius:8px;font-size:.7rem;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;font-weight:600;font-family:inherit">📸 Generate Share Card</button></div>`;
 
+  // Roster Changes: quick in/out diff
+  const departed = [];
+  const added = [];
+  const waivedSet = STATE.waived instanceof Set ? STATE.waived : new Set(STATE.waived || []);
+  const stretchedSet = STATE.stretched instanceof Set ? STATE.stretched : new Set(STATE.stretched || []);
+  const renouncedSet = STATE.renounced instanceof Set ? STATE.renounced : new Set(STATE.renounced || []);
+  // Departed: waived, stretched, traded out, renounced
+  for (const w of waivedSet) departed.push({ name: w, reason: stretchedSet.has(w) ? 'Waived & Stretched' : 'Waived' });
+  for (const t of (STATE.trades || [])) { for (const p of (t.out || [])) departed.push({ name: p.name, reason: 'Traded' }); }
+  for (const r of renouncedSet) departed.push({ name: r, reason: 'Renounced' });
+  // Added: signed, traded in, drafted
+  for (const s of (STATE.signings || [])) { if (!waivedSet.has(s.name)) added.push({ name: s.name, reason: fmtMoney(s.salary) + '/yr' }); }
+  for (const t of (STATE.trades || [])) { for (const p of (t.in || [])) added.push({ name: p.name, reason: 'Trade' }); }
+  for (const d of (STATE.draftResults || []).filter(d => d.team === teamAbbrev)) added.push({ name: d.prospect, reason: `Draft #${d.pick}` });
+
+  if (departed.length || added.length) {
+    h += `<div class="dc-section-label">🔄 Roster Changes</div>`;
+    h += `<div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem">`;
+    if (added.length) {
+      h += `<div style="flex:1;min-width:200px">`;
+      h += `<div style="font-size:.6rem;font-weight:700;color:var(--green);margin-bottom:.3rem">▲ IN (${added.length})</div>`;
+      for (const a of added) {
+        h += `<div style="font-size:.65rem;padding:.2rem .4rem;margin-bottom:.15rem;border-radius:4px;background:rgba(22,163,74,.06);border-left:2px solid var(--green)">`;
+        h += `<strong>${a.name}</strong> <span style="color:var(--muted)">${a.reason}</span></div>`;
+      }
+      h += `</div>`;
+    }
+    if (departed.length) {
+      h += `<div style="flex:1;min-width:200px">`;
+      h += `<div style="font-size:.6rem;font-weight:700;color:var(--red);margin-bottom:.3rem">▼ OUT (${departed.length})</div>`;
+      for (const d of departed) {
+        h += `<div style="font-size:.65rem;padding:.2rem .4rem;margin-bottom:.15rem;border-radius:4px;background:rgba(220,38,38,.04);border-left:2px solid var(--red)">`;
+        h += `<strong>${d.name}</strong> <span style="color:var(--muted)">${d.reason}</span></div>`;
+      }
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+
   // Final depth chart (read-only)
   const byPos = buildDepthPositions(depthPlayers);
   const POS = ['PG', 'SG', 'SF', 'PF', 'C'];
@@ -4732,23 +4782,39 @@ function openWaiveModal(name) {
   if (playerEnd > 2027) h += ` · contract thru ${playerEnd}`;
   h += `</div>`;
 
+  // Cap impact calculations
+  const capNow = calcCapSheet(STATE.team);
+  const capSpaceNow = capNow.capSpace;
+  const waiveSaved = playerSal - fullDead;
+  const stretchSaved = playerSal - stretchedDead;
+  const capImpactStyle = 'font-size:.6rem;padding:.3rem .5rem;background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.15);border-radius:5px;margin-top:.35rem;color:var(--text)';
+  const fmtImpact = (saved) => {
+    const after = capSpaceNow + saved;
+    const sign = saved >= 0 ? '+' : '';
+    const color = saved >= 0 ? 'var(--green)' : 'var(--red)';
+    return `<div style="${capImpactStyle}">Cap space: ${fmtMoney(capSpaceNow)} → <strong style="color:${color}">${fmtMoney(after)}</strong> <span style="color:${color}">(${sign}${fmtMoney(saved)})</span></div>`;
+  };
+
   if (isNoDeadCap) {
     h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(name)}')">`;
     h += `<div class="opt-title">Waive — No dead cap</div>`;
     h += `<div class="opt-desc">${playerSt === 'TWO-WAY' ? 'Two-way contract' : playerSt === 'EXHIBIT 10' ? 'Exhibit 10 deal' : 'Non-guaranteed contract'}, team owes nothing</div>`;
     h += `<div class="opt-amount" style="color:var(--green)">$0 dead cap</div>`;
+    h += fmtImpact(playerSal);
     h += `</div>`;
   } else {
     h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(name)}')">`;
     h += `<div class="opt-title">Waive</div>`;
     h += `<div class="opt-desc">${fullDead < playerSal ? 'Guaranteed portion' : 'Full guaranteed amount'} hits cap immediately</div>`;
     h += `<div class="opt-amount">${fmtMoney(fullDead)} dead cap in 2026-27</div>`;
+    h += fmtImpact(waiveSaved);
     h += `</div>`;
     if (canStretch) {
       h += `<div class="waive-option" onclick="closeWaiveModal();doWaive('${esc(name)}', true)">`;
       h += `<div class="opt-title">Waive & Stretch</div>`;
       h += `<div class="opt-desc">Spread dead cap over ${stretchPeriod} years (${remainingYrs} remaining × 2 + 1)</div>`;
       h += `<div class="opt-amount">${fmtMoney(stretchedDead)}/yr for ${stretchPeriod} years</div>`;
+      h += fmtImpact(stretchSaved);
       h += `</div>`;
     }
   }
