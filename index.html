@@ -1623,8 +1623,9 @@ function calcCapHold(priorSalary, exception, yos) {
     // CBA: min salary FA cap hold = 1-yr min if 0-1 YOS, otherwise 2-yr vet minimum
     hold = (yos !== undefined && yos >= 0) ? getMinSalaryForYOS(Math.min(yos, 2)) : MIN_SALARY_BY_YOS[2];
   } else if (exc.includes('rookie')) {
-    // Qualifying Veteran FA (completed rookie scale): 250% of prior salary
-    hold = Math.round(priorSalary * 2.50);
+    // Qualifying Veteran FA (completed rookie scale): 300% if below avg salary, 250% if above (CBA)
+    const pct = priorSalary < EST_AVG_SALARY ? 3.00 : 2.50;
+    hold = Math.round(priorSalary * pct);
   } else if (exc.includes('mid-level') || exc.includes('taxpayer') || exc.includes('room')) {
     hold = Math.max(Math.round(priorSalary * 1.50), MIN_SALARY_CAP_HOLD);
   } else {
@@ -2082,7 +2083,7 @@ function renderOverview() {
     h += `<div style="font-size:.65rem;color:var(--muted);line-height:1.5;margin-bottom:.75rem;padding:0 .25rem">Players bound to hit free agency on July 1. You'll have a chance to re-sign them, while also making a decision on whether to keep or renounce their cap holds.</div>`;
     h += `<div class="section"><div class="section-body">`;
     for (const p of heldFas.sort((a,b) => (b.capHold||0) - (a.capHold||0))) {
-      const isRFA = p.exception && /rookie/i.test(p.exception);
+      const isRFA = (p.exception && /rookie/i.test(p.exception)) || p.isTwoWay;
       const faType = isRFA ? 'RFA' : 'UFA';
       const faTypeColor = isRFA ? 'var(--orange)' : 'var(--muted)';
       h += `<div class="player-row">`;
@@ -4067,7 +4068,7 @@ function renderRoster(cap) {
       const faClass = !acted ? ' needs-action-fa' : '';
       h += `<div class="player-row${faClass}">`;
       h += p.headshot ? `<img class="hs" src="${p.headshot}" onerror="this.outerHTML='<div class=hs-ini>${p.name.split(' ').map(w=>w[0]).join('')}</div>'">` : `<div class="hs-ini">${p.name.split(' ').map(w=>w[0]).join('')}</div>`;
-      const _isRFA = p.exception && /rookie/i.test(p.exception);
+      const _isRFA = (p.exception && /rookie/i.test(p.exception)) || p.isTwoWay;
       const _faType = _isRFA ? 'RFA' : 'UFA';
       const _faCol = _isRFA ? 'var(--orange)' : 'var(--muted)';
       h += `<div class="info"><div class="pname">${p.name} <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:${_isRFA ? 'rgba(245,158,11,.12)' : 'rgba(110,110,115,.1)'};color:${_faCol};font-weight:700">${_faType}</span>${p.fromOption ? ` <span style="font-size:.55rem;color:var(--muted)">(${p.fromOption} declined)</span>` : ''}${p.isTwoWay ? ' <span style="font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(110,110,115,.15);color:var(--muted)">2W</span>' : ''}</div>`;
@@ -6232,6 +6233,57 @@ function openSignModal(faName, isResign) {
     }
   }
 
+  // Waivable contracts advisory — show non-guaranteed and partial-guaranteed players
+  if (_signPhase === 'free_agency' || _signPhase === 'training_camp' || _signPhase === 'pre_fa' || _signPhase === 'pre_lottery') {
+    const _waivable = [];
+    const teamAbbrev = TEAMS[STATE.team];
+    for (const p of allPlayers) {
+      if (p.team !== STATE.team) continue;
+      if (STATE.waived.has(p.name)) continue;
+      if (STATE.stretched.has(p.name)) continue;
+      // Check if traded out
+      const tradedOut = new Set();
+      for (const t of (STATE.trades || [])) { for (const o of (t.out || [])) tradedOut.add(o.name); }
+      if (tradedOut.has(p.name)) continue;
+      // Non-guaranteed: waive for $0
+      if (p.category === 'non_guaranteed') {
+        _waivable.push({ name: p.name, salary: p.sal27, deadCap: 0, savings: p.sal27, label: 'NOT G', pos: p.pos });
+      }
+      // Partial guaranteed: waive for guaranteed portion only
+      else if (p.category === 'partial_guaranteed') {
+        const dead = p.ch27 || 0;
+        const saved = p.sal27 - dead;
+        if (saved > 0) _waivable.push({ name: p.name, salary: p.sal27, deadCap: dead, savings: saved, label: 'PARTIAL', pos: p.pos });
+      }
+    }
+    // Also check signings that are non-guaranteed
+    for (const sig of (STATE.signings || [])) {
+      if (STATE.waived.has(sig.name)) continue;
+      if (sig.contractType === 'non-guaranteed' || sig.contractType === 'exhibit-10') {
+        _waivable.push({ name: sig.name, salary: sig.salary, deadCap: 0, savings: sig.salary, label: sig.contractType === 'exhibit-10' ? 'EX-10' : 'NOT G', pos: sig.pos || '' });
+      }
+    }
+    _waivable.sort((a, b) => b.savings - a.savings);
+    if (_waivable.length > 0) {
+      const _totalSavings = _waivable.reduce((s, w) => s + w.savings, 0);
+      const _capNow = calcCapSheet(STATE.team);
+      h += `<div style="margin:.5rem 0;padding:.5rem .65rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">`;
+      h += `<div style="font-size:.6rem;font-weight:700;margin-bottom:.3rem">🗑️ Waivable Contracts <span style="color:var(--muted);font-weight:400">· up to ${fmtMoney(_totalSavings)} in savings</span></div>`;
+      h += `<div style="font-size:.5rem;color:var(--muted);margin-bottom:.3rem">These players can be waived at reduced or zero cost to free cap space.</div>`;
+      for (const w of _waivable) {
+        const afterSpace = _capNow.capSpace + w.savings;
+        h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.15rem 0;font-size:.55rem">`;
+        h += `<span>${w.name} <span style="color:var(--muted)">${w.label}</span></span>`;
+        h += `<span style="display:flex;align-items:center;gap:.3rem">`;
+        h += `<span>${fmtMoney(w.salary)} → ${fmtMoney(w.deadCap)} dead</span>`;
+        h += `<span style="color:var(--green);font-weight:600">+${fmtMoney(w.savings)}</span>`;
+        h += `<button style="font-size:.5rem;padding:.1rem .3rem;border-radius:4px;border:1px solid var(--red);background:rgba(220,38,38,.08);color:var(--red);cursor:pointer" onclick="signModalWaive('${esc(w.name)}')">Waive</button>`;
+        h += `</span></div>`;
+      }
+      h += `</div>`;
+    }
+  }
+
   h += `<div id="signSalarySection" style="display:none">`;
   // Year 1 salary
   h += `<div class="sign-config-row">`;
@@ -6375,6 +6427,36 @@ function signModalRenounce(name) {
   saveState();
   showToast(`Renounced ${name} — freed ${fmtMoney(p?.capHold || 0)}`, 'warning');
   // Reopen sign modal with same context — recalculates cap space with updated renounced set
+  const fa = window._signModalFaName;
+  const re = window._signModalIsResign;
+  document.getElementById('signOverlay').style.display = 'none';
+  setTimeout(() => openSignModal(fa, re), 150);
+}
+
+function signModalWaive(name) {
+  // Inline waive — same as doWaive but reopens sign modal instead of full render
+  STATE.waived.add(name);
+  const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
+  const sig = (STATE.signings || []).find(s => s.name === name);
+  let dead = 0, sal = 0;
+  if (sig) {
+    sal = sig.salary;
+    if (sig.contractType === 'two-way' || sig.contractType === 'exhibit-10' || sig.contractType === 'non-guaranteed') dead = 0;
+    else if (sig.contractType === 'partial-guaranteed') dead = Math.round(sig.salary * (sig.guaranteedPct || 0) / 100);
+    else dead = sig.salary;
+  } else if (p) {
+    sal = p.sal27;
+    if (p.isTwoWay || p.st27 === 'TWO-WAY') dead = 0;
+    else if (p.category === 'non_guaranteed') dead = 0;
+    else if (p.category === 'partial_guaranteed') dead = p.ch27 || 0;
+    else dead = p.sal27;
+  }
+  const saved = sal - dead;
+  const detail = `${name} (${fmtMoney(sal)}${dead ? ', ' + fmtMoney(dead) + ' dead cap' : ', no dead cap'})`;
+  STATE.moves.push({ action: 'Waived', detail, undo: { type: 'waive', name } });
+  saveState();
+  showToast(`Waived ${name} — freed ${fmtMoney(saved)}`, 'error');
+  // Reopen sign modal with same context — recalculates cap space
   const fa = window._signModalFaName;
   const re = window._signModalIsResign;
   document.getElementById('signOverlay').style.display = 'none';
