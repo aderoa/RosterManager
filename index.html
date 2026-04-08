@@ -3389,6 +3389,109 @@ function runDraftUntilUser() {
   _draftAnimTimer = setInterval(draftNextPick, 500);
 }
 
+// ===== DRAFT-NIGHT TRADES =====
+let _draftTradePick = null; // pick number being traded for/away
+let _draftTradeDirection = null; // 'acquire' or 'send'
+
+function tradeForDraftPick(pick, ownerAbbrev) {
+  // Pause draft animation
+  if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
+  _draftTradePick = pick;
+  _draftTradeDirection = 'acquire';
+  console.log(`[Draft Trade] Trading for pick #${pick} from ${ownerAbbrev}`);
+  openTradeModal(null, ownerAbbrev);
+}
+
+function tradeAwayDraftPick(pick) {
+  if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
+  _draftTradePick = pick;
+  _draftTradeDirection = 'send';
+  // Open TM with a random partner — user is sending this pick away
+  openTradeModal();
+}
+
+function completeDraftPickTransfer() {
+  if (!_draftTradePick) return;
+  const pick = _draftTradePick;
+  const teamAbbrev = TEAMS[STATE.team];
+  
+  if (_draftTradeDirection === 'acquire') {
+    // Transfer pick to user's team
+    const prevOwner = allPickSlots[pick]?.team || '??';
+    allPickSlots[pick] = { ...allPickSlots[pick], team: teamAbbrev };
+    STATE.moves.push({ action: 'Trade', detail: `Acquired pick #${pick} from ${prevOwner}` });
+    showToast(`Acquired pick #${pick}!`, 'success');
+  } else {
+    // Transfer pick away from user
+    // The trade partner is the first team in the last trade's incoming players
+    const lastTrade = STATE.trades[STATE.trades.length - 1];
+    const partner = lastTrade?.in?.[0]?.fromTeam || '??';
+    allPickSlots[pick] = { ...allPickSlots[pick], team: partner };
+    STATE.moves.push({ action: 'Trade', detail: `Sent pick #${pick} to ${partner}` });
+    showToast(`Sent pick #${pick} to ${partner}`, 'warning');
+  }
+  
+  // Rebuild teamDraftPicks
+  const picks = {};
+  for (const [slot, info] of Object.entries(allPickSlots)) {
+    const s = parseInt(slot);
+    if (s < 1 || s > 60) continue;
+    if (!picks[info.team]) picks[info.team] = [];
+    const capHold = s <= 30 ? (ROOKIE_SCALE[s - 1] || 0) : 0;
+    picks[info.team].push({ prospect: info.defaultProspect, draftRnk: s, capHold });
+  }
+  for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
+  teamDraftPicks = picks;
+  
+  _draftTradePick = null;
+  _draftTradeDirection = null;
+  saveState();
+  render();
+}
+
+function cancelDraftPickTransfer() {
+  _draftTradePick = null;
+  _draftTradeDirection = null;
+  document.getElementById('draftTradeConfirmOverlay').style.display = 'none';
+}
+
+function showDraftPickTransferConfirm() {
+  if (!_draftTradePick) return;
+  const pick = _draftTradePick;
+  const teamAbbrev = TEAMS[STATE.team];
+  const currentOwner = allPickSlots[pick]?.team || '??';
+  const prospect = allPickSlots[pick]?.defaultProspect || '';
+  const isAcquire = _draftTradeDirection === 'acquire';
+  
+  let h = `<div style="background:var(--surface);border:2px solid var(--orange);border-radius:14px;padding:1.5rem;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.25);text-align:center">`;
+  h += `<div style="font-size:1.2rem;margin-bottom:.5rem">🏀</div>`;
+  h += `<h3 style="font-size:.9rem;font-weight:800;color:var(--orange);margin-bottom:.5rem">${isAcquire ? 'Acquire' : 'Send'} Pick #${pick}?</h3>`;
+  h += `<div style="font-size:.7rem;color:var(--text);margin-bottom:.75rem">`;
+  if (isAcquire) {
+    h += `Transfer pick #${pick} from <strong>${currentOwner}</strong> to <strong>${teamAbbrev}</strong>`;
+    if (prospect) h += `<br><span style="color:var(--muted)">Projected: ${prospect}</span>`;
+  } else {
+    const lastTrade = STATE.trades[STATE.trades.length - 1];
+    const partner = lastTrade?.in?.[0]?.fromTeam || 'trade partner';
+    h += `Transfer pick #${pick} from <strong>${teamAbbrev}</strong> to <strong>${partner}</strong>`;
+  }
+  h += `</div>`;
+  h += `<div style="display:flex;gap:.5rem;justify-content:center">`;
+  h += `<button onclick="completeDraftPickTransfer();document.getElementById('draftTradeConfirmOverlay').style.display='none'" style="padding:.45rem 1.25rem;border-radius:8px;font-size:.75rem;cursor:pointer;border:1px solid var(--green);background:rgba(22,163,74,.1);color:var(--green);font-weight:700;font-family:inherit">✅ Yes, transfer pick</button>`;
+  h += `<button onclick="cancelDraftPickTransfer()" style="padding:.45rem 1rem;border-radius:8px;font-size:.75rem;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:inherit">No, keep as-is</button>`;
+  h += `</div></div>`;
+  
+  let overlay = document.getElementById('draftTradeConfirmOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'draftTradeConfirmOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = h;
+  overlay.style.display = 'flex';
+}
+
 function startDraft() {
   STATE.draftCurrentPick = 1;
   saveState();
@@ -3652,7 +3755,14 @@ function renderDraftBoard() {
       h += `<td style="font-size:.6rem;color:var(--muted)">${bioStr}</td>`;
     } else if (isCurrent) {
       h += `<td style="color:var(--orange);font-style:italic">On the clock...</td>`;
-      h += `<td></td>`;
+      h += `<td>${!isUser ? `<button class="dc-btn trade" style="font-size:.5rem;padding:.15rem .4rem" onclick="event.stopPropagation();tradeForDraftPick(${pick},'${pickTeam}')">🔄 Trade up</button>` : ''}</td>`;
+    } else if (pick > current) {
+      h += `<td style="color:var(--muted)">—</td>`;
+      if (!isUser) {
+        h += `<td><button class="dc-btn trade" style="font-size:.5rem;padding:.15rem .4rem" onclick="event.stopPropagation();tradeForDraftPick(${pick},'${pickTeam}')">🔄 Trade for pick</button></td>`;
+      } else {
+        h += `<td><button class="dc-btn" style="font-size:.5rem;padding:.15rem .4rem;border-color:var(--orange);color:var(--orange)" onclick="event.stopPropagation();tradeAwayDraftPick(${pick})">🔄 Trade away</button></td>`;
+      }
     } else {
       h += `<td style="color:var(--muted)">—</td>`;
       h += `<td></td>`;
@@ -4900,6 +5010,7 @@ function advancePhase() {
 
     STATE.phase = nextPhase.id;
     _dwPhaseReviewed.clear();
+    _tmPreloaded = false; // Reset so TM reloads with correct offseason param
     STATE.moves.push({ action: 'Phase', detail: `Advanced to ${nextPhase.label}`, undo: { type: 'phase', prev: prevPhase.id } });
     saveState();
 
@@ -5092,7 +5203,8 @@ function preloadTradeMachine() {
   if (_tmPreloaded || !STATE) return;
   const abbrev = TEAMS[STATE.team];
   if (!abbrev) return;
-  _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}`;
+  const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp' || STATE.phase === 'draft') ? '&offseason=1' : '';
+  _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}${offseasonParam}`;
   const iframe = document.getElementById('tmIframe');
   if (iframe) {
     iframe.src = _tmBaseUrl;
@@ -5100,7 +5212,7 @@ function preloadTradeMachine() {
     iframe.onload = function() {
       iframe.dataset.ready = '1';
     };
-    console.log('[TM] Preloading Trade Machine');
+    console.log('[TM] Preloading Trade Machine' + (offseasonParam ? ' (offseason mode)' : ''));
   }
 }
 
@@ -5109,14 +5221,15 @@ function getRandomTradePartner(excludeAbbrev) {
   return allAbbrevs[Math.floor(Math.random() * allAbbrevs.length)];
 }
 
-function openTradeModal(playerName) {
+function openTradeModal(playerName, partnerAbbrev) {
   // Clear any stale S&T pending flag
   window._pendingSATSigning = null;
   const abbrev = TEAMS[STATE.team];
-  const partner = getRandomTradePartner(abbrev);
+  const partner = partnerAbbrev || getRandomTradePartner(abbrev);
+  const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp' || STATE.phase === 'draft') ? '&offseason=1' : '';
   
   // Build Trade Machine URL with RM mode flag + both teams
-  _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}`;
+  _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}${offseasonParam}`;
   
   if (playerName) {
     const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
@@ -5168,6 +5281,11 @@ function closeTradeMachine() {
   document.body.style.overflow = '';
   if (window._pendingSATSigning && !_pendingTrade) {
     rollbackPendingSAT();
+  }
+  // Clear draft trade state if TM closed without completing trade
+  if (_draftTradePick && !_pendingTrade) {
+    _draftTradePick = null;
+    _draftTradeDirection = null;
   }
 }
 
@@ -5385,10 +5503,17 @@ function confirmPendingTrade() {
   // Preload fresh TM in background
   setTimeout(preloadTradeMachine, 500);
   console.log('[RM] Trade confirmed');
+  
+  // Draft-night trade: show pick transfer dialog if applicable
+  if (_draftTradePick && STATE.phase === 'draft') {
+    setTimeout(showDraftPickTransferConfirm, 300);
+  }
 }
 
 function rejectPendingTrade() {
   _pendingTrade = null;
+  _draftTradePick = null;
+  _draftTradeDirection = null;
   document.getElementById('tradeConfirmOverlay').style.display = 'none';
   document.body.style.overflow = '';
   // Roll back S&T signing if this was an S&T trade that was rejected
@@ -7335,7 +7460,7 @@ function buildFABMenu() {
   const phase = STATE.phase;
   const items = [];
   // Always available actions based on phase
-  if (phase !== 'season_ready' && phase !== 'lottery' && phase !== 'draft') {
+  if (phase !== 'season_ready' && phase !== 'lottery') {
     items.push({ emoji:'🔄', label:'Trade', action:'openTradeModal()' });
   }
   if (phase === 'free_agency' || phase === 'training_camp') {
