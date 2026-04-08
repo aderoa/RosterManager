@@ -5463,6 +5463,8 @@ window.addEventListener('message', function(event) {
   _pendingTrade = {
     out: (data.out || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '' })),
     in: (data.in || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '', fromTeam: p.fromTeam || '' })),
+    picksOut: data.picksOut || [],
+    picksIn: data.picksIn || [],
     timestamp: data.timestamp || Date.now()
   };
   
@@ -5483,8 +5485,13 @@ function showTradeConfirm(trade) {
       if (p.headshot) h += `<img src="${p.headshot}" onerror="this.style.display='none'">`;
       h += `<div class="tc-player-info"><div class="tc-player-name">${p.name}</div><div class="tc-player-sal">${p.pos ? p.pos + ' · ' : ''}${fmtMoney(p.salary)}</div></div></div>`;
     }
-  } else {
+  } else if (!trade.picksOut?.length) {
     h += `<div style="font-size:.75rem;color:var(--muted);padding:.3rem 0">No players</div>`;
+  }
+  if (trade.picksOut?.length) {
+    for (const pk of trade.picksOut) {
+      h += `<div style="font-size:.7rem;padding:.25rem .5rem;color:var(--red)">🏀 ${pk.year} ${pk.round} Round Pick${pk.notes ? ' (' + pk.notes + ')' : ''}</div>`;
+    }
   }
   h += `</div>`;
   
@@ -5496,8 +5503,13 @@ function showTradeConfirm(trade) {
       if (p.headshot) h += `<img src="${p.headshot}" onerror="this.style.display='none'">`;
       h += `<div class="tc-player-info"><div class="tc-player-name">${p.name}</div><div class="tc-player-sal">${p.pos ? p.pos + ' · ' : ''}${fmtMoney(p.salary)}${p.fromTeam ? ' · from ' + p.fromTeam : ''}</div></div></div>`;
     }
-  } else {
+  } else if (!trade.picksIn?.length) {
     h += `<div style="font-size:.75rem;color:var(--muted);padding:.3rem 0">No players</div>`;
+  }
+  if (trade.picksIn?.length) {
+    for (const pk of trade.picksIn) {
+      h += `<div style="font-size:.7rem;padding:.25rem .5rem;color:var(--green)">🏀 ${pk.year} ${pk.round} Round Pick${pk.notes ? ' (' + pk.notes + ')' : ''}${pk.fromTeam ? ' · from ' + pk.fromTeam : ''}</div>`;
+    }
   }
   h += `</div>`;
   
@@ -5583,11 +5595,62 @@ function confirmPendingTrade() {
     });
   }
   
-  const outNames = _pendingTrade.out.map(p => p.name).join(', ') || 'none';
-  const inNames = _pendingTrade.in.map(p => `${p.name}${p.fromTeam ? ' (' + p.fromTeam + ')' : ''}`).join(', ') || 'none';
+  // Process 2026 draft pick transfers
+  const teamAbbrev = TEAMS[STATE.team];
+  const pickDetails = [];
+  if (_pendingTrade.picksIn?.length && allPickSlots) {
+    for (const pk of _pendingTrade.picksIn) {
+      if (pk.year !== '2026') continue;
+      // Find the matching pick in allPickSlots by team and notes (#X overall)
+      const pickMatch = pk.notes?.match(/#(\d+)/);
+      if (pickMatch) {
+        const pickNum = parseInt(pickMatch[1]);
+        if (allPickSlots[pickNum]) {
+          allPickSlots[pickNum] = { ...allPickSlots[pickNum], team: teamAbbrev };
+          pickDetails.push(`acquired #${pickNum}`);
+        }
+      }
+    }
+  }
+  if (_pendingTrade.picksOut?.length && allPickSlots) {
+    for (const pk of _pendingTrade.picksOut) {
+      if (pk.year !== '2026') continue;
+      const pickMatch = pk.notes?.match(/#(\d+)/);
+      if (pickMatch) {
+        const pickNum = parseInt(pickMatch[1]);
+        // Send to the first trade partner
+        const partner = (_pendingTrade.in?.[0]?.fromTeam) || (_pendingTrade.picksIn?.[0]?.fromTeam) || '';
+        if (allPickSlots[pickNum] && partner) {
+          allPickSlots[pickNum] = { ...allPickSlots[pickNum], team: partner };
+          pickDetails.push(`sent #${pickNum}`);
+        }
+      }
+    }
+  }
+  // Rebuild teamDraftPicks if any picks were transferred
+  if (pickDetails.length && allPickSlots) {
+    const picks = {};
+    for (const [slot, info] of Object.entries(allPickSlots)) {
+      const s = parseInt(slot);
+      if (s < 1 || s > 60) continue;
+      if (!picks[info.team]) picks[info.team] = [];
+      const capHold = s <= 30 ? (ROOKIE_SCALE[s - 1] || 0) : 0;
+      picks[info.team].push({ prospect: info.defaultProspect, draftRnk: s, capHold });
+    }
+    for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
+    teamDraftPicks = picks;
+    console.log('[RM] Draft picks transferred:', pickDetails.join(', '));
+  }
+  
+  const outNames = _pendingTrade.out.map(p => p.name).join(', ') || '';
+  const inNames = _pendingTrade.in.map(p => `${p.name}${p.fromTeam ? ' (' + p.fromTeam + ')' : ''}`).join(', ') || '';
+  const outPicks = (_pendingTrade.picksOut || []).map(p => `${p.year} ${p.round}`).join(', ');
+  const inPicks = (_pendingTrade.picksIn || []).map(p => `${p.year} ${p.round}`).join(', ');
+  const sentParts = [outNames, outPicks].filter(Boolean).join(', ');
+  const recvParts = [inNames, inPicks].filter(Boolean).join(', ');
   STATE.moves.push({
     action: 'Trade',
-    detail: `Sent: ${outNames} → Received: ${inNames}`,
+    detail: `Sent: ${sentParts || 'none'} → Received: ${recvParts || 'none'}`,
     undo: { type: 'trade', removedSATSignings }
   });
   
@@ -5599,16 +5662,20 @@ function confirmPendingTrade() {
   const tmIframe = document.getElementById('tmIframe');
   if (tmIframe) { tmIframe.src = 'about:blank'; tmIframe.dataset.ready = '0'; }
   _tmPreloaded = false;
-  showToast(`Trade completed! Acquired ${inNames}`, 'success');
+  showToast(`Trade completed!${recvParts ? ' Acquired ' + recvParts : ''}`, 'success');
   showWhatsNext('trade');
   render();
   // Preload fresh TM in background
   setTimeout(preloadTradeMachine, 500);
   console.log('[RM] Trade confirmed');
   
-  // Draft-night trade: show pick transfer dialog if applicable
-  if (_draftTradePick && STATE.phase === 'draft') {
+  // Draft-night trade: show pick transfer dialog only if pick wasn't already transferred via TM
+  if (_draftTradePick && STATE.phase === 'draft' && !pickDetails.length) {
     setTimeout(showDraftPickTransferConfirm, 300);
+  } else if (_draftTradePick && pickDetails.length) {
+    // Pick was already transferred automatically — clear draft trade state
+    _draftTradePick = null;
+    _draftTradeDirection = null;
   }
 }
 
