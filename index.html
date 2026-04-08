@@ -529,6 +529,7 @@ a{color:var(--accent);text-decoration:none}
 .draft-picker-list{overflow-y:auto;flex:1;padding:.3rem}
 .draft-pick-option{display:flex;align-items:center;gap:.6rem;padding:.45rem .8rem;border-radius:6px;cursor:pointer;font-size:.75rem;transition:background .1s}
 .draft-pick-option:hover{background:var(--bg)}
+.draft-speed-btn.active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
 .draft-pick-option.current{background:rgba(180,83,9,.12);border:1px solid rgba(180,83,9,.3)}
 .draft-pick-option.taken{opacity:.35;cursor:not-allowed}
 .draft-pick-option .rank{color:var(--muted);font-size:.65rem;min-width:30px}
@@ -1349,8 +1350,8 @@ async function fetchDraftPicks() {
         const country = NATIONALITY_TO_COUNTRY[rawCountry] || rawCountry;
         const position = (row[36] || '').trim();
         const preDraftTeam = (row[37] || '').trim();
-        if (birthDate || country || position || preDraftTeam) {
-          prospectBioMap[prospect] = { birthDate, country, position, preDraftTeam };
+        if (bioName && (birthDate || country || position || preDraftTeam)) {
+          prospectBioMap[bioName] = { birthDate, country, position, preDraftTeam };
         }
 
         // First-round picks (1-30) get rookie scale cap holds
@@ -3353,9 +3354,58 @@ function autoDraftPick(pick) {
 }
 
 let _draftAnimTimer = null;
+let _draftMode = 'quick'; // 'full' or 'quick'
+let _draftSpeed = 500; // ms between picks
+
+function setDraftSpeed(ms) {
+  _draftSpeed = ms;
+  // Update active button styling
+  document.querySelectorAll('.draft-speed-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector(`.draft-speed-btn[data-speed="${ms}"]`);
+  if (active) active.classList.add('active');
+  // Restart timer with new speed if running
+  if (_draftAnimTimer) {
+    clearInterval(_draftAnimTimer);
+    _draftAnimTimer = setInterval(_draftTickFn, ms);
+  }
+}
+
+function pauseDraft() {
+  if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
+  render();
+}
+
+function resumeDraft() {
+  if (!_draftAnimTimer && STATE.draftCurrentPick <= 60) {
+    runDraftUntilUser();
+  }
+}
+
+function simToPickNum() {
+  const input = document.getElementById('simToPickInput');
+  const target = parseInt(input?.value) || 0;
+  if (target < 1 || target > 60) return;
+  const teamAbbrev = TEAMS[STATE.team];
+  if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
+  // Auto-draft silently until target pick
+  let current = STATE.draftCurrentPick || 1;
+  while (current < target && current <= 60) {
+    const pickTeam = getPickTeam(current);
+    if (!pickTeam) { current++; continue; }
+    if (pickTeam === teamAbbrev) break; // Don't skip user's picks
+    const prospect = autoDraftPick(current);
+    if (prospect) STATE.draftResults.push({ pick: current, team: pickTeam, prospect });
+    current++;
+  }
+  STATE.draftCurrentPick = current;
+  saveState();
+  render();
+}
+
+let _draftTickFn = null;
 
 function runDraftUntilUser() {
-  // Animated: one pick per second, pauses at user's pick
+  // Animated: one pick per interval, pauses at user's pick (and in full mode, respects trades)
   if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
   const teamAbbrev = TEAMS[STATE.team];
 
@@ -3386,7 +3436,8 @@ function runDraftUntilUser() {
     render();
   }
 
-  _draftAnimTimer = setInterval(draftNextPick, 500);
+  _draftTickFn = draftNextPick;
+  _draftAnimTimer = setInterval(draftNextPick, _draftSpeed);
 }
 
 // ===== DRAFT-NIGHT TRADES =====
@@ -3492,7 +3543,18 @@ function showDraftPickTransferConfirm() {
   overlay.style.display = 'flex';
 }
 
+function startFullDraft() {
+  _draftMode = 'full';
+  _draftSpeed = 1500; // Slower default for full mode
+  STATE.draftCurrentPick = 1;
+  saveState();
+  render();
+  // Don't auto-run — user controls the pace
+}
+
 function startDraft() {
+  _draftMode = 'quick';
+  _draftSpeed = 500;
   STATE.draftCurrentPick = 1;
   saveState();
   render();
@@ -3633,9 +3695,19 @@ function renderDraftBoard() {
       h += `</div>`;
     }
 
-    h += `<div style="text-align:center;margin-top:1rem;display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">`;
-    h += `<button class="phase-advance" onclick="startDraft()" style="font-size:1rem;padding:.75rem 2rem">🏀 Start Draft</button>`;
-    h += `<button class="phase-advance" onclick="skipDraft()" style="font-size:.85rem;padding:.65rem 1.5rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)">⏩ Skip Draft</button>`;
+    h += `<div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin-top:1rem">`;
+    h += `<div class="lot-mode-btn" onclick="startFullDraft()">`;
+    h += `<span class="icon">🏀</span><span class="title">Full Draft</span>`;
+    h += `<div class="desc">Speed controls, pause at any pick,<br>trade for picks during the draft.</div>`;
+    h += `</div>`;
+    h += `<div class="lot-mode-btn" onclick="startDraft()">`;
+    h += `<span class="icon">⚡</span><span class="title">Quick Draft</span>`;
+    h += `<div class="desc">Auto-picks for other teams,<br>pauses only at your selections.</div>`;
+    h += `</div>`;
+    h += `<div class="lot-mode-btn" onclick="skipDraft()">`;
+    h += `<span class="icon">⏩</span><span class="title">Instant</span>`;
+    h += `<div class="desc">Skip the drama.<br>See results immediately.</div>`;
+    h += `</div>`;
     h += `</div>`;
 
     // Show full draft board preview (empty)
@@ -3682,13 +3754,43 @@ function renderDraftBoard() {
     for (let p = current; p <= 60; p++) { if (getPickTeam(p) === teamAbbrev) userPicks.push(p); }
     const nextUserPick = userPicks[0];
     const isUserTurn = getPickTeam(current) === teamAbbrev;
-    
-    h += `<div style="margin-bottom:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">`;
-    if (!isUserTurn && nextUserPick) {
-      h += `<button class="action-btn" style="font-size:.7rem;padding:.4rem .9rem;background:var(--accent);color:#fff;border:none;font-weight:600" onclick="skipToNextPick()">⏭ Skip to your next pick</button>`;
+
+    if (_draftMode === 'full') {
+      // Full Draft mode: speed controls + sim-to-pick + pause/play
+      h += `<div style="padding:.5rem .6rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:.75rem">`;
+      h += `<div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem">`;
+      h += `<span style="font-size:.6rem;font-weight:700;color:var(--muted)">SPEED:</span>`;
+      const speeds = [{ms:400,label:'Fast'},{ms:1000,label:'Normal'},{ms:2000,label:'Slow'}];
+      for (const s of speeds) {
+        const active = _draftSpeed === s.ms && _draftAnimTimer ? ' active' : '';
+        h += `<button class="dc-btn draft-speed-btn${active}" data-speed="${s.ms}" style="font-size:.55rem;padding:.2rem .5rem" onclick="setDraftSpeed(${s.ms})">${s.label}</button>`;
+      }
+      h += `<span style="flex:1"></span>`;
+      if (_draftAnimTimer) {
+        h += `<button class="dc-btn" style="font-size:.55rem;padding:.2rem .5rem;border-color:var(--orange);color:var(--orange)" onclick="pauseDraft()">⏸ Pause</button>`;
+      } else if (!isUserTurn) {
+        h += `<button class="dc-btn" style="font-size:.55rem;padding:.2rem .5rem;border-color:var(--green);color:var(--green)" onclick="resumeDraft()">▶ Play</button>`;
+      }
+      h += `</div>`;
+      h += `<div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">`;
+      if (!isUserTurn && nextUserPick) {
+        h += `<button class="action-btn" style="font-size:.6rem;padding:.3rem .7rem;background:var(--accent);color:#fff;border:none;font-weight:600" onclick="skipToNextPick()">⏭ Skip to #${nextUserPick}</button>`;
+      }
+      h += `<span style="font-size:.55rem;color:var(--muted)">Sim to pick:</span>`;
+      h += `<input id="simToPickInput" type="number" min="${current+1}" max="60" value="${Math.min(current+10,60)}" style="width:42px;font-size:.6rem;padding:.2rem .3rem;border:1px solid var(--border);border-radius:4px;text-align:center">`;
+      h += `<button class="dc-btn" style="font-size:.55rem;padding:.2rem .5rem" onclick="simToPickNum()">Go</button>`;
+      h += `<span style="flex:1"></span>`;
+      h += `<button class="action-btn" style="font-size:.55rem;padding:.25rem .6rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Sim All</button>`;
+      h += `</div></div>`;
+    } else {
+      // Quick Draft mode: simple skip buttons
+      h += `<div style="margin-bottom:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">`;
+      if (!isUserTurn && nextUserPick) {
+        h += `<button class="action-btn" style="font-size:.7rem;padding:.4rem .9rem;background:var(--accent);color:#fff;border:none;font-weight:600" onclick="skipToNextPick()">⏭ Skip to your next pick</button>`;
+      }
+      h += `<button class="action-btn" style="font-size:.65rem;padding:.35rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Simulate All</button>`;
+      h += `</div>`;
     }
-    h += `<button class="action-btn" style="font-size:.65rem;padding:.35rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Simulate All</button>`;
-    h += `</div>`;
     
     // Fixed floating buttons when animation is running (persistent, not re-rendered)
     if (_draftAnimTimer && !isUserTurn) {
@@ -3755,13 +3857,13 @@ function renderDraftBoard() {
       h += `<td style="font-size:.6rem;color:var(--muted)">${bioStr}</td>`;
     } else if (isCurrent) {
       h += `<td style="color:var(--orange);font-style:italic">On the clock...</td>`;
-      h += `<td>${!isUser ? `<button class="dc-btn trade" style="font-size:.5rem;padding:.15rem .4rem" onclick="event.stopPropagation();tradeForDraftPick(${pick},'${pickTeam}')">🔄 Trade up</button>` : ''}</td>`;
+      h += `<td>${(!isUser && _draftMode === 'full') ? `<button class="dc-btn trade" style="font-size:.5rem;padding:.15rem .4rem" onclick="event.stopPropagation();tradeForDraftPick(${pick},'${pickTeam}')">🔄 Trade up</button>` : ''}</td>`;
     } else if (pick > current) {
       h += `<td style="color:var(--muted)">—</td>`;
       if (!isUser) {
-        h += `<td><button class="dc-btn trade" style="font-size:.5rem;padding:.15rem .4rem" onclick="event.stopPropagation();tradeForDraftPick(${pick},'${pickTeam}')">🔄 Trade for pick</button></td>`;
+        h += _draftMode === 'full' ? `<td><button class="dc-btn trade" style="font-size:.5rem;padding:.15rem .4rem" onclick="event.stopPropagation();tradeForDraftPick(${pick},'${pickTeam}')">🔄 Trade for pick</button></td>` : `<td></td>`;
       } else {
-        h += `<td><button class="dc-btn" style="font-size:.5rem;padding:.15rem .4rem;border-color:var(--orange);color:var(--orange)" onclick="event.stopPropagation();tradeAwayDraftPick(${pick})">🔄 Trade away</button></td>`;
+        h += _draftMode === 'full' ? `<td><button class="dc-btn" style="font-size:.5rem;padding:.15rem .4rem;border-color:var(--orange);color:var(--orange)" onclick="event.stopPropagation();tradeAwayDraftPick(${pick})">🔄 Trade away</button></td>` : `<td></td>`;
       }
     } else {
       h += `<td style="color:var(--muted)">—</td>`;
