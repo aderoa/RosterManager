@@ -5106,6 +5106,14 @@ function advancePhase() {
         return;
       }
     }
+    // Can't leave draft without completing it
+    if (STATE.phase === 'draft') {
+      const current = STATE.draftCurrentPick || 0;
+      if (current <= 60) {
+        alert('Complete the draft first! Use the draft board to make your picks or simulate the remaining picks.');
+        return;
+      }
+    }
     // Can't leave training camp without compliant roster
     if (STATE.phase === 'training_camp') {
       const cap = calcCapSheet(STATE.team);
@@ -5363,21 +5371,21 @@ function buildRMPicksData() {
 }
 
 function sendPicksToTM(iframe) {
-  const picks = buildRMPicksData();
-  if (!picks || !iframe?.contentWindow) return;
-  // Retry until TM acknowledges or max attempts
-  let attempts = 0;
-  function trySend() {
-    if (attempts++ > 5) return;
-    try {
-      iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_PICKS', picks }, '*');
-      console.log('[TM] Sent picks to TM (attempt ' + attempts + ')');
-    } catch(e) {}
-    // Retry after increasing delay in case TM JS isn't ready yet
-    setTimeout(trySend, 1000 * attempts);
-  }
-  setTimeout(trySend, 500);
+  // Will be triggered by ROSTER_MANAGER_TM_READY message
+  window._tmIframeRef = iframe;
 }
+
+// Listen for TM ready signal
+window.addEventListener('message', function(event) {
+  if (event.data?.type === 'ROSTER_MANAGER_TM_READY') {
+    const iframe = window._tmIframeRef || document.getElementById('tmIframe');
+    const picks = buildRMPicksData();
+    if (picks && iframe?.contentWindow) {
+      iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_PICKS', picks }, '*');
+      console.log('[TM] Sent', picks.length, 'picks to TM (on ready signal)');
+    }
+  }
+}, false);
 
 function getRandomTradePartner(excludeAbbrev) {
   const allAbbrevs = Object.values(TEAMS).filter(a => a !== excludeAbbrev);
@@ -7824,7 +7832,8 @@ function showWhatsNext(actionType) {
     return; // The phase advance already shows a recap
   }
   if (actionType === 'trade') {
-    if (info.pending > 0) msg = `${info.pending} option${info.pending > 1 ? 's' : ''} still to decide`;
+    if (phase === 'draft') msg = 'Trade complete! Continue drafting';
+    else if (info.pending > 0) msg = `${info.pending} option${info.pending > 1 ? 's' : ''} still to decide`;
     else msg = 'Looking good! Consider advancing to the next phase';
   }
   if (actionType === 'signing') {
