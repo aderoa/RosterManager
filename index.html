@@ -5403,9 +5403,6 @@ window.addEventListener('message', function(event) {
     const picks = buildRMPicksData();
     if (picks && iframe?.contentWindow) {
       iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_PICKS', picks }, '*');
-      
-    } else {
-+ ' iframe=' + (iframe?.contentWindow ? 'ok' : 'no'));
     }
   }
 }, false);
