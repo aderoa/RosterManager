@@ -968,7 +968,6 @@ a{color:var(--accent);text-decoration:none}
     <div style="font-size:2.5rem">🏀</div>
     <div style="font-size:.9rem;font-weight:700;color:var(--text)">Loading Trade Machine</div>
     <div class="spin" style="display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div>
-    <button onclick="tmFallbackNewTab()" style="margin-top:.75rem;font-size:.65rem;padding:.3rem .8rem;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:6px;cursor:pointer;font-family:inherit">Not loading? Open in new tab instead</button>
   </div>
   <iframe id="tmIframe" class="tm-iframe" style="display:none" referrerpolicy="no-referrer-when-downgrade"></iframe>
 </div>
@@ -5345,10 +5344,13 @@ function buildRMPicksData() {
   if (!allPickSlots || !Object.keys(allPickSlots).length) return null;
   const TEAMS_REV = {};
   for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
+  // Get set of already-drafted pick numbers
+  const drafted = new Set((STATE?.draftResults || []).map(r => r.pick));
   const picks = [];
   for (let pk = 1; pk <= 60; pk++) {
     const slot = allPickSlots[pk];
     if (!slot || !slot.team) continue;
+    if (drafted.has(pk)) continue; // Skip already-used picks
     const capHold = pk <= 30 ? (ROOKIE_SCALE[pk - 1] || 0) : 0;
     picks.push({ pick: pk, team: slot.team, round: pk <= 30 ? '1st' : '2nd', capHold });
   }
