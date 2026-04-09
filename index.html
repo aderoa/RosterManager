@@ -5333,9 +5333,35 @@ function preloadTradeMachine() {
     _tmPreloaded = true;
     iframe.onload = function() {
       iframe.dataset.ready = '1';
+      // Send current pick assignments to TM after it loads
+      sendPicksToTM(iframe);
     };
     console.log('[TM] Preloading Trade Machine' + (offseasonParam ? ' (offseason mode)' : ''));
   }
+}
+
+function buildRMPicksData() {
+  if (!allPickSlots || !Object.keys(allPickSlots).length) return null;
+  const TEAMS_REV = {};
+  for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
+  const picks = [];
+  for (let pk = 1; pk <= 60; pk++) {
+    const slot = allPickSlots[pk];
+    if (!slot || !slot.team) continue;
+    const capHold = pk <= 30 ? (ROOKIE_SCALE[pk - 1] || 0) : 0;
+    picks.push({ pick: pk, team: slot.team, round: pk <= 30 ? '1st' : '2nd', capHold });
+  }
+  return picks;
+}
+
+function sendPicksToTM(iframe) {
+  const picks = buildRMPicksData();
+  if (!picks || !iframe?.contentWindow) return;
+  // Small delay to ensure TM's JS is initialized
+  setTimeout(() => {
+    iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_PICKS', picks }, '*');
+    console.log('[TM] Sent', picks.length, 'pick assignments to TM');
+  }, 1500);
 }
 
 function getRandomTradePartner(excludeAbbrev) {
@@ -5381,7 +5407,8 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
     iframe.contentWindow.postMessage({
       type: 'ROSTER_MANAGER_DRAFT_TRADE',
       partner: partner,
-      pickNum: draftPickNum
+      pickNum: draftPickNum,
+      picks: buildRMPicksData()
     }, '*');
   } else if (iframeReady && !playerName && !draftPickNum) {
     // Regular open on preloaded TM: just show it
