@@ -5429,14 +5429,15 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
     iframe.style.display = 'block';
     // Reset any previous trade state first
     iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_RESET' }, '*');
-    setTimeout(() => {
-      iframe.contentWindow.postMessage({
-        type: 'ROSTER_MANAGER_DRAFT_TRADE',
-        partner: partner,
-        pickNum: draftPickNum,
-        picks: buildRMPicksData()
-      }, '*');
-    }, 200);
+    const draftMsg = {
+      type: 'ROSTER_MANAGER_DRAFT_TRADE',
+      partner: partner,
+      pickNum: draftPickNum,
+      picks: buildRMPicksData()
+    };
+    // Send after reset completes, with retry for reliability
+    setTimeout(() => iframe.contentWindow.postMessage(draftMsg, '*'), 500);
+    setTimeout(() => iframe.contentWindow.postMessage(draftMsg, '*'), 1500);
   } else if (iframeReady && !playerName && !draftPickNum) {
     // Regular open on preloaded TM: just show it
     loading.style.display = 'none';
