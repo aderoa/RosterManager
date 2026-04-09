@@ -5407,24 +5407,25 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   document.body.style.overflow = 'hidden';
 }
 
-// Detect tab switch — reload TM iframe if it went blank
+// Manage TM iframe memory on tab switch
 document.addEventListener('visibilitychange', function() {
-  if (document.visibilityState !== 'visible') return;
   const overlay = document.getElementById('tmOverlay');
-  if (!overlay || overlay.style.display === 'none') return;
   const iframe = document.getElementById('tmIframe');
-  if (!iframe) return;
-  // Check if iframe content is gone (browser discarded it)
-  try {
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc || !doc.body || doc.body.innerHTML.length < 100) {
-      console.log('[TM] Iframe content lost — reloading');
-      iframe.src = _tmUrl || _tmBaseUrl;
-    }
-  } catch (e) {
-    // Cross-origin — can't check, try reload if src is blank
-    if (!iframe.src || iframe.src === 'about:blank') {
-      iframe.src = _tmUrl || _tmBaseUrl;
+  if (!overlay || !iframe) return;
+  const tmVisible = overlay.style.display !== 'none';
+  
+  if (document.visibilityState === 'hidden' && tmVisible) {
+    // Tab hidden while TM is open — free memory
+    window._tmWasVisible = true;
+    window._tmLastUrl = iframe.src;
+    iframe.src = 'about:blank';
+    iframe.dataset.ready = '0';
+  } else if (document.visibilityState === 'visible' && window._tmWasVisible) {
+    // Returning to tab — reload TM
+    window._tmWasVisible = false;
+    if (tmVisible && window._tmLastUrl && window._tmLastUrl !== 'about:blank') {
+      iframe.src = window._tmLastUrl;
+      iframe.onload = function() { iframe.dataset.ready = '1'; };
     }
   }
 });
@@ -5445,6 +5446,13 @@ function closeTradeMachine() {
   if (_draftTradePick && !_pendingTrade) {
     _draftTradePick = null;
     _draftTradeDirection = null;
+  }
+  // Free iframe memory when TM is closed
+  const iframe = document.getElementById('tmIframe');
+  if (iframe) {
+    iframe.src = 'about:blank';
+    iframe.dataset.ready = '0';
+    _tmPreloaded = false;
   }
 }
 
