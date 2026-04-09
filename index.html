@@ -5373,10 +5373,9 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   extLink.href = _tmUrl;
   
   const iframeReady = iframe.dataset.ready === '1';
-  const needsReload = !!playerName;
   
   if (iframeReady && draftPickNum) {
-    // Draft trade: use postMessage to set up partner + pick instantly (no reload)
+    // Draft trade on preloaded TM: use postMessage (instant, no reload)
     loading.style.display = 'none';
     iframe.style.display = 'block';
     iframe.contentWindow.postMessage({
@@ -5384,51 +5383,24 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
       partner: partner,
       pickNum: draftPickNum
     }, '*');
-  } else if (iframeReady && !needsReload) {
+  } else if (iframeReady && !playerName && !draftPickNum) {
+    // Regular open on preloaded TM: just show it
     loading.style.display = 'none';
     iframe.style.display = 'block';
-  } else if (iframeReady && needsReload) {
-    iframe.style.display = 'block';
-    loading.style.display = 'none';
-    iframe.src = _tmUrl;
   } else {
+    // Need fresh load: player specified, draft pick on cold iframe, or first load
     iframe.style.display = 'block';
     loading.style.display = 'flex';
     iframe.onload = function() {
       loading.style.display = 'none';
       iframe.dataset.ready = '1';
     };
-    if (iframe.src === 'about:blank' || !iframe.src) {
-      iframe.src = _tmUrl;
-    }
+    iframe.src = _tmUrl;
   }
   
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
-
-// Manage TM iframe memory on tab switch
-document.addEventListener('visibilitychange', function() {
-  const overlay = document.getElementById('tmOverlay');
-  const iframe = document.getElementById('tmIframe');
-  if (!overlay || !iframe) return;
-  const tmVisible = overlay.style.display !== 'none';
-  
-  if (document.visibilityState === 'hidden' && tmVisible) {
-    // Tab hidden while TM is open — free memory
-    window._tmWasVisible = true;
-    window._tmLastUrl = iframe.src;
-    iframe.src = 'about:blank';
-    iframe.dataset.ready = '0';
-  } else if (document.visibilityState === 'visible' && window._tmWasVisible) {
-    // Returning to tab — reload TM
-    window._tmWasVisible = false;
-    if (tmVisible && window._tmLastUrl && window._tmLastUrl !== 'about:blank') {
-      iframe.src = window._tmLastUrl;
-      iframe.onload = function() { iframe.dataset.ready = '1'; };
-    }
-  }
-});
 
 function tmFallbackNewTab() {
   closeTradeMachine();
@@ -5446,13 +5418,6 @@ function closeTradeMachine() {
   if (_draftTradePick && !_pendingTrade) {
     _draftTradePick = null;
     _draftTradeDirection = null;
-  }
-  // Free iframe memory when TM is closed
-  const iframe = document.getElementById('tmIframe');
-  if (iframe) {
-    iframe.src = 'about:blank';
-    iframe.dataset.ready = '0';
-    _tmPreloaded = false;
   }
 }
 
