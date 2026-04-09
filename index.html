@@ -5373,9 +5373,18 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   extLink.href = _tmUrl;
   
   const iframeReady = iframe.dataset.ready === '1';
-  const needsReload = !!playerName || !!draftPickNum;
+  const needsReload = !!playerName;
   
-  if (iframeReady && !needsReload) {
+  if (iframeReady && draftPickNum) {
+    // Draft trade: use postMessage to set up partner + pick instantly (no reload)
+    loading.style.display = 'none';
+    iframe.style.display = 'block';
+    iframe.contentWindow.postMessage({
+      type: 'ROSTER_MANAGER_DRAFT_TRADE',
+      partner: partner,
+      pickNum: draftPickNum
+    }, '*');
+  } else if (iframeReady && !needsReload) {
     loading.style.display = 'none';
     iframe.style.display = 'block';
   } else if (iframeReady && needsReload) {
