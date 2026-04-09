@@ -3368,15 +3368,22 @@ function setDraftSpeed(ms) {
     clearInterval(_draftAnimTimer);
     _draftAnimTimer = setInterval(_draftTickFn, ms);
   }
+  // Refresh floating buttons
+  const fb = document.getElementById('draftFloatBtns');
+  if (fb) fb.remove();
 }
 
 function pauseDraft() {
   if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
+  const fb = document.getElementById('draftFloatBtns');
+  if (fb) fb.remove();
   render();
 }
 
 function resumeDraft() {
   if (!_draftAnimTimer && STATE.draftCurrentPick <= 60) {
+    const fb = document.getElementById('draftFloatBtns');
+    if (fb) fb.remove();
     runDraftUntilUser();
   }
 }
@@ -3793,14 +3800,27 @@ function renderDraftBoard() {
     }
     
     // Fixed floating buttons when animation is running (persistent, not re-rendered)
-    if (_draftAnimTimer && !isUserTurn) {
+    if ((_draftAnimTimer || _draftMode === 'full') && !isUserTurn && !isDraftComplete) {
       if (!document.getElementById('draftFloatBtns')) {
         const fb = document.createElement('div');
         fb.id = 'draftFloatBtns';
-        fb.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:150;display:flex;gap:.5rem;background:var(--surface);padding:.5rem .75rem;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);border:1px solid var(--border)';
+        fb.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:150;display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;align-items:center;background:var(--surface);padding:.5rem .75rem;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);border:1px solid var(--border);max-width:95vw';
         let btns = '';
-        if (nextUserPick) btns += `<button style="font-size:.75rem;padding:.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer" onclick="skipToNextPick()">⏭ Skip to your next pick</button>`;
-        btns += `<button style="font-size:.65rem;padding:.5rem .75rem;background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ Sim All</button>`;
+        if (_draftMode === 'full') {
+          // Full mode: speed controls + pause/play
+          const speeds = [{ms:400,l:'Fast'},{ms:1000,l:'Normal'},{ms:2000,l:'Slow'}];
+          for (const s of speeds) {
+            const act = _draftSpeed === s.ms && _draftAnimTimer ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : '';
+            btns += `<button style="font-size:.6rem;padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;${act}" onclick="setDraftSpeed(${s.ms})">${s.l}</button>`;
+          }
+          if (_draftAnimTimer) {
+            btns += `<button style="font-size:.6rem;padding:.35rem .6rem;border:1px solid var(--orange);border-radius:6px;color:var(--orange);cursor:pointer" onclick="pauseDraft()">⏸</button>`;
+          } else {
+            btns += `<button style="font-size:.6rem;padding:.35rem .6rem;border:1px solid var(--green);border-radius:6px;color:var(--green);cursor:pointer" onclick="resumeDraft()">▶</button>`;
+          }
+        }
+        if (nextUserPick) btns += `<button style="font-size:.65rem;padding:.35rem .75rem;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer" onclick="skipToNextPick()">⏭ #${nextUserPick}</button>`;
+        btns += `<button style="font-size:.6rem;padding:.35rem .6rem;background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer" onclick="if(_draftAnimTimer){clearInterval(_draftAnimTimer);_draftAnimTimer=null;}skipDraft()">⏩ All</button>`;
         fb.innerHTML = btns;
         document.body.appendChild(fb);
       }
