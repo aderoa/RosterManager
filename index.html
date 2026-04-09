@@ -3474,17 +3474,22 @@ function completeDraftPickTransfer() {
   const teamAbbrev = TEAMS[STATE.team];
   
   if (_draftTradeDirection === 'acquire') {
-    // Transfer pick to user's team
     const prevOwner = allPickSlots[pick]?.team || '??';
     allPickSlots[pick] = { ...allPickSlots[pick], team: teamAbbrev };
+    if (STATE.lotteryResults && pick <= 14) {
+      const lr = STATE.lotteryResults.find(r => r.pick === pick);
+      if (lr) lr.team = teamAbbrev;
+    }
     STATE.moves.push({ action: 'Trade', detail: `Acquired pick #${pick} from ${prevOwner}` });
     showToast(`Acquired pick #${pick}!`, 'success');
   } else {
-    // Transfer pick away from user
-    // The trade partner is the first team in the last trade's incoming players
     const lastTrade = STATE.trades[STATE.trades.length - 1];
     const partner = lastTrade?.in?.[0]?.fromTeam || '??';
     allPickSlots[pick] = { ...allPickSlots[pick], team: partner };
+    if (STATE.lotteryResults && pick <= 14) {
+      const lr = STATE.lotteryResults.find(r => r.pick === pick);
+      if (lr) lr.team = partner;
+    }
     STATE.moves.push({ action: 'Trade', detail: `Sent pick #${pick} to ${partner}` });
     showToast(`Sent pick #${pick} to ${partner}`, 'warning');
   }
@@ -5680,6 +5685,11 @@ function confirmPendingTrade() {
         if (allPickSlots[pickNum]) {
           console.log('[RM] Transferring pick #' + pickNum + ' from ' + allPickSlots[pickNum].team + ' to ' + teamAbbrev);
           allPickSlots[pickNum] = { ...allPickSlots[pickNum], team: teamAbbrev };
+          // Also update lottery results if this is a lottery pick
+          if (STATE.lotteryResults && pickNum <= 14) {
+            const lr = STATE.lotteryResults.find(r => r.pick === pickNum);
+            if (lr) lr.team = teamAbbrev;
+          }
           pickDetails.push(`acquired #${pickNum}`);
         }
       }
@@ -5695,6 +5705,11 @@ function confirmPendingTrade() {
         console.log('[RM] Sending pick #' + pickNum + ' to ' + partner);
         if (allPickSlots[pickNum] && partner) {
           allPickSlots[pickNum] = { ...allPickSlots[pickNum], team: partner };
+          // Also update lottery results if this is a lottery pick
+          if (STATE.lotteryResults && pickNum <= 14) {
+            const lr = STATE.lotteryResults.find(r => r.pick === pickNum);
+            if (lr) lr.team = partner;
+          }
           pickDetails.push(`sent #${pickNum}`);
         }
       }
