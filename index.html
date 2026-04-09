@@ -5160,6 +5160,8 @@ function advancePhase() {
 
     render();
     window.scrollTo(0, 0);
+    // Preload TM for new phase (background, after render)
+    setTimeout(preloadTradeMachine, 2000);
   }
 }
 
