@@ -2186,6 +2186,7 @@ function renderOverview() {
 
 function render() {
   if (!STATE) return;
+  hidePlayerCard(); // Close any lingering hover card
   const mainEl = document.querySelector('.main');
 
   // Show overview on first load (no moves, no phase advancement)
@@ -5299,6 +5300,9 @@ function hidePlayerCard() {
   const card = document.getElementById('playerHoverCard');
   card.classList.remove('show');
 }
+// Dismiss player card on any click/scroll
+document.addEventListener('click', hidePlayerCard);
+document.addEventListener('scroll', hidePlayerCard, true);
 
 // ======================== TRADE HISTORY RENDERING ========================
 function renderTradeHistory() {
