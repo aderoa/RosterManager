@@ -964,10 +964,11 @@ a{color:var(--accent);text-decoration:none}
     <button class="tm-close" onclick="resetTradeMachine()" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:.25rem .6rem;border-radius:6px;font-size:.65rem;cursor:pointer;font-family:inherit;margin-right:.5rem">🔄 Reset</button>
     <button class="tm-close" onclick="closeTradeMachine()">✕ Close</button>
   </div>
-  <div id="tmLoading" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.5rem">
-    <div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite"></div>
-    <p style="font-size:.75rem;color:var(--muted)">Loading Trade Machine...</p>
-    <button onclick="tmFallbackNewTab()" style="margin-top:.5rem;font-size:.7rem;padding:.3rem .8rem;border:1px solid var(--border);background:none;color:var(--muted);border-radius:6px;cursor:pointer">Not loading? Open in new tab instead</button>
+  <div id="tmLoading" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.75rem;background:var(--bg)">
+    <div style="font-size:2.5rem">🏀</div>
+    <div style="font-size:.9rem;font-weight:700;color:var(--text)">Loading Trade Machine</div>
+    <div class="spin" style="display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div>
+    <button onclick="tmFallbackNewTab()" style="margin-top:.75rem;font-size:.65rem;padding:.3rem .8rem;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:6px;cursor:pointer;font-family:inherit">Not loading? Open in new tab instead</button>
   </div>
   <iframe id="tmIframe" class="tm-iframe" style="display:none" referrerpolicy="no-referrer-when-downgrade"></iframe>
 </div>
@@ -5357,11 +5358,18 @@ function buildRMPicksData() {
 function sendPicksToTM(iframe) {
   const picks = buildRMPicksData();
   if (!picks || !iframe?.contentWindow) return;
-  // Small delay to ensure TM's JS is initialized
-  setTimeout(() => {
-    iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_PICKS', picks }, '*');
-    console.log('[TM] Sent', picks.length, 'pick assignments to TM');
-  }, 1500);
+  // Retry until TM acknowledges or max attempts
+  let attempts = 0;
+  function trySend() {
+    if (attempts++ > 5) return;
+    try {
+      iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_PICKS', picks }, '*');
+      console.log('[TM] Sent picks to TM (attempt ' + attempts + ')');
+    } catch(e) {}
+    // Retry after increasing delay in case TM JS isn't ready yet
+    setTimeout(trySend, 1000 * attempts);
+  }
+  setTimeout(trySend, 500);
 }
 
 function getRandomTradePartner(excludeAbbrev) {
@@ -5401,15 +5409,19 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   const iframeReady = iframe.dataset.ready === '1';
   
   if (iframeReady && draftPickNum) {
-    // Draft trade on preloaded TM: use postMessage (instant, no reload)
+    // Draft trade on preloaded TM: reset then set up partner + pick
     loading.style.display = 'none';
     iframe.style.display = 'block';
-    iframe.contentWindow.postMessage({
-      type: 'ROSTER_MANAGER_DRAFT_TRADE',
-      partner: partner,
-      pickNum: draftPickNum,
-      picks: buildRMPicksData()
-    }, '*');
+    // Reset any previous trade state first
+    iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_RESET' }, '*');
+    setTimeout(() => {
+      iframe.contentWindow.postMessage({
+        type: 'ROSTER_MANAGER_DRAFT_TRADE',
+        partner: partner,
+        pickNum: draftPickNum,
+        picks: buildRMPicksData()
+      }, '*');
+    }, 200);
   } else if (iframeReady && !playerName && !draftPickNum) {
     // Regular open on preloaded TM: just show it
     loading.style.display = 'none';
