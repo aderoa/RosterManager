@@ -960,10 +960,12 @@ a{color:var(--accent);text-decoration:none}
   <div class="tm-bar">
     <span style="font-size:1rem">🔄</span>
     <h3>Trade Machine</h3>
+    <button onclick="document.getElementById('tmDebug').style.display=document.getElementById('tmDebug').style.display==='none'?'block':'none'" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:.25rem .4rem;border-radius:4px;font-size:.55rem;cursor:pointer;font-family:monospace;margin-right:.25rem">🐛</button>
     <a id="tmExternalLink" class="tm-external" href="#" target="_blank" onclick="closeTradeMachine()">Open in new tab ↗</a>
     <button class="tm-close" onclick="resetTradeMachine()" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:.25rem .6rem;border-radius:6px;font-size:.65rem;cursor:pointer;font-family:inherit;margin-right:.5rem">🔄 Reset</button>
     <button class="tm-close" onclick="closeTradeMachine()">✕ Close</button>
   </div>
+  <div id="tmDebug" style="display:none;background:#1a1a2e;color:#0f0;font-family:monospace;font-size:.6rem;padding:.5rem;max-height:150px;overflow-y:auto;border-bottom:2px solid #333"></div>
   <div id="tmLoading" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.75rem;background:var(--bg)">
     <div style="font-size:2.5rem">🏀</div>
     <div style="font-size:.9rem;font-weight:700;color:var(--text)">Loading Trade Machine</div>
@@ -5337,6 +5339,16 @@ let _tmUrl = '';
 let _tmBaseUrl = '';
 let _tmPreloaded = false;
 
+function _tmDbg(msg) {
+  console.log('[TM-DBG] ' + msg);
+  const el = document.getElementById('tmDebug');
+  if (el) {
+    const t = new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    el.innerHTML += `<div>${t} ${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
 function preloadTradeMachine() {
   if (_tmPreloaded || !STATE) return;
   const abbrev = TEAMS[STATE.team];
@@ -5345,14 +5357,14 @@ function preloadTradeMachine() {
   _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}${offseasonParam}`;
   const iframe = document.getElementById('tmIframe');
   if (iframe) {
+    _tmDbg(`PRELOAD: phase=${STATE.phase} offseason=${!!offseasonParam} url=${_tmBaseUrl.substring(0,80)}...`);
     iframe.src = _tmBaseUrl;
     _tmPreloaded = true;
     iframe.onload = function() {
       iframe.dataset.ready = '1';
-      // Send current pick assignments to TM after it loads
+      _tmDbg('PRELOAD: iframe loaded, ready=1');
       sendPicksToTM(iframe);
     };
-    console.log('[TM] Preloading Trade Machine' + (offseasonParam ? ' (offseason mode)' : ''));
   }
 }
 
@@ -5388,18 +5400,21 @@ function buildRMPicksData() {
 }
 
 function sendPicksToTM(iframe) {
-  // Will be triggered by ROSTER_MANAGER_TM_READY message
   window._tmIframeRef = iframe;
+  _tmDbg('sendPicksToTM called, iframe=' + (iframe ? 'yes' : 'no'));
 }
 
 // Listen for TM ready signal
 window.addEventListener('message', function(event) {
   if (event.data?.type === 'ROSTER_MANAGER_TM_READY') {
+    _tmDbg('Got TM_READY signal');
     const iframe = window._tmIframeRef || document.getElementById('tmIframe');
     const picks = buildRMPicksData();
     if (picks && iframe?.contentWindow) {
       iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_PICKS', picks }, '*');
-      console.log('[TM] Sent', picks.length, 'picks to TM (on ready signal)');
+      _tmDbg('Sent ' + picks.length + ' picks to TM');
+    } else {
+      _tmDbg('WARNING: picks=' + (picks ? picks.length : 'null') + ' iframe=' + (iframe?.contentWindow ? 'ok' : 'no'));
     }
   }
 }, false);
@@ -5442,11 +5457,13 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   const currentSrc = iframe.src || '';
   const urlChanged = iframeReady && !currentSrc.includes('offseason') && offseasonParam;
   
+  _tmDbg(`OPEN: phase=${STATE.phase} iframeReady=${iframeReady} draftPick=${draftPickNum||'none'} partner=${partner} offseason=${!!offseasonParam} urlChanged=${urlChanged}`);
+  _tmDbg(`OPEN: currentSrc=${currentSrc.substring(0,60)}... newUrl=${_tmUrl.substring(0,60)}...`);
+  
   if (iframeReady && draftPickNum && !urlChanged) {
-    // Draft trade on preloaded TM: reset then set up partner + pick
+    _tmDbg('PATH: postMessage (preloaded + draft pick)');
     loading.style.display = 'none';
     iframe.style.display = 'block';
-    // Reset any previous trade state first
     iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_RESET' }, '*');
     const draftMsg = {
       type: 'ROSTER_MANAGER_DRAFT_TRADE',
@@ -5454,21 +5471,21 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
       pickNum: draftPickNum,
       picks: buildRMPicksData()
     };
-    setTimeout(() => iframe.contentWindow.postMessage(draftMsg, '*'), 500);
-    setTimeout(() => iframe.contentWindow.postMessage(draftMsg, '*'), 1500);
+    setTimeout(() => { iframe.contentWindow.postMessage(draftMsg, '*'); _tmDbg('Sent DRAFT_TRADE @500ms'); }, 500);
+    setTimeout(() => { iframe.contentWindow.postMessage(draftMsg, '*'); _tmDbg('Sent DRAFT_TRADE @1500ms (retry)'); }, 1500);
   } else if (iframeReady && !playerName && !draftPickNum && !urlChanged) {
-    // Regular open on preloaded TM: just show it
+    _tmDbg('PATH: show existing (preloaded, no changes needed)');
     loading.style.display = 'none';
     iframe.style.display = 'block';
   } else {
-    // Need fresh load: URL changed, player specified, draft pick on cold iframe, or first load
+    _tmDbg('PATH: full reload (urlChanged=' + urlChanged + ' player=' + (playerName||'none') + ')');
     iframe.style.display = 'block';
     loading.style.display = 'flex';
     iframe.dataset.ready = '0';
     iframe.onload = function() {
       loading.style.display = 'none';
       iframe.dataset.ready = '1';
-      // Send picks after fresh load
+      _tmDbg('RELOAD: iframe loaded, ready=1');
       sendPicksToTM(iframe);
     };
     iframe.src = _tmUrl;
