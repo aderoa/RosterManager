@@ -960,6 +960,10 @@ a{color:var(--accent);text-decoration:none}
   <div class="tm-bar">
     <span style="font-size:1rem">🔄</span>
     <h3>Trade Machine</h3>
+    <div id="tmSeasonToggle" style="display:none;margin-left:auto;margin-right:.5rem;display:flex;align-items:center;gap:.3rem">
+      <button id="tmSeason2526" onclick="switchTMSeason(false)" style="padding:.15rem .5rem;border-radius:4px;border:1px solid rgba(255,255,255,.3);cursor:pointer;font-size:.6rem;font-family:inherit;font-weight:700;background:rgba(255,255,255,.15);color:#fff">2025-26</button>
+      <button id="tmSeason2627" onclick="switchTMSeason(true)" style="padding:.15rem .5rem;border-radius:4px;border:1px solid rgba(255,255,255,.3);cursor:pointer;font-size:.6rem;font-family:inherit;font-weight:400;background:transparent;color:rgba(255,255,255,.6)">2026-27</button>
+    </div>
     <button onclick="document.getElementById('tmDebug').style.display=document.getElementById('tmDebug').style.display==='none'?'block':'none'" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:.25rem .4rem;border-radius:4px;font-size:.55rem;cursor:pointer;font-family:monospace;margin-right:.25rem">🐛</button>
     <a id="tmExternalLink" class="tm-external" href="#" target="_blank" onclick="closeTradeMachine()">Open in new tab ↗</a>
     <button class="tm-close" onclick="resetTradeMachine()" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:.25rem .6rem;border-radius:6px;font-size:.65rem;cursor:pointer;font-family:inherit;margin-right:.5rem">🔄 Reset</button>
@@ -5341,6 +5345,39 @@ let _tmUrl = '';
 let _tmBaseUrl = '';
 let _tmPreloaded = false;
 
+let _tmCurrentOffseason = false;
+function switchTMSeason(offseason) {
+  _tmCurrentOffseason = offseason;
+  // Update button styles
+  const btn25 = document.getElementById('tmSeason2526');
+  const btn26 = document.getElementById('tmSeason2627');
+  if (btn25 && btn26) {
+    btn25.style.cssText = offseason
+      ? 'padding:.15rem .5rem;border-radius:4px;border:1px solid rgba(255,255,255,.3);cursor:pointer;font-size:.6rem;font-family:inherit;font-weight:400;background:transparent;color:rgba(255,255,255,.6)'
+      : 'padding:.15rem .5rem;border-radius:4px;border:1px solid rgba(255,255,255,.3);cursor:pointer;font-size:.6rem;font-family:inherit;font-weight:700;background:rgba(255,255,255,.15);color:#fff';
+    btn26.style.cssText = offseason
+      ? 'padding:.15rem .5rem;border-radius:4px;border:1px solid rgba(255,255,255,.3);cursor:pointer;font-size:.6rem;font-family:inherit;font-weight:700;background:rgba(255,255,255,.15);color:#fff'
+      : 'padding:.15rem .5rem;border-radius:4px;border:1px solid rgba(255,255,255,.3);cursor:pointer;font-size:.6rem;font-family:inherit;font-weight:400;background:transparent;color:rgba(255,255,255,.6)';
+  }
+  // Reload TM iframe with new season
+  const iframe = document.getElementById('tmIframe');
+  const loading = document.getElementById('tmLoading');
+  if (!iframe) return;
+  const abbrev = TEAMS[STATE.team];
+  const partner = getRandomTradePartner(abbrev);
+  const url = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}${offseason ? '&offseason=1' : ''}`;
+  iframe.dataset.ready = '0';
+  iframe.style.display = 'block';
+  if (loading) loading.style.display = 'flex';
+  iframe.onload = function() {
+    iframe.dataset.ready = '1';
+    if (loading) loading.style.display = 'none';
+    sendPicksToTM(iframe);
+  };
+  iframe.src = url;
+  _tmDbg('Season switch → ' + (offseason ? '2026-27' : '2025-26'));
+}
+
 function _tmDbg(msg) {
   console.log('[TM-DBG] ' + msg);
   const el = document.getElementById('tmDebug');
@@ -5355,7 +5392,7 @@ function preloadTradeMachine() {
   if (_tmPreloaded || !STATE) return;
   const abbrev = TEAMS[STATE.team];
   if (!abbrev) return;
-  const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp' || STATE.phase === 'draft') ? '&offseason=1' : '';
+  const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp' || (STATE.phase === 'draft' && _tmCurrentOffseason)) ? '&offseason=1' : '';
   _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}${offseasonParam}`;
   const iframe = document.getElementById('tmIframe');
   if (iframe) {
@@ -5410,7 +5447,7 @@ function sendPicksToTM(iframe) {
 // Listen for TM ready signal
 window.addEventListener('message', function(event) {
   if (event.data?.type === 'ROSTER_MANAGER_TM_READY') {
-    _tmDbg('Got TM_READY signal');
+    _tmDbg('Got TM_READY signal (offseason=' + event.data.isOffseason + ' players=' + event.data.playerCount + ')');
     const iframe = window._tmIframeRef || document.getElementById('tmIframe');
     const picks = buildRMPicksData();
     if (picks && iframe?.contentWindow) {
@@ -5432,7 +5469,7 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   window._pendingSATSigning = null;
   const abbrev = TEAMS[STATE.team];
   const partner = partnerAbbrev || getRandomTradePartner(abbrev);
-  const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp' || STATE.phase === 'draft') ? '&offseason=1' : '';
+  const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp' || (STATE.phase === 'draft' && _tmCurrentOffseason)) ? '&offseason=1' : '';
   
   // Build Trade Machine URL with RM mode flag + both teams
   _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}${offseasonParam}`;
@@ -5492,6 +5529,12 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
       sendPicksToTM(iframe);
     };
     iframe.src = _tmUrl;
+  }
+  
+  // Show season toggle during draft phase
+  const seasonToggle = document.getElementById('tmSeasonToggle');
+  if (seasonToggle) {
+    seasonToggle.style.display = STATE.phase === 'draft' ? 'flex' : 'none';
   }
   
   overlay.style.display = 'flex';
