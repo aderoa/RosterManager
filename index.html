@@ -5669,14 +5669,16 @@ function confirmPendingTrade() {
   // Process 2026 draft pick transfers
   const teamAbbrev = TEAMS[STATE.team];
   const pickDetails = [];
+  console.log('[RM] Processing picks - picksIn:', JSON.stringify(_pendingTrade.picksIn), 'picksOut:', JSON.stringify(_pendingTrade.picksOut));
   if (_pendingTrade.picksIn?.length && allPickSlots) {
     for (const pk of _pendingTrade.picksIn) {
       if (pk.year !== '2026') continue;
-      // Find the matching pick in allPickSlots by team and notes (#X overall)
       const pickMatch = pk.notes?.match(/#(\d+)/);
+      console.log('[RM] picksIn entry:', pk.notes, '→ match:', pickMatch?.[1]);
       if (pickMatch) {
         const pickNum = parseInt(pickMatch[1]);
         if (allPickSlots[pickNum]) {
+          console.log('[RM] Transferring pick #' + pickNum + ' from ' + allPickSlots[pickNum].team + ' to ' + teamAbbrev);
           allPickSlots[pickNum] = { ...allPickSlots[pickNum], team: teamAbbrev };
           pickDetails.push(`acquired #${pickNum}`);
         }
@@ -5689,8 +5691,8 @@ function confirmPendingTrade() {
       const pickMatch = pk.notes?.match(/#(\d+)/);
       if (pickMatch) {
         const pickNum = parseInt(pickMatch[1]);
-        // Send to the first trade partner
         const partner = (_pendingTrade.in?.[0]?.fromTeam) || (_pendingTrade.picksIn?.[0]?.fromTeam) || '';
+        console.log('[RM] Sending pick #' + pickNum + ' to ' + partner);
         if (allPickSlots[pickNum] && partner) {
           allPickSlots[pickNum] = { ...allPickSlots[pickNum], team: partner };
           pickDetails.push(`sent #${pickNum}`);
@@ -5698,7 +5700,7 @@ function confirmPendingTrade() {
       }
     }
   }
-  // Rebuild teamDraftPicks if any picks were transferred
+  // Rebuild teamDraftPicks after ANY pick transfer
   if (pickDetails.length && allPickSlots) {
     const picks = {};
     for (const [slot, info] of Object.entries(allPickSlots)) {
@@ -5710,7 +5712,7 @@ function confirmPendingTrade() {
     }
     for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
     teamDraftPicks = picks;
-    console.log('[RM] Draft picks transferred:', pickDetails.join(', '));
+    console.log('[RM] Rebuilt teamDraftPicks after transfer:', pickDetails.join(', '));
   }
   
   const outNames = _pendingTrade.out.map(p => p.name).join(', ') || '';
