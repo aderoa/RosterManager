@@ -5360,6 +5360,7 @@ function preloadTradeMachine() {
   const iframe = document.getElementById('tmIframe');
   if (iframe) {
     _tmDbg(`PRELOAD: phase=${STATE.phase} offseason=${!!offseasonParam} url=${_tmBaseUrl.substring(0,80)}...`);
+    iframe.dataset.ready = '0'; // Mark not ready until new load completes
     iframe.src = _tmBaseUrl;
     _tmPreloaded = true;
     iframe.onload = function() {
