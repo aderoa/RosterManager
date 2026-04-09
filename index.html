@@ -5146,6 +5146,9 @@ function advancePhase() {
     STATE.phase = nextPhase.id;
     _dwPhaseReviewed.clear();
     _tmPreloaded = false; // Reset so TM reloads with correct offseason param
+    // Blank iframe so next open does a fresh load with correct params
+    const _tmIf = document.getElementById('tmIframe');
+    if (_tmIf) { _tmIf.src = 'about:blank'; _tmIf.dataset.ready = '0'; }
     STATE.moves.push({ action: 'Phase', detail: `Advanced to ${nextPhase.label}`, undo: { type: 'phase', prev: prevPhase.id } });
     saveState();
 
@@ -5355,17 +5358,31 @@ function preloadTradeMachine() {
 
 function buildRMPicksData() {
   if (!allPickSlots || !Object.keys(allPickSlots).length) return null;
-  const TEAMS_REV = {};
-  for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
-  // Get set of already-drafted pick numbers
   const drafted = new Set((STATE?.draftResults || []).map(r => r.pick));
+  const draftResultMap = {};
+  for (const r of (STATE?.draftResults || [])) draftResultMap[r.pick] = r.prospect;
+  const signedSet = new Set((STATE?.signings || []).map(s => s.name));
   const picks = [];
+  // Undrafted picks (tradeable as picks)
   for (let pk = 1; pk <= 60; pk++) {
     const slot = allPickSlots[pk];
     if (!slot || !slot.team) continue;
-    if (drafted.has(pk)) continue; // Skip already-used picks
+    if (drafted.has(pk)) continue;
     const capHold = pk <= 30 ? (ROOKIE_SCALE[pk - 1] || 0) : 0;
     picks.push({ pick: pk, team: slot.team, round: pk <= 30 ? '1st' : '2nd', capHold });
+  }
+  // Drafted first-round picks: signed = roster player, unsigned = draft rights
+  for (const r of (STATE?.draftResults || [])) {
+    if (r.pick > 30) continue;
+    const slot = allPickSlots[r.pick];
+    if (!slot) continue;
+    picks.push({
+      pick: r.pick, team: slot.team, round: '1st',
+      capHold: ROOKIE_SCALE[r.pick - 1] || 0,
+      prospect: r.prospect,
+      isSigned: signedSet.has(r.prospect),
+      isDrafted: true
+    });
   }
   return picks;
 }
@@ -5422,8 +5439,10 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   extLink.href = _tmUrl;
   
   const iframeReady = iframe.dataset.ready === '1';
+  const currentSrc = iframe.src || '';
+  const urlChanged = iframeReady && !currentSrc.includes('offseason') && offseasonParam;
   
-  if (iframeReady && draftPickNum) {
+  if (iframeReady && draftPickNum && !urlChanged) {
     // Draft trade on preloaded TM: reset then set up partner + pick
     loading.style.display = 'none';
     iframe.style.display = 'block';
@@ -5435,20 +5454,22 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
       pickNum: draftPickNum,
       picks: buildRMPicksData()
     };
-    // Send after reset completes, with retry for reliability
     setTimeout(() => iframe.contentWindow.postMessage(draftMsg, '*'), 500);
     setTimeout(() => iframe.contentWindow.postMessage(draftMsg, '*'), 1500);
-  } else if (iframeReady && !playerName && !draftPickNum) {
+  } else if (iframeReady && !playerName && !draftPickNum && !urlChanged) {
     // Regular open on preloaded TM: just show it
     loading.style.display = 'none';
     iframe.style.display = 'block';
   } else {
-    // Need fresh load: player specified, draft pick on cold iframe, or first load
+    // Need fresh load: URL changed, player specified, draft pick on cold iframe, or first load
     iframe.style.display = 'block';
     loading.style.display = 'flex';
+    iframe.dataset.ready = '0';
     iframe.onload = function() {
       loading.style.display = 'none';
       iframe.dataset.ready = '1';
+      // Send picks after fresh load
+      sendPicksToTM(iframe);
     };
     iframe.src = _tmUrl;
   }
