@@ -3457,7 +3457,7 @@ function tradeForDraftPick(pick, ownerAbbrev) {
   _draftTradePick = pick;
   _draftTradeDirection = 'acquire';
   console.log(`[Draft Trade] Trading for pick #${pick} from ${ownerAbbrev}`);
-  openTradeModal(null, ownerAbbrev);
+  openTradeModal(null, ownerAbbrev, pick);
 }
 
 function tradeAwayDraftPick(pick) {
@@ -5343,7 +5343,7 @@ function getRandomTradePartner(excludeAbbrev) {
   return allAbbrevs[Math.floor(Math.random() * allAbbrevs.length)];
 }
 
-function openTradeModal(playerName, partnerAbbrev) {
+function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   // Clear any stale S&T pending flag
   window._pendingSATSigning = null;
   const abbrev = TEAMS[STATE.team];
@@ -5352,6 +5352,11 @@ function openTradeModal(playerName, partnerAbbrev) {
   
   // Build Trade Machine URL with RM mode flag + both teams
   _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}${offseasonParam}`;
+  
+  // Pre-select a draft pick on the partner's side
+  if (draftPickNum) {
+    _tmUrl += `&draftpick=${draftPickNum}`;
+  }
   
   if (playerName) {
     const p = allPlayers.find(p => p.name === playerName && p.team === STATE.team);
@@ -5368,11 +5373,12 @@ function openTradeModal(playerName, partnerAbbrev) {
   extLink.href = _tmUrl;
   
   const iframeReady = iframe.dataset.ready === '1';
+  const needsReload = !!playerName || !!draftPickNum;
   
-  if (iframeReady && !playerName) {
+  if (iframeReady && !needsReload) {
     loading.style.display = 'none';
     iframe.style.display = 'block';
-  } else if (iframeReady && playerName) {
+  } else if (iframeReady && needsReload) {
     iframe.style.display = 'block';
     loading.style.display = 'none';
     iframe.src = _tmUrl;
@@ -5391,6 +5397,28 @@ function openTradeModal(playerName, partnerAbbrev) {
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
+
+// Detect tab switch — reload TM iframe if it went blank
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState !== 'visible') return;
+  const overlay = document.getElementById('tmOverlay');
+  if (!overlay || overlay.style.display === 'none') return;
+  const iframe = document.getElementById('tmIframe');
+  if (!iframe) return;
+  // Check if iframe content is gone (browser discarded it)
+  try {
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc || !doc.body || doc.body.innerHTML.length < 100) {
+      console.log('[TM] Iframe content lost — reloading');
+      iframe.src = _tmUrl || _tmBaseUrl;
+    }
+  } catch (e) {
+    // Cross-origin — can't check, try reload if src is blank
+    if (!iframe.src || iframe.src === 'about:blank') {
+      iframe.src = _tmUrl || _tmBaseUrl;
+    }
+  }
+});
 
 function tmFallbackNewTab() {
   closeTradeMachine();
