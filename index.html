@@ -2220,6 +2220,7 @@ function render() {
     renderCapPanel(cap);
     updateHeaderCapBar(cap);
   } else if (STATE.phase === 'draft') {
+    if (STATE.lotteryResults) applyLotteryResults(STATE.lotteryResults);
     renderDraftBoard();
     const cap = calcCapSheet(STATE.team);
     renderCapPanel(cap);
