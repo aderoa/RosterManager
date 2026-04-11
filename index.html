@@ -5617,6 +5617,7 @@ window.addEventListener('message', function(event) {
     in: (data.in || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '', fromTeam: p.fromTeam || '' })),
     picksOut: data.picksOut || [],
     picksIn: data.picksIn || [],
+    renounced: data.renounced || [],
     timestamp: data.timestamp || Date.now()
   };
   
@@ -5700,6 +5701,17 @@ function showTradeConfirm(trade) {
   }
   h += `</div>`;
   
+  // Show renounced cap holds if any
+  if (trade.renounced && trade.renounced.length > 0) {
+    h += `<div style="padding:.5rem .6rem;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:6px;margin-top:.5rem">`;
+    h += `<div style="font-size:.7rem;font-weight:700;color:#8b5cf6;margin-bottom:.3rem">🔓 Cap Holds Renounced</div>`;
+    for (const name of trade.renounced) {
+      h += `<div style="font-size:.65rem;color:#8b5cf6;padding:.15rem 0">• ${name}</div>`;
+    }
+    h += `<div style="font-size:.55rem;color:#8b5cf6;opacity:.7;margin-top:.3rem">Bird rights will be permanently lost for these players</div>`;
+    h += `</div>`;
+  }
+  
   body.innerHTML = h;
   document.getElementById('tradeConfirmOverlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
@@ -5732,6 +5744,14 @@ function confirmPendingTrade() {
   }
   
   STATE.trades.push(_pendingTrade);
+  
+  // Apply cap hold renouncements from Trade Machine
+  if (_pendingTrade.renounced && _pendingTrade.renounced.length > 0) {
+    for (const name of _pendingTrade.renounced) {
+      STATE.renounced.add(name);
+    }
+    console.log('[RM] Renounced cap holds from trade:', _pendingTrade.renounced);
+  }
   
   // Generate TPE if outgoing salary > incoming salary
   const tpeSalOut = (_pendingTrade.out || []).reduce((s,p) => s + (p.salary || 0), 0);
@@ -8026,6 +8046,9 @@ async function init() {
               _pendingTrade = {
                 out: (data.out || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '' })),
                 in: (data.in || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '', fromTeam: p.fromTeam || '' })),
+                picksOut: data.picksOut || [],
+                picksIn: data.picksIn || [],
+                renounced: data.renounced || [],
                 timestamp: data.timestamp || Date.now()
               };
               showTradeConfirm(_pendingTrade);
@@ -8392,6 +8415,9 @@ window.addEventListener('pageshow', async function(event) {
     _pendingTrade = {
       out: (tradeData.out || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '' })),
       in: (tradeData.in || []).map(p => ({ name: p.name, salary: p.salary, pos: p.pos || '', headshot: p.headshot || '', fromTeam: p.fromTeam || '' })),
+      picksOut: tradeData.picksOut || [],
+      picksIn: tradeData.picksIn || [],
+      renounced: tradeData.renounced || [],
       timestamp: tradeData.timestamp || Date.now()
     };
     showTradeConfirm(_pendingTrade);
