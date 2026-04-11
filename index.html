@@ -2778,21 +2778,18 @@ const PICK_PROTECTIONS = [
 ];
 // MIL/NOP/ATL swap: NOP's pick is conveyed to ATL in standings data.
 // ATL gets the better pick between their NOP-conveyed pick and MIL's own pick.
-// MIL gets the worse. We compare using lottery results directly.
+// MIL gets the worse. ATL's own pick is unaffected and always stays with ATL.
 function applyMilNopAtlSwap(results, transfers) {
   // Find ATL and MIL in lottery results
   const atlResults = results.filter(r => r.team === 'ATL');
   const milResult = results.find(r => r.team === 'MIL');
   if (!atlResults.length || !milResult) return;
   
-  // If ATL has one lottery pick, it's NOP's conveyed pick
-  // If ATL has multiple, use the one NOT from ATL's natural standings position
-  // (NOP was worse, so their slot has a lower originalSlot number = better odds)
+  // Identify the NOP-conveyed pick (lowest originalSlot = worse record = better odds)
   let nopPick;
   if (atlResults.length === 1) {
     nopPick = atlResults[0];
   } else {
-    // Multiple ATL picks: the one with the lowest originalSlot is NOP's (worse record)
     nopPick = atlResults.reduce((a, b) => a.originalSlot < b.originalSlot ? a : b);
   }
   
@@ -2800,7 +2797,7 @@ function applyMilNopAtlSwap(results, transfers) {
   const milPickNum = milResult.pick;
   
   if (milPickNum < nopPickNum) {
-    // MIL has better pick → ATL gets MIL's position, MIL gets NOP-conveyed position
+    // MIL has better pick → ATL gets MIL's pick, MIL gets NOP-conveyed pick
     const milSlot = allPickSlots[milPickNum];
     const nopSlot = allPickSlots[nopPickNum];
     if (milSlot) allPickSlots[milPickNum] = { ...milSlot, team: 'ATL' };
