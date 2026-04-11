@@ -3341,11 +3341,7 @@ function getDraftedProspects() {
 }
 
 function getPickTeam(pick) {
-  // Use lottery results if available for picks 1-14
-  if (STATE.lotteryResults && pick <= 14) {
-    const lr = STATE.lotteryResults.find(r => r.pick === pick);
-    if (lr) return lr.team;
-  }
+  // Always use allPickSlots — it has lottery results AND pick protections/swaps applied
   const slot = allPickSlots[pick];
   return slot ? slot.team : null;
 }
