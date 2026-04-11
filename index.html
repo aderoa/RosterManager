@@ -2804,6 +2804,7 @@ function applyMilNopAtlSwap(results, transfers) {
     if (milSlot) allPickSlots[milPickNum] = { ...milSlot, team: 'ATL' };
     if (nopSlot) allPickSlots[nopPickNum] = { ...nopSlot, team: 'MIL' };
     transfers.push({ pick: milPickNum, from: 'MIL', to: 'ATL', label: `ATL gets #${milPickNum} (MIL better than NOP-conveyed #${nopPickNum}), MIL gets #${nopPickNum}` });
+    transfers.push({ pick: nopPickNum, from: 'ATL', to: 'MIL', label: `MIL gets #${nopPickNum} (swap with ATL)` });
   }
   // If NOP-conveyed is better or equal, no swap needed — ATL already has it
 }
