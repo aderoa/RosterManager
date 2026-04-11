@@ -5866,6 +5866,11 @@ function rejectPendingTrade() {
   document.body.style.overflow = '';
   // Roll back S&T signing if this was an S&T trade that was rejected
   rollbackPendingSAT();
+  // Notify TM iframe so Send button re-enables
+  const iframe = document.getElementById('tmIframe');
+  if (iframe?.contentWindow) {
+    iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_TRADE_REJECTED' }, '*');
+  }
   console.log('[RM] Trade rejected');
 }
 
