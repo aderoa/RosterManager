@@ -2776,8 +2776,39 @@ const PICK_PROTECTIONS = [
   { from: 'PHI', to: 'OKC', condition: pick => pick > 4, label: 'PHI pick not top 4 → OKC' },
   { from: 'ORL', to: 'MEM', condition: () => true, label: 'ORL pick → MEM (unprotected)' },
 ];
-// MIL/NOP swap: ATL gets the better pick between MIL and NOP, MIL gets the worse
-const MIL_NOP_SWAP = { mil: 'MIL', nop: 'NOP', beneficiary: 'ATL' };
+// MIL/NOP/ATL swap: NOP's pick is conveyed to ATL in standings data.
+// ATL gets the better pick between their NOP-conveyed pick and MIL's own pick.
+// MIL gets the worse. We compare using lottery results directly.
+function applyMilNopAtlSwap(results, transfers) {
+  // Find ATL and MIL in lottery results
+  const atlResults = results.filter(r => r.team === 'ATL');
+  const milResult = results.find(r => r.team === 'MIL');
+  if (!atlResults.length || !milResult) return;
+  
+  // If ATL has one lottery pick, it's NOP's conveyed pick
+  // If ATL has multiple, use the one NOT from ATL's natural standings position
+  // (NOP was worse, so their slot has a lower originalSlot number = better odds)
+  let nopPick;
+  if (atlResults.length === 1) {
+    nopPick = atlResults[0];
+  } else {
+    // Multiple ATL picks: the one with the lowest originalSlot is NOP's (worse record)
+    nopPick = atlResults.reduce((a, b) => a.originalSlot < b.originalSlot ? a : b);
+  }
+  
+  const nopPickNum = nopPick.pick;
+  const milPickNum = milResult.pick;
+  
+  if (milPickNum < nopPickNum) {
+    // MIL has better pick → ATL gets MIL's position, MIL gets NOP-conveyed position
+    const milSlot = allPickSlots[milPickNum];
+    const nopSlot = allPickSlots[nopPickNum];
+    if (milSlot) allPickSlots[milPickNum] = { ...milSlot, team: 'ATL' };
+    if (nopSlot) allPickSlots[nopPickNum] = { ...nopSlot, team: 'MIL' };
+    transfers.push({ pick: milPickNum, from: 'MIL', to: 'ATL', label: `ATL gets #${milPickNum} (MIL better than NOP-conveyed #${nopPickNum}), MIL gets #${nopPickNum}` });
+  }
+  // If NOP-conveyed is better or equal, no swap needed — ATL already has it
+}
 
 function applyPickProtections(results) {
   if (!results) return [];
@@ -2798,21 +2829,8 @@ function applyPickProtections(results) {
     }
   }
 
-  // MIL/NOP conditional swap: ATL gets the better pick, MIL gets the worse
-  const milPick = pickMap[MIL_NOP_SWAP.mil];
-  const nopPick = pickMap[MIL_NOP_SWAP.nop];
-  if (milPick !== undefined && nopPick !== undefined && milPick !== nopPick) {
-    const betterPick = Math.min(milPick, nopPick);
-    const worsePick = Math.max(milPick, nopPick);
-    const betterSlot = allPickSlots[betterPick];
-    const worseSlot = allPickSlots[worsePick];
-    // ATL gets the better pick
-    if (betterSlot) allPickSlots[betterPick] = { ...betterSlot, team: MIL_NOP_SWAP.beneficiary };
-    // MIL gets the worse pick
-    if (worseSlot) allPickSlots[worsePick] = { ...worseSlot, team: MIL_NOP_SWAP.mil };
-    const source = betterPick === milPick ? 'MIL' : 'NOP';
-    transfers.push({ pick: betterPick, from: source, to: 'ATL', label: `ATL gets #${betterPick} (better of MIL #${milPick} / NOP #${nopPick}), MIL gets #${worsePick}` });
-  }
+  // MIL/NOP/ATL conditional swap
+  applyMilNopAtlSwap(results, transfers);
 
   return transfers;
 }
@@ -5398,14 +5416,13 @@ function buildRMPicksData() {
     const capHold = pk <= 30 ? (ROOKIE_SCALE[pk - 1] || 0) : 0;
     picks.push({ pick: pk, team: slot.team, round: pk <= 30 ? '1st' : '2nd', capHold });
   }
-  // Drafted first-round picks: signed = roster player, unsigned = draft rights
+  // Drafted picks: signed = roster player, unsigned = draft rights
   for (const r of (STATE?.draftResults || [])) {
-    if (r.pick > 30) continue;
     const slot = allPickSlots[r.pick];
     if (!slot) continue;
     picks.push({
-      pick: r.pick, team: slot.team, round: '1st',
-      capHold: ROOKIE_SCALE[r.pick - 1] || 0,
+      pick: r.pick, team: slot.team, round: r.pick <= 30 ? '1st' : '2nd',
+      capHold: r.pick <= 30 ? (ROOKIE_SCALE[r.pick - 1] || 0) : 0,
       prospect: r.prospect,
       isSigned: signedSet.has(r.prospect),
       isDrafted: true
