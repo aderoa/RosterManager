@@ -2776,7 +2776,7 @@ const PICK_PROTECTIONS = [
   { from: 'PHI', to: 'OKC', condition: pick => pick > 4, label: 'PHI pick not top 4 → OKC' },
   { from: 'ORL', to: 'MEM', condition: () => true, label: 'ORL pick → MEM (unprotected)' },
 ];
-// MIL/NOP swap: if MIL picks ahead of NOP, ATL gets MIL pick, MIL gets NOP pick
+// MIL/NOP swap: ATL gets the better pick between MIL and NOP, MIL gets the worse
 const MIL_NOP_SWAP = { mil: 'MIL', nop: 'NOP', beneficiary: 'ATL' };
 
 function applyPickProtections(results) {
@@ -2798,16 +2798,20 @@ function applyPickProtections(results) {
     }
   }
 
-  // MIL/NOP conditional swap
+  // MIL/NOP conditional swap: ATL gets the better pick, MIL gets the worse
   const milPick = pickMap[MIL_NOP_SWAP.mil];
   const nopPick = pickMap[MIL_NOP_SWAP.nop];
-  if (milPick !== undefined && nopPick !== undefined && milPick < nopPick) {
-    // MIL has better pick → ATL gets MIL's pick, MIL gets NOP's pick
-    const milSlot = allPickSlots[milPick];
-    const nopSlot = allPickSlots[nopPick];
-    if (milSlot) allPickSlots[milPick] = { ...milSlot, team: MIL_NOP_SWAP.beneficiary };
-    if (nopSlot) allPickSlots[nopPick] = { ...nopSlot, team: MIL_NOP_SWAP.mil };
-    transfers.push({ pick: milPick, from: 'MIL', to: 'ATL', label: `MIL (#${milPick}) ahead of NOP (#${nopPick}) → ATL gets #${milPick}, MIL gets #${nopPick}` });
+  if (milPick !== undefined && nopPick !== undefined && milPick !== nopPick) {
+    const betterPick = Math.min(milPick, nopPick);
+    const worsePick = Math.max(milPick, nopPick);
+    const betterSlot = allPickSlots[betterPick];
+    const worseSlot = allPickSlots[worsePick];
+    // ATL gets the better pick
+    if (betterSlot) allPickSlots[betterPick] = { ...betterSlot, team: MIL_NOP_SWAP.beneficiary };
+    // MIL gets the worse pick
+    if (worseSlot) allPickSlots[worsePick] = { ...worseSlot, team: MIL_NOP_SWAP.mil };
+    const source = betterPick === milPick ? 'MIL' : 'NOP';
+    transfers.push({ pick: betterPick, from: source, to: 'ATL', label: `ATL gets #${betterPick} (better of MIL #${milPick} / NOP #${nopPick}), MIL gets #${worsePick}` });
   }
 
   return transfers;
@@ -5348,19 +5352,35 @@ function preloadTradeMachine() {
   const abbrev = TEAMS[STATE.team];
   if (!abbrev) return;
   const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp') ? '&offseason=1' : '';
-  _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}${offseasonParam}`;
+  const preDraft = (STATE.phase === 'pre_lottery' || STATE.phase === 'lottery' || STATE.phase === 'pre_draft');
+  const noSeasonsParam = preDraft ? '&noseasons=1' : '';
+  _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}${offseasonParam}${noSeasonsParam}`;
   const iframe = document.getElementById('tmIframe');
   if (iframe) {
-    console.log("[TM] Preloading phase=" + STATE.phase);
-    iframe.dataset.ready = '0'; // Mark not ready until new load completes
+    iframe.dataset.ready = '0';
     iframe.src = _tmBaseUrl;
     _tmPreloaded = true;
     iframe.onload = function() {
       iframe.dataset.ready = '1';
-      
       sendPicksToTM(iframe);
     };
   }
+}
+
+function buildRMTradesData() {
+  if (!STATE?.trades?.length) return null;
+  const teamAbbrev = TEAMS[STATE.team];
+  const swaps = [];
+  for (const trade of STATE.trades) {
+    for (const p of (trade.out || [])) {
+      const dest = (trade.in?.[0]?.fromTeam) || '';
+      if (p.name && dest) swaps.push({ name: p.name, from: teamAbbrev, to: dest });
+    }
+    for (const p of (trade.in || [])) {
+      if (p.name && p.fromTeam) swaps.push({ name: p.name, from: p.fromTeam, to: teamAbbrev });
+    }
+  }
+  return swaps.length ? swaps : null;
 }
 
 function buildRMPicksData() {
@@ -5402,11 +5422,12 @@ function sendPicksToTM(iframe) {
 // Listen for TM ready signal
 window.addEventListener('message', function(event) {
   if (event.data?.type === 'ROSTER_MANAGER_TM_READY') {
-    
     const iframe = window._tmIframeRef || document.getElementById('tmIframe');
     const picks = buildRMPicksData();
-    if (picks && iframe?.contentWindow) {
-      iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_PICKS', picks }, '*');
+    const trades = buildRMTradesData();
+    if (iframe?.contentWindow) {
+      if (picks) iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_PICKS', picks }, '*');
+      if (trades) iframe.contentWindow.postMessage({ type: 'ROSTER_MANAGER_TRADES', trades }, '*');
     }
   }
 }, false);
@@ -5422,9 +5443,11 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   const abbrev = TEAMS[STATE.team];
   const partner = partnerAbbrev || getRandomTradePartner(abbrev);
   const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp') ? '&offseason=1' : '';
+  const preDraft = (STATE.phase === 'pre_lottery' || STATE.phase === 'lottery' || STATE.phase === 'pre_draft');
+  const noSeasonsParam = preDraft ? '&noseasons=1' : '';
   
   // Build Trade Machine URL with RM mode flag + both teams
-  _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}${offseasonParam}`;
+  _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}${offseasonParam}${noSeasonsParam}`;
   
   // Pre-select a draft pick on the partner's side
   if (draftPickNum) {
