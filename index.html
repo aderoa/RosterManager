@@ -607,6 +607,39 @@ a{color:var(--accent);text-decoration:none}
 .trade-confirm-btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* Signing modal */
+
+/* Assistant GM */
+.agm-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:260;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:.5rem}
+.agm-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25);animation:dwIn .3s ease}
+.agm-hdr{padding:1rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem;background:linear-gradient(135deg,rgba(99,102,241,.06),rgba(168,85,247,.06))}
+.agm-hdr h3{flex:1;font-size:.9rem;font-weight:700}
+.agm-close{background:none;border:1px solid var(--border);color:var(--muted);font-size:.7rem;padding:.25rem .6rem;border-radius:6px;cursor:pointer;font-family:inherit}
+.agm-body{padding:1rem 1.2rem}
+.agm-loading{text-align:center;padding:2rem 1rem;color:var(--muted)}
+.agm-loading .agm-spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--border);border-top-color:#6366f1;border-radius:50%;animation:agmSpin .8s linear infinite;margin-bottom:.75rem}
+@keyframes agmSpin{to{transform:rotate(360deg)}}
+.agm-loading .agm-loading-text{font-size:.75rem;font-weight:600}
+.agm-loading .agm-loading-sub{font-size:.6rem;color:var(--muted);margin-top:.3rem}
+.agm-section{margin-bottom:1rem}
+.agm-section-title{font-size:.7rem;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+.agm-rec{display:flex;align-items:center;gap:.6rem;padding:.5rem .6rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.35rem;background:var(--bg);transition:all .15s}
+.agm-rec:hover{border-color:#6366f1;background:rgba(99,102,241,.04)}
+.agm-rec-hs{width:36px;height:28px;border-radius:4px;object-fit:cover;background:var(--bg)}
+.agm-rec-info{flex:1;min-width:0}
+.agm-rec-name{font-size:.75rem;font-weight:600}
+.agm-rec-detail{font-size:.58rem;color:var(--muted);margin-top:.1rem}
+.agm-rec-reason{font-size:.55rem;color:#6366f1;margin-top:.15rem;font-style:italic}
+.agm-rec-actions{display:flex;gap:.3rem;flex-shrink:0}
+.agm-rec-btn{font-size:.55rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-family:inherit;font-weight:600;transition:all .12s}
+.agm-rec-btn.green{border-color:rgba(52,199,89,.4);color:var(--green);background:rgba(52,199,89,.06)}.agm-rec-btn.green:hover{background:rgba(52,199,89,.15)}
+.agm-rec-btn.red{border-color:rgba(255,69,58,.4);color:var(--red);background:rgba(255,69,58,.06)}.agm-rec-btn.red:hover{background:rgba(255,69,58,.15)}
+.agm-rec-btn.blue{border-color:rgba(59,130,246,.4);color:var(--accent);background:rgba(59,130,246,.06)}.agm-rec-btn.blue:hover{background:rgba(59,130,246,.15)}
+.agm-rec-btn.orange{border-color:rgba(245,158,11,.4);color:var(--orange);background:rgba(245,158,11,.06)}.agm-rec-btn.orange:hover{background:rgba(245,158,11,.15)}
+.agm-overview{font-size:.7rem;line-height:1.5;color:var(--text2);margin-bottom:1rem;padding:.6rem .75rem;background:var(--bg);border-radius:8px;border-left:3px solid #6366f1}
+.agm-error{text-align:center;padding:1.5rem;color:var(--red);font-size:.75rem}
+.agm-refresh{display:inline-block;margin-top:.5rem;font-size:.65rem;padding:.3rem .7rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);font-family:inherit;background:var(--bg)}
+.agm-refresh:hover{border-color:#6366f1;color:#6366f1}
+
 /* Decision Wizard */
 .dw-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:250;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:.5rem}
 .dw-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25);animation:dwIn .3s ease}
@@ -1013,6 +1046,25 @@ a{color:var(--accent);text-decoration:none}
 
 <!-- Player Hover Card -->
 <div id="playerHoverCard" class="player-hover-card"></div>
+
+
+<!-- Assistant GM -->
+<div id="agmOverlay" class="agm-overlay" style="display:none" onclick="if(event.target===this)closeAGM()">
+  <div class="agm-card" id="agmCard">
+    <div class="agm-hdr">
+      <span style="font-size:1.1rem">🧠</span>
+      <h3>Assistant GM</h3>
+      <button class="agm-close" onclick="closeAGM()">Close</button>
+    </div>
+    <div class="agm-body" id="agmBody">
+      <div class="agm-loading">
+        <div class="agm-spinner"></div>
+        <div class="agm-loading-text">Analyzing your roster...</div>
+        <div class="agm-loading-sub">Building recommendations</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Decision Wizard -->
 <div id="dwOverlay" class="dw-overlay" style="display:none" onclick="if(event.target===this)closeDW()">
@@ -3238,6 +3290,7 @@ function renderLottery() {
   let h = '';
 
   h += `<div class="dc-section-label">🎱 2026 NBA Draft Lottery</div>`;
+  h += `<div style="margin-bottom:.5rem"><button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(99,102,241,.08);border-color:#6366f1;color:#6366f1" onclick="openAGM()">🧠 Assistant GM</button></div>`;
 
   if (!results) {
     // Phase intro + mode selection
@@ -3707,6 +3760,7 @@ function renderDraftBoard() {
 
   if (draftNotStarted) {
     h += `<div class="dc-section-label">🎯 2026 NBA Draft</div>`;
+    h += `<div style="margin-bottom:.75rem"><button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(99,102,241,.08);border-color:#6366f1;color:#6366f1" onclick="openAGM()">🧠 Assistant GM — Draft Advice</button></div>`;
     h += phaseIntroHtml('draft');
 
     // Show user's picks
@@ -3862,6 +3916,7 @@ function renderDraftBoard() {
   if (!isDraftComplete && getPickTeam(current) === teamAbbrev) {
     h += `<div id="yourPickBox" class="your-pick-box" style="background:rgba(59,130,246,.1);border:2px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem">`;
     h += `<h3 style="color:var(--accent);margin-bottom:.5rem;font-size:.9rem">🎯 Your Pick — #${current}</h3>`;
+    h += `<button class="action-btn" style="font-size:.6rem;padding:.25rem .6rem;background:rgba(99,102,241,.08);border-color:#6366f1;color:#6366f1;margin-bottom:.5rem" onclick="openAGM()">🧠 Who should I draft?</button>`;
     h += `<input id="draftSearchInput" class="trade-input" style="width:100%;margin-bottom:.5rem" placeholder="Filter prospects..." oninput="filterDraftProspects(this.value)">`;
     h += `<div id="draftProspectList" style="max-height:250px;overflow-y:auto">`;
     h += buildDraftProspectList('');
@@ -4027,6 +4082,8 @@ function renderRoster(cap) {
       h += `<button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(245,158,11,.08);border-color:var(--orange);color:var(--orange)" onclick="openDW()">🪄 Roster Wizard</button>`;
     }
   }
+  // Assistant GM button — always available
+  h += `<button class="action-btn" style="font-size:.7rem;padding:.35rem .75rem;background:rgba(99,102,241,.08);border-color:#6366f1;color:#6366f1" onclick="openAGM()">🧠 Assistant GM</button>`;
   if (phase === 'free_agency' || phase === 'training_camp') {
     h += `<button class="action-btn pickup" style="font-size:.7rem;padding:.35rem .75rem" onclick="openSignModal()">✍️ Sign Free Agent</button>`;
   }
@@ -5873,6 +5930,322 @@ function rejectPendingTrade() {
   }
   console.log('[RM] Trade rejected');
 }
+
+
+
+// ======================== ASSISTANT GM ========================
+let _agmCache = {}; // phase -> last result, to avoid re-calling API on re-open
+
+function openAGM() {
+  document.getElementById('agmOverlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  const phase = STATE.phase;
+  // Show cached result if same phase, otherwise re-generate
+  if (_agmCache[phase]) {
+    renderAGMResults(_agmCache[phase]);
+  } else {
+    document.getElementById('agmBody').innerHTML = `
+      <div class="agm-loading">
+        <div class="agm-spinner"></div>
+        <div class="agm-loading-text">Analyzing your roster...</div>
+        <div class="agm-loading-sub">Building recommendations for ${PHASES.find(p=>p.id===phase)?.label || phase}</div>
+      </div>`;
+    callAGMAPI();
+  }
+}
+
+function closeAGM() {
+  document.getElementById('agmOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function refreshAGM() {
+  delete _agmCache[STATE.phase];
+  document.getElementById('agmBody').innerHTML = `
+    <div class="agm-loading">
+      <div class="agm-spinner"></div>
+      <div class="agm-loading-text">Re-analyzing...</div>
+      <div class="agm-loading-sub">Generating fresh recommendations</div>
+    </div>`;
+  callAGMAPI();
+}
+
+function buildAGMContext() {
+  const teamAbbrev = TEAMS[STATE.team];
+  const cap = calcCapSheet(STATE.team);
+  const phase = STATE.phase;
+  const teamPlayers = allPlayers.filter(p => p.team === STATE.team);
+  
+  // Roster summary
+  const tradedOut = new Set();
+  const tradedIn = [];
+  for (const trade of (STATE.trades || [])) {
+    for (const p of (trade.out || [])) tradedOut.add(p.name);
+    for (const p of (trade.in || [])) tradedIn.push(p);
+  }
+  
+  const rosterSummary = [];
+  for (const p of teamPlayers) {
+    if (tradedOut.has(p.name)) continue;
+    if (STATE.waived.has(p.name)) continue;
+    if (STATE.renounced.has(p.name)) continue;
+    const optDec = STATE.optionDecisions[p.name];
+    if (optDec === 'decline') continue;
+    rosterSummary.push({
+      name: p.name, pos: p.pos, age: p.age, 
+      salary: p.sal27 || p.sal26, rat: p.rat365,
+      tv: p.tv, category: p.category, exception: p.exception,
+      end: p.end, capHold: p.capHold, extEligible: p.extEligible,
+      isTwoWay: p.isTwoWay
+    });
+  }
+  // Add traded-in players
+  for (const p of tradedIn) {
+    rosterSummary.push({ name: p.name, pos: p.pos || '?', salary: p.salary, category: 'traded_in' });
+  }
+
+  // Free agents (not renounced)
+  const freeAgents = teamPlayers.filter(p => 
+    p.category === 'free_agent' && !tradedOut.has(p.name) && !STATE.renounced.has(p.name)
+  ).map(p => ({ name: p.name, pos: p.pos, age: p.age, rat: p.rat365, capHold: p.capHold, exception: p.exception }));
+
+  // Position counts  
+  const posCount = { PG:0, SG:0, SF:0, PF:0, C:0 };
+  for (const p of rosterSummary) {
+    if (p.category === 'free_agent') continue;
+    const mainPos = (p.pos || '').split('/')[0].split('-')[0].trim().toUpperCase();
+    if (posCount[mainPos] !== undefined) posCount[mainPos]++;
+  }
+
+  // Cap situation
+  const capInfo = {
+    capSpace: cap.capSpace,
+    taxRoom: cap.taxRoom,
+    apron1Room: cap.apron1Room,
+    apron2Room: cap.apron2Room,
+    rosterCount: cap.rosterCount,
+    totalSalary: cap.activeSalaries,
+    capHolds: cap.capHolds,
+    status: cap.apron2Room < 0 ? '2nd Apron' : cap.apron1Room < 0 ? '1st Apron' : cap.taxRoom < 0 ? 'Tax Team' : cap.capSpace > 0 ? 'Cap Space' : 'Below Tax'
+  };
+
+  // Draft picks
+  const draftPicks = (teamDraftPicks[teamAbbrev] || []).map(p => ({
+    pick: p.draftRnk, prospect: p.prospect
+  }));
+
+  // Available prospects (for draft phase)
+  let draftContext = '';
+  if (phase === 'draft') {
+    const current = STATE.draftCurrentPick || 0;
+    const drafted = new Set();
+    for (const [slot, sel] of Object.entries(STATE.draftSelections || {})) drafted.add(sel);
+    for (const r of (STATE.draftResults || [])) drafted.add(r.prospect || r.name);
+    const available = allProspects.filter(n => !drafted.has(n)).slice(0, 20);
+    const nextPick = draftPicks.find(p => p.pick >= current);
+    draftContext = `\nNext pick: #${nextPick?.pick || '?'}. Available top prospects: ${available.map((n,i) => {
+      const bio = prospectBioMap[n];
+      return `${n} (${bio?.position || '?'}, ${bio?.preDraftTeam || '?'})`;
+    }).join(', ')}`;
+  }
+  
+  // Moves already made
+  const movesSummary = STATE.moves.filter(m => m.action !== 'Phase').slice(-10).map(m => m.detail).join('; ');
+
+  // Random personality seed for variety
+  const styles = ['aggressive rebuild','win-now','balanced','development-focused','cap flexibility','draft-and-develop','star hunting','depth building'];
+  const style = styles[Math.floor(Math.random() * styles.length)];
+
+  return { teamAbbrev, rosterSummary, freeAgents, posCount, capInfo, draftPicks, phase, draftContext, movesSummary, style };
+}
+
+async function callAGMAPI() {
+  const ctx = buildAGMContext();
+  const phase = ctx.phase;
+  
+  const phaseName = PHASES.find(p=>p.id===phase)?.label || phase;
+  
+  // Build the prompt
+  const rosterStr = ctx.rosterSummary
+    .filter(p => p.category !== 'free_agent')
+    .sort((a,b) => (b.salary||0) - (a.salary||0))
+    .map(p => `${p.name} | ${p.pos} | ${p.age}y | $${((p.salary||0)/1e6).toFixed(1)}M | RAT:${(p.rat||0).toFixed(1)} | TV:${(p.tv||0).toFixed(1)} | ${p.category}${p.extEligible ? ' | ext:'+p.extEligible : ''}`)
+    .join('\n');
+    
+  const faStr = ctx.freeAgents.length ? ctx.freeAgents
+    .sort((a,b) => (b.rat||0) - (a.rat||0))
+    .map(p => `${p.name} | ${p.pos} | ${p.age}y | RAT:${(p.rat||0).toFixed(1)} | hold:$${((p.capHold||0)/1e6).toFixed(1)}M | ${p.exception}`)
+    .join('\n') : 'None';
+
+  const systemPrompt = `You are an NBA Assistant GM advisor. Your style leans ${ctx.style}. Give specific, actionable recommendations for the ${phaseName} phase.
+
+CRITICAL RULES:
+- Respond ONLY with valid JSON, no markdown, no backticks, no preamble
+- Be specific with player names from the roster/FA list provided
+- For draft: recommend based on team needs and pick position (1-10: starter level, 11-30: rotation, 31-60: depth)
+- Vary your advice — don't always recommend the same moves
+- Consider salary cap situation when recommending trades/signings
+- Maximum 3-4 recommendations per category
+
+JSON format:
+{
+  "overview": "2-3 sentence team analysis",
+  "sections": [
+    {
+      "title": "Section Title",
+      "icon": "emoji",
+      "recs": [
+        {
+          "name": "Player Name",
+          "action": "renounce|waive|extend|exercise|decline|draft|trade_for|sign|keep",
+          "detail": "Position · $XM · brief context",
+          "reason": "Why this move makes sense",
+          "priority": "high|medium|low"
+        }
+      ]
+    }
+  ]
+}`;
+
+  const userPrompt = `Team: ${ctx.teamAbbrev}
+Phase: ${phaseName}
+Cap Status: ${ctx.capInfo.status} | Space: $${(ctx.capInfo.capSpace/1e6).toFixed(1)}M | Tax Room: $${(ctx.capInfo.taxRoom/1e6).toFixed(1)}M
+Roster (${ctx.capInfo.rosterCount} players): $${(ctx.capInfo.totalSalary/1e6).toFixed(1)}M total
+Positions: PG:${ctx.posCount.PG} SG:${ctx.posCount.SG} SF:${ctx.posCount.SF} PF:${ctx.posCount.PF} C:${ctx.posCount.C}
+Moves so far: ${ctx.movesSummary || 'None'}
+
+ROSTER:
+${rosterStr}
+
+FREE AGENTS (cap holds):
+${faStr}
+
+DRAFT PICKS: ${ctx.draftPicks.map(p => '#'+p.pick+' ('+p.prospect+')').join(', ') || 'None'}
+${ctx.draftContext}
+
+Give recommendations for this phase. ${
+  phase === 'pre_lottery' || phase === 'pre_draft' ? 'Focus on: which free agents to renounce vs keep, which options to exercise/decline, extension candidates, and trade targets to pursue.' :
+  phase === 'lottery' ? 'Focus on: draft strategy based on likely pick range and team needs.' :
+  phase === 'draft' ? 'Focus on: which prospect to draft with the next pick, considering team needs and BPA.' :
+  phase === 'pre_fa' ? 'Focus on: option decisions, waive/guarantee decisions, and cap positioning for free agency.' :
+  phase === 'free_agency' ? 'Focus on: which FAs to sign, using what exceptions, and who to let go.' :
+  phase === 'training_camp' ? 'Focus on: final roster cuts, signing minimums for depth, and roster balance.' :
+  'Give general roster improvement advice.'
+}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+    
+    const data = await response.json();
+    const text = (data.content || []).map(c => c.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    _agmCache[phase] = result;
+    renderAGMResults(result);
+  } catch (err) {
+    console.error('[AGM] API error:', err);
+    document.getElementById('agmBody').innerHTML = `
+      <div class="agm-error">
+        <div>Failed to generate recommendations</div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:.3rem">${err.message || 'Unknown error'}</div>
+        <button class="agm-refresh" onclick="refreshAGM()">🔄 Try Again</button>
+      </div>`;
+  }
+}
+
+function renderAGMResults(result) {
+  let h = '';
+  
+  if (result.overview) {
+    h += `<div class="agm-overview">${result.overview}</div>`;
+  }
+  
+  for (const section of (result.sections || [])) {
+    h += `<div class="agm-section">`;
+    h += `<div class="agm-section-title">${section.icon || '📋'} ${section.title}</div>`;
+    for (const rec of (section.recs || [])) {
+      const priorityColor = rec.priority === 'high' ? '#ef4444' : rec.priority === 'medium' ? '#f59e0b' : '#6b7280';
+      
+      // Find player for headshot
+      const player = allPlayers.find(p => p.name === rec.name);
+      const hs = player?.headshot || '';
+      
+      h += `<div class="agm-rec">`;
+      if (hs) {
+        h += `<img src="${hs}" class="agm-rec-hs" onerror="this.style.display='none'">`;
+      }
+      h += `<div class="agm-rec-info">`;
+      h += `<div class="agm-rec-name"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${priorityColor};margin-right:4px"></span>${rec.name}</div>`;
+      if (rec.detail) h += `<div class="agm-rec-detail">${rec.detail}</div>`;
+      if (rec.reason) h += `<div class="agm-rec-reason">"${rec.reason}"</div>`;
+      h += `</div>`;
+      h += `<div class="agm-rec-actions">`;
+      h += buildAGMActionBtn(rec);
+      h += `</div></div>`;
+    }
+    h += `</div>`;
+  }
+  
+  h += `<div style="text-align:center;margin-top:.5rem"><button class="agm-refresh" onclick="refreshAGM()">🔄 New Analysis</button></div>`;
+  
+  document.getElementById('agmBody').innerHTML = h;
+}
+
+function buildAGMActionBtn(rec) {
+  const name = (rec.name || '').replace(/'/g, "\\'");
+  const action = (rec.action || '').toLowerCase();
+  
+  switch(action) {
+    case 'renounce':
+      return `<button class="agm-rec-btn red" onclick="closeAGM();doRenounce('${name}')">Renounce</button>`;
+    case 'waive':
+      return `<button class="agm-rec-btn red" onclick="closeAGM();doWaive('${name}')">Waive</button>`;
+    case 'exercise':
+    case 'pickup':
+      return `<button class="agm-rec-btn green" onclick="closeAGM();doOption('${name}','pickup')">Exercise</button>`;
+    case 'decline':
+      return `<button class="agm-rec-btn red" onclick="closeAGM();doOption('${name}','decline')">Decline</button>`;
+    case 'extend':
+      return `<button class="agm-rec-btn blue" onclick="closeAGM();openExtModal('${name}')">Extend</button>`;
+    case 'draft':
+      return `<button class="agm-rec-btn green" onclick="closeAGM();agmDraftPlayer('${name}')">Draft</button>`;
+    case 'trade_for':
+      return `<button class="agm-rec-btn orange" onclick="closeAGM();openTradeModal()">Trade</button>`;
+    case 'sign':
+      return `<button class="agm-rec-btn green" onclick="closeAGM();openSignModal()">Sign</button>`;
+    case 'keep':
+      return `<span style="font-size:.55rem;color:var(--green);font-weight:600">✓ Keep</span>`;
+    default:
+      return '';
+  }
+}
+
+function agmDraftPlayer(prospectName) {
+  // Draft the recommended prospect at the current pick
+  const current = STATE.draftCurrentPick || 0;
+  const teamAbbrev = TEAMS[STATE.team];
+  const pickTeam = getPickTeam(current);
+  if (pickTeam === teamAbbrev) {
+    STATE.draftSelections[current] = prospectName;
+    STATE.draftResults.push({ pick: current, team: teamAbbrev, prospect: prospectName });
+    STATE.moves.push({ action: 'Draft', detail: `Drafted ${prospectName} with pick #${current}`, undo: { type: 'draft', slot: current, prev: null } });
+    STATE.draftCurrentPick = current + 1;
+    saveState();
+    render();
+    // Continue auto-drafting if in quick mode
+    if (_draftMode === 'quick') runDraftUntilUser();
+  }
+}
+
 
 // ======================== DECISION WIZARD ========================
 let _dwIndex = 0;
@@ -7827,6 +8200,7 @@ function buildFABMenu() {
     const next = PHASES[currentIdx + 1];
     items.push({ emoji:'▶️', label:`→ ${next.label}`, action:'advancePhase()' });
   }
+  items.push({ emoji:'🧠', label:'Assistant GM', action:'openAGM()' });
   items.push({ emoji:'💾', label:'Save Scenario', action:'openSaveModal()' });
   items.push({ emoji:'📂', label:'Load Scenario', action:'openSaveModal()' });
   items.push({ emoji:'🗑️', label:'Reset All', action:'resetTeam()' });
