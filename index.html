@@ -6072,15 +6072,27 @@ function generateAGMRecs() {
   const pos = ctx.posCount;
   const picks = ctx.draftPicks;
   const teamAbbrev = ctx.teamAbbrev;
+  const _seed = window._agmSimSeed || (window._agmSimSeed = Math.floor(Math.random() * 1000));
   
-  // ===== TEAM PROFILE =====
+  // ===== TEAM PROFILE using standings =====
   const isCapSpace = cap.status === 'Cap Space';
   const isApron = cap.status.includes('Apron');
-  const totalRat = contractRoster.reduce((s,p) => s + (p.rat||0), 0);
-  const avgRat = contractRoster.length ? totalRat / contractRoster.length : 0;
-  const stars = contractRoster.filter(p => (p.rat||0) > 15);
-  const isContender = avgRat > 10 && stars.length >= 2;
-  const isRebuilding = avgRat < 7 || contractRoster.filter(p => (p.rat||0) > 12).length < 2;
+  
+  // Derive team quality from pick slots (1-14 = lottery, 15-30 = playoff)
+  let standingsRank = 30; // default mid
+  for (let i = 1; i <= 60; i++) {
+    if (allPickSlots[i] && allPickSlots[i].team === teamAbbrev) { standingsRank = i; break; }
+  }
+  const isLotteryTeam = standingsRank <= 14;
+  const isPlayoffTeam = standingsRank > 14 && standingsRank <= 30;
+  const isTopSeed = standingsRank >= 27;
+  const isContender = standingsRank >= 25;
+  const isRebuilding = standingsRank <= 5;
+  const isMidTier = !isRebuilding && !isContender;
+  
+  // Young core check
+  const youngStars = contractRoster.filter(p => parseFloat(p.age) <= 25 && (p.rat||0) > 10);
+  const hasYoungCore = youngStars.length >= 2;
   
   const posNeeds = [], posStrengths = [];
   for (const [p, count] of Object.entries(pos)) {
@@ -6088,150 +6100,193 @@ function generateAGMRecs() {
     else if (count === 1) posNeeds.push({ pos: p, level: 'need' });
     else if (count >= 4) posStrengths.push(p);
   }
-  
-  // Deterministic-ish seed per simulation (stable within session, varies between)
-  const _agmSeed = window._agmSimSeed || (window._agmSimSeed = Math.floor(Math.random() * 1000));
-  function seededPick(arr, n) {
-    // Stable top-N: sort by a score, pick top n
-    return arr.slice(0, Math.min(n, arr.length));
-  }
 
-  // ===== OVERVIEW (all phases) =====
-  const profileDesc = isContender ? 'a contender with championship aspirations' : isRebuilding ? 'in rebuild mode, focused on player development and accumulating assets' : 'a competitive roster looking to take the next step';
+  // Team description
+  let profileDesc;
+  if (isRebuilding) profileDesc = hasYoungCore ? 'rebuilding around a promising young core' : 'in full rebuild mode, accumulating assets and developing talent';
+  else if (isContender) profileDesc = isTopSeed ? 'a top contender with legitimate championship aspirations' : 'a strong playoff team looking to break through';
+  else if (isPlayoffTeam) profileDesc = hasYoungCore ? 'a rising team with a talented young nucleus ready to compete' : 'a competitive playoff team looking to solidify their rotation';
+  else profileDesc = hasYoungCore ? 'a young team on the rise — not far from playoff contention' : 'in a transition phase, deciding between competing and retooling';
+  
   const capDesc = `${cap.status} with ${fmtMoney(Math.abs(cap.capSpace))} ${cap.capSpace >= 0 ? 'in available space' : 'over the cap'}`;
   const needDesc = posNeeds.length ? 'Positional gaps at ' + posNeeds.map(n => n.pos + (n.level==='critical'?' (empty)':'')).join(', ') + '.' : 'Roster is positionally balanced.';
   result.overview = `The ${teamAbbrev} are ${profileDesc}. Cap situation: ${capDesc}. ${needDesc}`;
 
-  // ==================== PHASE LOGIC ====================
+  // ===== COMMENT VARIETY =====
+  const extComments = [
+    'Locking in now could save money compared to free agency',
+    'Extension before the market opens prevents a bidding war',
+    'Securing this contract now provides roster stability going forward',
+    'A proactive extension avoids the uncertainty of unrestricted free agency',
+    'Worth engaging in extension talks — his value may rise after another strong season'
+  ];
+  const faKeepComments = [
+    'Bird rights allow going over the cap to re-sign — valuable flexibility',
+    'Retaining his rights keeps the door open for a return',
+    'Worth maintaining his cap hold to preserve re-signing options',
+    'Strong contributor whose Bird rights provide a competitive advantage'
+  ];
+  const faHoldComments = [
+    'Cap hold adds to the salary figure without providing on-court production',
+    'Carries a cap hold that limits flexibility — renouncing is worth considering',
+    'His cap hold occupies space that could be used on incoming talent',
+    'The cap hold impact outweighs the likelihood of a meaningful re-signing'
+  ];
+  let _ci = (_seed % 5);
+  function nextComment(arr) { return arr[(_ci++) % arr.length]; }
 
-  // ---- PRE-LOTTERY: Situation recap only, no action recommendations ----
+  // ==================== PRE-LOTTERY ====================
   if (phase === 'pre_lottery') {
-    // Draft picks summary
     if (picks.length) {
+      const pickDescs = picks.map(p => {
+        if (p.pick <= 5) return `#${p.pick} (lottery — potential franchise-changing selection)`;
+        if (p.pick <= 14) return `#${p.pick} (lottery — solid starter-level talent expected)`;
+        if (p.pick <= 30) return `#${p.pick} (first round — rotation contributor range)`;
+        return `#${p.pick} (second round — developmental upside)`;
+      });
       result.sections.push({ title: 'Draft Capital', icon: '🎯', recs: [{
         name: `${picks.length} pick${picks.length>1?'s':''}`, action: 'keep',
-        detail: picks.map(p => '#' + p.pick + ' (' + p.prospect + ')').join(', '),
-        reason: isRebuilding ? 'Critical assets for the rebuild — every pick counts' : 'Opportunities to add young talent to the core',
+        detail: pickDescs.join(', '),
+        reason: isRebuilding ? 'Every pick is crucial in a rebuild — these are the building blocks' : 'Opportunities to inject young talent into the mix',
         priority: 'medium'
       }]});
     }
 
-    // Options to decide
     const optionPlayers = roster.filter(p => p.category === 'team_option' || p.category === 'player_option');
     if (optionPlayers.length) {
-      const recs = optionPlayers.map(p => ({
+      const optComments = ['Will need to be decided before free agency opens', 'A key offseason decision that shapes the cap sheet', 'The front office will need to weigh production against cost', 'Decision deadline approaching — impacts summer planning'];
+      const recs = optionPlayers.map((p, i) => ({
         name: p.name, action: 'keep',
-        detail: `${p.pos} · ${fmtMoney(p.salary)} · ${p.category === 'team_option' ? 'Team Option' : 'Player Option'} · Rating ${(p.rat||0).toFixed(1)}`,
-        reason: p.category === 'team_option' ? 'Decision needed before free agency opens' : 'Player will decide whether to opt in or out',
+        detail: `${p.pos} · ${fmtMoney(p.salary)} · ${p.category === 'team_option' ? 'Team Option' : 'Player Option'}`,
+        reason: optComments[i % optComments.length],
         priority: 'medium'
       }));
       result.sections.push({ title: 'Upcoming Option Decisions', icon: '⚖️', recs });
     }
 
-    // Extension-eligible players
     const extPlayers = roster.filter(p => p.extEligible);
     if (extPlayers.length) {
-      const recs = extPlayers.sort((a,b) => (b.rat||0) - (a.rat||0)).map(p => ({
-        name: p.name, action: 'keep',
-        detail: `${p.pos} · ${fmtMoney(p.salary)} · Rating ${(p.rat||0).toFixed(1)} · Extension eligible`,
-        reason: (p.rat||0) > 14 ? 'Key player — worth exploring an extension before he hits the market' : 'Could lock in at current value before free agency',
-        priority: (p.rat||0) > 14 ? 'high' : 'low'
-      }));
+      const recs = extPlayers.sort((a,b) => (b.rat||0) - (a.rat||0)).map((p, i) => {
+        const extType = (p.extEligible||'').startsWith('RSE') ? 'Rookie Scale Extension — eligible now' : 'Veteran Extension — eligible this offseason';
+        return { name: p.name, action: 'keep',
+          detail: `${p.pos} · ${fmtMoney(p.salary)} · ${extType}`,
+          reason: nextComment(extComments), priority: 'low' };
+      });
       result.sections.push({ title: 'Extension-Eligible Players', icon: '📝', recs });
     }
 
-    // Free agents recap
     if (fas.length) {
       const totalHolds = fas.reduce((s,p) => s + (p.capHold||0), 0);
-      const topFAs = fas.sort((a,b) => (b.rat||0) - (a.rat||0)).slice(0, 5);
-      const recs = topFAs.map(p => ({
+      const recs = fas.sort((a,b) => (b.capHold||0) - (a.capHold||0)).slice(0, 5).map((p, i) => ({
         name: p.name, action: 'keep',
-        detail: `${p.pos} · ${fmtMoney(p.capHold)} cap hold · Rating ${(p.rat||0).toFixed(1)} · ${p.exception || 'Free Agent'}`,
-        reason: (p.rat||0) > 10 ? 'Strong contributor — Bird rights allow going over the cap to re-sign' : 'Cap hold weighs on available space',
-        priority: (p.rat||0) > 10 ? 'medium' : 'low'
+        detail: `${p.pos} · ${fmtMoney(p.capHold)} cap hold · ${p.exception || 'Free Agent'}`,
+        reason: (p.rat||0) > 10 ? nextComment(faKeepComments) : nextComment(faHoldComments),
+        priority: 'low'
       }));
       result.sections.push({ title: `Free Agents (${fas.length} players, ${fmtMoney(totalHolds)} total holds)`, icon: '🔓', recs });
     }
 
-    // Non-guaranteed / waivable players
     const waivable = roster.filter(p => p.category === 'non_guaranteed' || p.category === 'partial_guaranteed');
     if (waivable.length) {
-      const recs = waivable.map(p => ({
+      const ngComments = ['Can be released with minimal financial consequences', 'Waivable before the guarantee date — provides flexibility', 'A potential roster spot to open up if needed', 'The front office can decide whether his production warrants the commitment'];
+      const recs = waivable.map((p, i) => ({
         name: p.name, action: 'keep',
-        detail: `${p.pos} · ${fmtMoney(p.salary)} · ${p.category === 'non_guaranteed' ? 'Non-Guaranteed' : 'Partially Guaranteed'} · Rating ${(p.rat||0).toFixed(1)}`,
-        reason: 'Can be waived with minimal cap impact before the guarantee date',
-        priority: 'low'
+        detail: `${p.pos} · ${fmtMoney(p.salary)} · ${p.category === 'non_guaranteed' ? 'Non-Guaranteed' : 'Partially Guaranteed'}`,
+        reason: ngComments[i % ngComments.length], priority: 'low'
       }));
       result.sections.push({ title: 'Non-Guaranteed Contracts', icon: '📋', recs });
     }
   }
 
-  // ---- PRE-DRAFT: Same as pre-lottery but with lottery results context ----
+  // ==================== PRE-DRAFT ====================
   if (phase === 'pre_draft') {
-    // Essentially same as pre-lottery — situation overview
     if (picks.length) {
-      result.sections.push({ title: 'Your Draft Picks', icon: '🎯', recs: picks.map(p => ({
+      const recs = picks.map(p => ({
         name: `Pick #${p.pick}`, action: 'keep',
-        detail: `Projected: ${p.prospect}`,
-        reason: p.pick <= 5 ? 'Lottery pick — expect a starter-level talent' : p.pick <= 14 ? 'Mid-lottery — solid rotation player expected' : p.pick <= 30 ? 'Late first round — look for contributors' : 'Second round — find a diamond in the rough',
+        detail: p.pick <= 5 ? 'Lottery — expect a cornerstone talent' : p.pick <= 14 ? 'Mid-lottery — starter-level prospect expected' : p.pick <= 30 ? 'Late first — solid contributors available' : 'Second round — high-upside projects',
+        reason: `Currently projected to ${p.prospect}`,
         priority: p.pick <= 14 ? 'high' : 'medium'
-      }))});
+      }));
+      
+      // Trading up/down advice
+      if (isRebuilding && picks.every(p => p.pick > 5)) {
+        recs.push({ name: 'Consider Trading Up', action: 'trade_for',
+          detail: 'Package picks and young assets to move into the top 5',
+          reason: 'In a rebuild, consolidating assets into a higher pick can accelerate the timeline — one star is worth more than two role players',
+          priority: 'medium' });
+      } else if (isContender && picks.some(p => p.pick <= 10)) {
+        recs.push({ name: 'Consider Trading Down', action: 'trade_for',
+          detail: 'Move down for additional picks or an established player',
+          reason: 'A win-now team may benefit more from a proven contributor than a raw prospect who needs development time',
+          priority: 'medium' });
+      }
+      
+      // Roster construction advice
+      const rosterSize = cap.rosterCount;
+      const faCount = fas.length;
+      if (picks.length >= 3 && rosterSize >= 13) {
+        recs.push({ name: 'Surplus Picks', action: 'trade_for',
+          detail: `${picks.length} picks but limited roster spots`,
+          reason: 'With a full roster, some picks are better used as trade assets for established players or future capital',
+          priority: 'medium' });
+      } else if (picks.length <= 1 && faCount >= 4 && rosterSize <= 10) {
+        recs.push({ name: 'Thin Roster Ahead', action: 'trade_for',
+          detail: `${faCount} free agents departing, only ${picks.length} pick to replace them`,
+          reason: 'Consider acquiring additional draft picks to replenish depth — the roster could be dangerously thin come training camp',
+          priority: 'high' });
+      }
+      
+      result.sections.push({ title: 'Draft Strategy', icon: '🎯', recs });
     }
 
+    // Same extension/option info as pre-lottery
     const optionPlayers = roster.filter(p => p.category === 'team_option' || p.category === 'player_option');
     if (optionPlayers.length) {
       result.sections.push({ title: 'Option Decisions Pending', icon: '⚖️', recs: optionPlayers.map(p => ({
         name: p.name, action: 'keep',
         detail: `${p.pos} · ${fmtMoney(p.salary)} · ${p.category === 'team_option' ? 'Team Option' : 'Player Option'}`,
-        reason: 'Must be decided before entering free agency',
-        priority: 'medium'
-      }))});
-    }
-
-    const extPlayers = roster.filter(p => p.extEligible && (p.rat||0) > 8);
-    if (extPlayers.length) {
-      result.sections.push({ title: 'Extension Candidates', icon: '📝', recs: extPlayers.sort((a,b) => (b.rat||0) - (a.rat||0)).slice(0, 3).map(p => ({
-        name: p.name, action: 'keep',
-        detail: `${p.pos} · ${fmtMoney(p.salary)} · Rating ${(p.rat||0).toFixed(1)}`,
-        reason: (p.rat||0) > 14 ? 'Core player — extending now could save money long-term' : 'Solid value — worth locking in before free agency',
-        priority: (p.rat||0) > 14 ? 'high' : 'medium'
+        reason: 'Must be decided before entering free agency', priority: 'medium'
       }))});
     }
   }
 
-  // ---- LOTTERY: Draft strategy ----
+  // ==================== LOTTERY ====================
   if (phase === 'lottery') {
     const recs = [];
-    const criticalNeeds = posNeeds.filter(n => n.level === 'critical');
+    const critNeeds = posNeeds.filter(n => n.level === 'critical');
     
-    if (isRebuilding) {
-      recs.push({ name: 'Rebuild Approach', action: 'keep',
-        detail: 'Prioritize talent over fit',
-        reason: 'In a rebuild, always take the best player available regardless of position — you can trade for fit later',
+    if (isRebuilding && !hasYoungCore) {
+      recs.push({ name: 'Full Rebuild Approach', action: 'keep',
+        detail: 'Prioritize ceiling over floor',
+        reason: 'Without an established core, always take the most talented player regardless of position — you can trade for fit later when the timeline becomes clearer',
         priority: 'high' });
-    } else if (criticalNeeds.length) {
-      recs.push({ name: 'Fill the Gap', action: 'keep',
-        detail: `Critical need at ${criticalNeeds.map(n=>n.pos).join(', ')}`,
-        reason: 'With a competitive roster, targeting your biggest positional hole gives immediate impact',
+    } else if (isRebuilding && hasYoungCore) {
+      const coreNames = youngStars.slice(0,2).map(p=>p.name).join(' and ');
+      recs.push({ name: 'Build Around the Core', action: 'keep',
+        detail: `Complement ${coreNames}`,
+        reason: `With ${coreNames} as foundational pieces, target a prospect who fills a complementary role and can grow alongside them`,
+        priority: 'high' });
+    } else if (critNeeds.length) {
+      recs.push({ name: 'Address the Gap', action: 'keep',
+        detail: `Critical need at ${critNeeds.map(n=>n.pos).join(', ')}`,
+        reason: 'For a competitive team, the draft is a chance to fill the biggest hole without dipping into cap space',
         priority: 'high' });
     } else {
-      recs.push({ name: 'Best Available', action: 'keep',
-        detail: 'Balanced roster — flexibility to pick talent',
-        reason: 'No glaring holes means you can take whoever grades out highest on your board',
+      recs.push({ name: 'Best Available Talent', action: 'keep',
+        detail: 'No glaring positional holes',
+        reason: 'A balanced roster gives freedom to take whoever grades highest — focus on upside and fit with the culture',
         priority: 'medium' });
     }
     
-    if (picks.length) {
-      for (const p of picks) {
-        const tierLabel = p.pick <= 5 ? 'Franchise-caliber talent expected' : p.pick <= 14 ? 'Starter-level prospect' : p.pick <= 30 ? 'Rotation player range' : 'Depth and upside picks';
-        recs.push({ name: `Pick #${p.pick}`, action: 'keep', detail: tierLabel,
-          reason: `Currently projected to ${p.prospect}`, priority: p.pick <= 14 ? 'high' : 'medium' });
-      }
+    for (const p of picks) {
+      const tierLabel = p.pick <= 5 ? 'Franchise talent expected at this range' : p.pick <= 14 ? 'Day-one starter potential' : p.pick <= 30 ? 'Rotation-ready contributors' : 'Look for diamonds in the rough';
+      recs.push({ name: `Pick #${p.pick}`, action: 'keep', detail: tierLabel,
+        reason: `Currently projected: ${p.prospect}`, priority: p.pick <= 14 ? 'high' : 'medium' });
     }
     result.sections.push({ title: 'Draft Strategy', icon: '🎯', recs });
   }
 
-  // ---- DRAFT: Player recommendations ----
+  // ==================== DRAFT ====================
   if (phase === 'draft') {
     const current = STATE.draftCurrentPick || 0;
     const drafted = new Set();
@@ -6243,44 +6298,60 @@ function generateAGMRecs() {
     if (nextPick) {
       const pickNum = nextPick.pick;
       const tier = pickNum <= 5 ? 'Star' : pickNum <= 14 ? 'Starter' : pickNum <= 30 ? 'Rotation' : 'Depth';
-      const recs = [];
       
-      // Score prospects: BPA + need + age fit
-      const candidates = available.slice(0, 12).map((name, rank) => {
+      // Only consider prospects REALISTICALLY available at this range
+      // Prospects ranked much higher than the pick are already taken or unrealistic
+      const realisticWindow = Math.max(0, pickNum - 3); // could fall a few spots
+      const realisticEnd = Math.min(available.length, pickNum + 8); // realistic range
+      const realisticPool = available.slice(0, realisticEnd);
+      
+      const candidates = realisticPool.map((name, idx) => {
         const bio = prospectBioMap[name] || {};
         const prospectPos = (bio.position || '?').split('/')[0].split('-')[0].trim().toUpperCase();
         const age = bio.birthDate ? calcProspectAge(bio.birthDate) : null;
         const ageNum = age ? parseFloat(age) : 19;
         const needMatch = posNeeds.find(n => n.pos === prospectPos);
         const needScore = needMatch ? (needMatch.level === 'critical' ? 4 : 2) : 0;
-        // Age preference: rebuilding likes younger, contender likes older/readier
-        const agePref = isRebuilding ? (ageNum <= 19 ? 1.5 : ageNum >= 21 ? -0.5 : 0) 
-                       : isContender ? (ageNum >= 21 ? 1.5 : ageNum <= 19 ? -0.5 : 0) : 0;
-        const bpaScore = 12 - rank;
-        const total = bpaScore + needScore + agePref + ((_agmSeed + rank) % 3 - 1) * 0.3;
-        return { name, bio, rank, total, needScore, prospectPos, ageNum, age: age || '?y' };
+        const agePref = isRebuilding ? (ageNum <= 19 ? 1 : ageNum >= 22 ? -1 : 0) 
+                       : isContender ? (ageNum >= 21 ? 1 : ageNum <= 19 ? -1 : 0) : 0;
+        const boardRank = allProspects.indexOf(name);
+        const bpaScore = Math.max(0, 20 - boardRank);
+        const total = bpaScore + needScore + agePref + ((_seed + idx) % 3 - 1) * 0.4;
+        return { name, bio, boardRank, total, needScore, prospectPos, ageNum, age: age || '?', idx };
       }).sort((a,b) => b.total - a.total);
 
-      // Generate varied reasons for each pick
-      const topCandidates = candidates.slice(0, 3);
-      topCandidates.forEach((p, i) => {
+      const top3 = candidates.slice(0, 3);
+      const recs = [];
+      const usedReasons = new Set();
+      
+      top3.forEach((p, i) => {
         let reason;
-        if (i === 0 && p.needScore > 0) {
-          reason = `Fills the ${p.prospectPos} need — ${tier === 'Star' ? 'a potential franchise cornerstone' : tier === 'Starter' ? 'could step into the starting lineup right away' : 'immediate rotation contributor'}`;
-        } else if (i === 0) {
-          reason = `Highest-graded player on the board — ${tier === 'Star' ? 'generational talent you cannot pass on' : 'the best available prospect at this pick'}`;
-        } else if (p.needScore > 0) {
-          reason = `Addresses the ${p.prospectPos} position gap while still being a strong prospect at #${p.rank+1} overall`;
-        } else if (isRebuilding && p.ageNum <= 19) {
-          reason = `Only ${p.age} old — high ceiling player who fits the development timeline of a rebuild`;
-        } else if (isContender && p.ageNum >= 21) {
-          reason = `At ${p.age}, more NBA-ready than younger options — could contribute to a playoff push immediately`;
+        // Cycle through different reasoning types to avoid repetition
+        if (i === 0 && p.needScore > 0 && !usedReasons.has('need')) {
+          reason = `Fills the ${p.prospectPos} position gap — ${tier === 'Star' ? 'a potential franchise cornerstone at a position of need' : tier === 'Starter' ? 'could start from day one at a thin position' : 'addresses a rotation weakness'}`;
+          usedReasons.add('need');
+        } else if (i === 0 && !usedReasons.has('bpa')) {
+          reason = `The highest-graded prospect available at this pick — ${tier === 'Star' ? 'talent this special comes along rarely' : 'too much value to pass up at this point in the draft'}`;
+          usedReasons.add('bpa');
+        } else if (p.needScore > 0 && !usedReasons.has('need')) {
+          reason = `Addresses the ${p.prospectPos} need while still being a strong talent — ${p.bio.position} from ${p.bio.preDraftTeam || 'unknown'} with ${p.ageNum <= 19 ? 'plenty of room to grow' : 'a polished game'}`;
+          usedReasons.add('need');
+        } else if (p.ageNum <= 19 && isRebuilding && !usedReasons.has('age')) {
+          reason = `At just ${p.age}, he has the highest ceiling in this tier — fits a development-oriented timeline perfectly`;
+          usedReasons.add('age');
+        } else if (p.ageNum >= 21 && isContender && !usedReasons.has('age')) {
+          reason = `More polished than younger alternatives at ${p.age} — could contribute to a playoff run immediately`;
+          usedReasons.add('age');
+        } else if (p.bio.position && !usedReasons.has('versatility')) {
+          const posDesc = (p.bio.position || '').includes('/') ? 'positional versatility' : `a pure ${p.bio.position}`;
+          reason = `Brings ${posDesc} — ${p.bio.preDraftTeam || ''} product who projects as a ${tier === 'Depth' ? 'long-term project' : 'contributor'} at the next level`;
+          usedReasons.add('versatility');
         } else {
-          reason = `Strong value at this range — ${p.bio.position || 'versatile'} prospect with room to grow`;
+          reason = `Strong value at #${pickNum} — a ${(p.bio.position||'versatile')} prospect with ${p.ageNum <= 20 ? 'significant upside' : 'a pro-ready skill set'}`;
         }
         
         recs.push({ name: p.name, action: 'draft',
-          detail: `${p.bio.position || '?'} · ${p.bio.preDraftTeam || '?'} · ${p.age} · Board rank #${p.rank+1}`,
+          detail: `${p.bio.position || '?'} · ${p.bio.preDraftTeam || '?'} · ${p.age}y · Overall rank #${p.boardRank+1}`,
           reason, priority: i === 0 ? 'high' : 'medium' });
       });
       
@@ -6288,68 +6359,88 @@ function generateAGMRecs() {
     }
   }
 
-  // ---- PRE-FA: Options, guarantees, and trade ideas ----
+  // ==================== PRE-FA ====================
   if (phase === 'pre_fa') {
-    // Option decisions with clear recommendations
-    const optionPlayers = roster.filter(p => p.category === 'team_option' || p.category === 'player_option');
-    const undecided = optionPlayers.filter(p => !STATE.optionDecisions[p.name]);
+    // Cap tools first
+    const capRecs = [];
+    if (isCapSpace) capRecs.push({ name: 'Cap Space', action: 'keep', detail: fmtMoney(cap.capSpace) + ' available', reason: 'Use this space before it expires — once the cap is filled, only exceptions remain', priority: 'high' });
+    if (!isApron) capRecs.push({ name: 'Non-Taxpayer Mid-Level', action: 'keep', detail: `~${fmtMoney(T.ntmle)}`, reason: 'Available for up to 4 years — best tool for adding a quality rotation player', priority: 'medium' });
+    if (!isApron) capRecs.push({ name: 'Bi-Annual Exception', action: 'keep', detail: `~${fmtMoney(T.bae)}`, reason: 'Smaller exception useful for adding depth on a short deal', priority: 'low' });
+    if (capRecs.length) result.sections.push({ title: 'Available Cap Tools', icon: '💰', recs: capRecs });
+
+    // Option decisions with alternatives
+    const undecided = roster.filter(p => (p.category === 'team_option' || p.category === 'player_option') && !STATE.optionDecisions[p.name]);
     if (undecided.length) {
       const recs = undecided.map(p => {
         const valueRatio = (p.rat||0) / Math.max((p.salary||1)/1e6, 1);
         const isGoodValue = valueRatio > 1.5 || (p.rat||0) > 12;
         const isTO = p.category === 'team_option';
-        return { name: p.name, action: isTO ? (isGoodValue ? 'exercise' : 'decline') : 'keep',
-          detail: `${p.pos} · ${fmtMoney(p.salary)} · ${isTO ? 'Team Option' : 'Player Option'} · Rating ${(p.rat||0).toFixed(1)}`,
-          reason: isTO 
-            ? (isGoodValue ? 'Production justifies the salary — pick up this option' : 'Overpaid relative to production — declining opens flexibility')
-            : ((p.rat||0) > 12 ? 'Expect him to opt out and test the market' : 'Likely exercises his option at this salary'),
+        const primaryAction = isTO ? (isGoodValue ? 'exercise' : 'decline') : 'keep';
+        const altText = isTO 
+          ? (isGoodValue ? ` Alternatively, declining opens ${fmtMoney(p.salary)} in cap space if a bigger move is planned.` : ` However, picking it up provides a trade-matching salary worth ${fmtMoney(p.salary)}.`)
+          : '';
+        return { name: p.name, action: primaryAction,
+          detail: `${p.pos} · ${fmtMoney(p.salary)} · ${isTO ? 'Team Option' : 'Player Option'}`,
+          reason: (isTO 
+            ? (isGoodValue ? 'Production justifies the salary — worth picking up.' : 'Salary exceeds his production level — declining frees flexibility.') 
+            : ((p.rat||0) > 12 ? 'Expected to opt out and test the open market.' : 'Likely exercises — the salary is above what he would get elsewhere.'))
+            + altText,
           priority: 'high' };
       });
       result.sections.push({ title: 'Option Decisions', icon: '⚖️', recs });
     }
 
-    // Non-guaranteed: waive or guarantee
+    // Non-guaranteed decisions
     const ngPlayers = roster.filter(p => (p.category === 'non_guaranteed' || p.category === 'partial_guaranteed') && !STATE.waived.has(p.name) && !STATE.guaranteed.has(p.name));
     if (ngPlayers.length) {
-      const recs = ngPlayers.map(p => {
-        const isWorth = (p.rat||0) > 6;
-        return { name: p.name, action: isWorth ? 'keep' : 'waive',
-          detail: `${p.pos} · ${fmtMoney(p.salary)} · Rating ${(p.rat||0).toFixed(1)}`,
-          reason: isWorth ? 'Productive enough to keep at this price' : 'Below the production threshold — waiving saves salary',
-          priority: (p.salary||0) > 5e6 ? 'high' : 'medium' };
-      });
+      const recs = ngPlayers.map(p => ({
+        name: p.name, action: (p.rat||0) > 6 ? 'keep' : 'waive',
+        detail: `${p.pos} · ${fmtMoney(p.salary)}`,
+        reason: (p.rat||0) > 6 ? `Productive enough to justify the guarantee — provides depth at ${p.pos}` : `Below the production threshold at ${fmtMoney(p.salary)} — the roster spot has more value than the player`,
+        priority: (p.salary||0) > 5e6 ? 'high' : 'medium'
+      }));
       result.sections.push({ title: 'Guarantee Decisions', icon: '📋', recs });
     }
 
-    // Trade candidates: overpaid or position surplus
+    // Trade candidates with age context
     const tradeCandidates = contractRoster.filter(p => {
       if (p.category === 'traded_in') return false;
-      const valueRatio = (p.rat||0) / Math.max((p.salary||1)/1e6, 1);
+      const val = (p.rat||0) / Math.max((p.salary||1)/1e6, 1);
       const mainPos = (p.pos||'').split('/')[0].trim().toUpperCase();
       const surplus = (pos[mainPos]||0) >= 3;
-      return (valueRatio < 0.5 && (p.salary||0) > 8e6) || (surplus && (p.rat||0) < 10 && (p.salary||0) > 3e6);
+      const ageNum = parseFloat(p.age) || 25;
+      // Young + low value on a rebuilder = might keep for upside
+      if (isRebuilding && ageNum <= 23 && (p.rat||0) > 5) return false;
+      // Old + average on a rebuilder = trade candidate
+      if (isRebuilding && ageNum >= 28 && (p.salary||0) > 5e6) return true;
+      // Win-now: young + low production = doesn't help now
+      if (isContender && ageNum <= 22 && (p.rat||0) < 6 && (p.tv||0) > 0) return true;
+      return (val < 0.5 && (p.salary||0) > 8e6) || (surplus && (p.rat||0) < 10 && (p.salary||0) > 3e6);
     }).sort((a,b) => ((a.rat||0)/Math.max((a.salary||1)/1e6,1)) - ((b.rat||0)/Math.max((b.salary||1)/1e6,1)));
     
     if (tradeCandidates.length) {
-      const recs = tradeCandidates.slice(0, 3).map(p => ({
-        name: p.name, action: 'trade_for',
-        detail: `${p.pos} · ${fmtMoney(p.salary)} · Rating ${(p.rat||0).toFixed(1)} · Trade Value ${(p.tv||0).toFixed(1)}`,
-        reason: posStrengths.length 
-          ? `Surplus at ${posStrengths.join('/')} — his value is better used to fill a different need`
-          : `Salary of ${fmtMoney(p.salary)} exceeds his on-court production — explore the trade market`,
-        priority: (p.salary||0) > 15e6 ? 'high' : 'medium'
-      }));
+      const recs = tradeCandidates.slice(0, 3).map(p => {
+        const ageNum = parseFloat(p.age) || 25;
+        let reason;
+        if (isRebuilding && ageNum >= 28) reason = `At ${Math.floor(ageNum)}, he won't be part of the next competitive window — his salary is better used acquiring younger assets`;
+        else if (isContender && (p.rat||0) < 6) reason = `Not contributing enough for a team trying to win now — his trade value could net a more impactful piece`;
+        else if (posStrengths.length) reason = `Position surplus at ${posStrengths.join('/')} — his value is better used filling a different need via trade`;
+        else reason = `At ${fmtMoney(p.salary)}, the production doesn't match the investment — explore what the trade market offers`;
+        return { name: p.name, action: 'trade_for',
+          detail: `${p.pos} · ${fmtMoney(p.salary)} · Age ${Math.floor(ageNum)}`,
+          reason, priority: (p.salary||0) > 15e6 ? 'high' : 'medium' };
+      });
       result.sections.push({ title: 'Trade Candidates', icon: '🔄', recs });
     }
 
-    // Cap hold management
+    // Cap hold cleanup
     if (fas.length) {
       const renounceable = fas.filter(p => (p.rat||0) <= 6 && (p.capHold||0) >= 3e6).sort((a,b) => (b.capHold||0) - (a.capHold||0));
-      if (renounceable.length && (isCapSpace || cap.capSpace < 20e6)) {
+      if (renounceable.length && cap.capSpace < 20e6) {
         const recs = renounceable.slice(0, 3).map(p => ({
           name: p.name, action: 'renounce',
-          detail: `${p.pos} · ${fmtMoney(p.capHold)} cap hold · Rating ${(p.rat||0).toFixed(1)}`,
-          reason: `Renouncing frees ${fmtMoney(p.capHold)} — unlikely to re-sign at this production level`,
+          detail: `${p.pos} · ${fmtMoney(p.capHold)} cap hold`,
+          reason: `Renouncing frees ${fmtMoney(p.capHold)} — unlikely to bring back at this production level`,
           priority: (p.capHold||0) > 10e6 ? 'high' : 'medium'
         }));
         result.sections.push({ title: 'Cap Hold Cleanup', icon: '🧹', recs });
@@ -6357,124 +6448,113 @@ function generateAGMRecs() {
     }
   }
 
-  // ---- FREE AGENCY: Specific FA targets and trades ----
+  // ==================== FREE AGENCY ====================
   if (phase === 'free_agency') {
-    // Find FAs from OTHER teams that fit needs
-    const otherFAs = allPlayers.filter(p => 
-      p.team !== STATE.team && p.category === 'free_agent' && !p.isTwoWay && (p.rat365||0) > 6
-    );
-    
-    // Score FAs by fit
-    const scoredFAs = otherFAs.map(p => {
-      const mainPos = (p.pos||'').split('/')[0].trim().toUpperCase();
-      const needMatch = posNeeds.find(n => n.pos === mainPos);
-      const needScore = needMatch ? (needMatch.level === 'critical' ? 5 : 2) : 0;
-      const ratScore = (p.rat365||0);
-      // Salary fit: don't recommend max players to cap-strapped teams
-      const holdEst = p.capHold || p.sal26 || 0;
-      let salaryFit = 1;
-      if (isApron && holdEst > 8e6) salaryFit = 0.2;
-      else if (!isCapSpace && holdEst > 20e6) salaryFit = 0.5;
-      const score = (ratScore + needScore) * salaryFit + ((_agmSeed + (p.name.length * 7)) % 5 - 2) * 0.3;
-      return { ...p, score, needScore, mainPos, holdEst };
-    }).sort((a,b) => b.score - a.score);
-
-    const topTargets = scoredFAs.slice(0, 4);
-    if (topTargets.length) {
-      const recs = topTargets.map(p => ({
-        name: p.name, action: 'sign',
-        detail: `${p.pos} · ${fmtMoney(p.holdEst)} est. salary · Rating ${(p.rat365||0).toFixed(1)} · from ${TEAMS[p.team] || p.team}`,
-        reason: p.needScore > 0 
-          ? `Fills the ${p.mainPos} need — ${(p.rat365||0) > 12 ? 'starter-level talent' : 'solid rotation player'}`
-          : `${(p.rat365||0) > 12 ? 'Impact player' : 'Quality depth piece'} available on the open market`,
-        priority: p.needScore > 0 && (p.rat365||0) > 10 ? 'high' : 'medium'
-      }));
-      result.sections.push({ title: 'Free Agent Targets', icon: '✍️', recs });
-    }
+    // Cap tools first
+    const capRecs = [];
+    if (isCapSpace && cap.capSpace > 5e6) capRecs.push({ name: 'Cap Space', action: 'keep', detail: fmtMoney(cap.capSpace), reason: 'Available room to sign free agents outright — use before it disappears', priority: 'high' });
+    if (!isApron) capRecs.push({ name: 'Non-Taxpayer Mid-Level', action: 'keep', detail: `~${fmtMoney(T.ntmle)} · up to 4 years`, reason: posNeeds.length ? `Best used on a ${posNeeds[0].pos}` : 'Save for the best available rotation player', priority: 'medium' });
+    if (isApron) capRecs.push({ name: 'Taxpayer Mid-Level', action: 'keep', detail: `~${fmtMoney(T.tmle)} · up to 2 years`, reason: 'Limited but still useful — target a veteran who can contribute immediately', priority: 'medium' });
+    if (!isApron) capRecs.push({ name: 'Bi-Annual Exception', action: 'keep', detail: `~${fmtMoney(T.bae)} · up to 2 years`, reason: 'Useful for adding a minimum-level depth piece', priority: 'low' });
+    if (capRecs.length) result.sections.push({ title: 'Available Exceptions', icon: '💰', recs: capRecs });
 
     // Re-sign own FAs
     const ownFAs = fas.filter(p => (p.rat||0) > 8).sort((a,b) => (b.rat||0) - (a.rat||0));
     if (ownFAs.length) {
-      const recs = ownFAs.slice(0, 3).map(p => ({
+      const recs = ownFAs.slice(0, 3).map((p, i) => ({
         name: p.name, action: 'sign',
-        detail: `${p.pos} · Rating ${(p.rat||0).toFixed(1)} · ${p.exception || 'Free Agent'}`,
-        reason: `Retain a productive piece — Bird rights allow going over the cap to bring him back`,
-        priority: (p.rat||0) > 12 ? 'high' : 'medium'
+        detail: `${p.pos} · ${p.exception || 'Free Agent'} · ${fmtMoney(p.capHold)} hold`,
+        reason: i === 0 ? 'Top priority to retain — Bird rights allow going over the cap to bring him back' : 'Valuable rotation piece worth keeping — explore re-signing before looking externally',
+        priority: i === 0 ? 'high' : 'medium'
       }));
       result.sections.push({ title: 'Re-Sign Priorities', icon: '🔒', recs });
     }
 
-    // Trade targets: players on other teams who fit
+    // FA targets from other teams — REALISTIC, positional fits
+    const otherFAs = allPlayers.filter(p => 
+      p.team !== STATE.team && p.category === 'free_agent' && !p.isTwoWay && (p.rat365||0) > 5
+    );
+    const scoredFAs = otherFAs.map(p => {
+      const mainPos = (p.pos||'').split('/')[0].trim().toUpperCase();
+      const needMatch = posNeeds.find(n => n.pos === mainPos);
+      const needScore = needMatch ? (needMatch.level === 'critical' ? 5 : 2) : 0;
+      const holdEst = p.capHold || p.sal26 || 0;
+      // Filter by salary fit
+      let salaryFit = 1;
+      if (isApron && holdEst > 8e6) salaryFit = 0;
+      else if (!isCapSpace && holdEst > 25e6) salaryFit = 0.1;
+      else if (isCapSpace && holdEst > cap.capSpace * 0.8) salaryFit = 0.3;
+      // Don't recommend superstars — users will find them on their own
+      if ((p.rat365||0) > 20) salaryFit *= 0.2;
+      const score = ((p.rat365||0) + needScore) * salaryFit + ((_seed + p.name.charCodeAt(0)) % 3 - 1) * 0.2;
+      return { ...p, score, needScore, mainPos, holdEst };
+    }).filter(p => p.score > 3).sort((a,b) => b.score - a.score);
+
+    if (scoredFAs.length) {
+      const faComments = [
+        p => p.needScore > 0 ? `Fills the ${p.mainPos} need — ${(p.rat365||0) > 12 ? 'a starter-level addition' : 'depth at a thin position'}` : `Quality ${p.mainPos} available on the open market`,
+        p => `Coming from ${TEAMS[p.team]||p.team} — could provide ${(p.rat365||0) > 10 ? 'an immediate impact' : 'valuable depth'} at ${p.pos}`,
+        p => `Worth pursuing at the ${fmtMoney(p.holdEst)} salary range — fills a role this team needs`,
+        p => `Experienced ${p.pos} who knows how to contribute on a ${isContender ? 'contender' : 'developing team'}`
+      ];
+      const recs = scoredFAs.slice(0, 4).map((p, i) => ({
+        name: p.name, action: 'sign',
+        detail: `${p.pos} · ~${fmtMoney(p.holdEst)} · ${TEAMS[p.team]||p.team}`,
+        reason: faComments[i % faComments.length](p),
+        priority: p.needScore > 0 ? 'high' : 'medium'
+      }));
+      result.sections.push({ title: 'Free Agent Targets', icon: '✍️', recs });
+    }
+
+    // Realistic trade targets (not superstars)
     if (posNeeds.length) {
       const tradeTargets = allPlayers.filter(p =>
-        p.team !== STATE.team && p.category === 'under_contract' && p.sal27 > 0 && (p.rat365||0) > 10
+        p.team !== STATE.team && p.category === 'under_contract' && p.sal27 > 0 && (p.rat365||0) > 7 && (p.rat365||0) < 20
       ).map(p => {
         const mainPos = (p.pos||'').split('/')[0].trim().toUpperCase();
         const needMatch = posNeeds.find(n => n.pos === mainPos);
-        const score = (p.rat365||0) + (needMatch ? 5 : 0) + ((_agmSeed + p.name.charCodeAt(0)) % 3 - 1);
-        // Cap fit
+        if (!needMatch) return null;
+        // Salary fit
         if (isApron && p.sal27 > 20e6) return null;
+        if (p.sal27 > 40e6) return null; // no max players
+        const score = (p.rat365||0) + (needMatch.level === 'critical' ? 5 : 2) + ((_seed + p.name.charCodeAt(0)) % 3 - 1) * 0.5;
         return { ...p, score, needMatch, mainPos };
       }).filter(Boolean).sort((a,b) => b.score - a.score);
 
-      const topTrades = tradeTargets.slice(0, 3);
-      if (topTrades.length) {
-        const recs = topTrades.map(p => ({
+      if (tradeTargets.length) {
+        const recs = tradeTargets.slice(0, 3).map(p => ({
           name: p.name, action: 'trade_for',
-          detail: `${p.pos} · ${fmtMoney(p.sal27)} · Rating ${(p.rat365||0).toFixed(1)} · ${TEAMS[p.team] || p.team}`,
-          reason: p.needMatch 
-            ? `Addresses the ${p.mainPos} need — under contract through ${p.end || '?'}`
-            : `Upgrade opportunity — significant talent available via trade`,
-          priority: p.needMatch ? 'high' : 'medium'
+          detail: `${p.pos} · ${fmtMoney(p.sal27)} · ${TEAMS[p.team]||p.team} · under contract through ${p.end || '?'}`,
+          reason: `Addresses the ${p.mainPos} need — a realistic trade target at a manageable salary`,
+          priority: 'medium'
         }));
         result.sections.push({ title: 'Trade Targets', icon: '🎯', recs });
       }
     }
-
-    // Signing strategy based on cap
-    const stratRecs = [];
-    if (isCapSpace && cap.capSpace > 15e6) {
-      stratRecs.push({ name: 'Cap Space Available', action: 'keep',
-        detail: `${fmtMoney(cap.capSpace)} to spend`,
-        reason: 'Significant room to make a splash signing — use it before it disappears', priority: 'high' });
-    }
-    if (!isApron) {
-      stratRecs.push({ name: 'Mid-Level Exception', action: 'keep',
-        detail: `~${fmtMoney(T.ntmle)} available`,
-        reason: posNeeds.length ? `Best used on a ${posNeeds[0].pos} — your biggest remaining need` : 'Save for the best available player who fills a role', priority: 'medium' });
-    }
-    if (stratRecs.length) result.sections.push({ title: 'Cap Tools', icon: '💰', recs: stratRecs });
   }
 
-  // ---- TRAINING CAMP: Final cuts and minimums ----
+  // ==================== TRAINING CAMP ====================
   if (phase === 'training_camp') {
     if (cap.rosterCount > 15) {
       const excess = cap.rosterCount - 15;
       const cutCandidates = contractRoster.filter(p => !p.isTwoWay).sort((a,b) => (a.rat||0) - (b.rat||0)).slice(0, excess + 1);
-      const recs = cutCandidates.map(p => ({
-        name: p.name, action: 'waive',
-        detail: `${p.pos} · ${fmtMoney(p.salary)} · Rating ${(p.rat||0).toFixed(1)}`,
-        reason: `Roster needs to get to 15 — lowest-rated players are the natural cuts`,
-        priority: 'high'
-      }));
-      result.sections.push({ title: `Roster Cuts Needed (${excess} over)`, icon: '✂️', recs });
+      result.sections.push({ title: `Roster Cuts Needed (${excess} over limit)`, icon: '✂️', recs: cutCandidates.map(p => ({
+        name: p.name, action: 'waive', detail: `${p.pos} · ${fmtMoney(p.salary)}`,
+        reason: 'Among the lowest-impact players on the roster — a natural cut candidate', priority: 'high'
+      }))});
     } else if (cap.rosterCount < 14) {
       result.sections.push({ title: 'Roster Minimum', icon: '📋', recs: [{
         name: 'Sign Minimum Players', action: 'sign',
-        detail: `Need ${14 - cap.rosterCount} more to reach 14-player minimum`,
-        reason: 'League requires at least 14 players on the roster to start the season',
-        priority: 'high'
+        detail: `Need ${14 - cap.rosterCount} more to reach the 14-player minimum`,
+        reason: 'League rules require at least 14 players on the active roster', priority: 'high'
       }]});
     }
-
-    // Position depth check
+    
     const thinPositions = posNeeds.filter(n => n.level === 'critical' || n.level === 'need');
     if (thinPositions.length) {
       result.sections.push({ title: 'Depth Concerns', icon: '⚠️', recs: thinPositions.map(n => ({
-        name: `${n.pos} Depth`, action: 'sign',
-        detail: n.level === 'critical' ? 'No players at this position' : 'Only one player at this position',
-        reason: `Consider signing a minimum-salary ${n.pos} for depth and injury insurance`,
-        priority: n.level === 'critical' ? 'high' : 'medium'
+        name: `${n.pos} Depth`, action: 'sign', detail: n.level === 'critical' ? 'No players at this position' : 'Only one player listed',
+        reason: `Consider signing a minimum-salary ${n.pos} for injury insurance and rotation depth`, priority: n.level === 'critical' ? 'high' : 'medium'
       }))});
     }
   }
@@ -6515,7 +6595,7 @@ function renderAGMResults(result) {
     h += `</div>`;
   }
   
-  h += `<div style="text-align:center;margin-top:.5rem"><button class="agm-refresh" onclick="refreshAGM()">🔄 New Analysis</button></div>`;
+  // No refresh button — advice is consistent within a simulation
   
   document.getElementById('agmBody').innerHTML = h;
 }
