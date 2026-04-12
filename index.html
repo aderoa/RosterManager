@@ -2036,6 +2036,7 @@ function applyTeamTheme(team) {
 function selectTeam(team) {
   if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
   STATE = loadState(team);
+  _agmCache = {}; // Clear AGM advice for new team
   applyTeamTheme(team);
   document.getElementById('teamSelect').value = team;
   document.getElementById('appContent').style.display = 'block';
@@ -5955,7 +5956,7 @@ function openAGM() {
       try { generateAGMRecs(); }
       catch(e) {
         console.error('[AGM] Error:', e);
-        document.getElementById('agmBody').innerHTML = `<div class="agm-error"><div>Error: ${e.message}</div><div style="font-size:.5rem;color:var(--muted);margin-top:.5rem;white-space:pre-wrap">${e.stack||''}</div></div>`;
+        document.getElementById('agmBody').innerHTML = '<div class="agm-error">Something went wrong. Please try again.</div>';
       }
     }, 50);
   }
@@ -6141,7 +6142,8 @@ function generateAGMRecs() {
   
   const capDesc = `${cap.status} with ${fmtMoney(Math.abs(cap.capSpace))} ${cap.capSpace >= 0 ? 'in available space' : 'over the cap'}`;
   const needDesc = posNeeds.length ? 'Positional gaps: ' + posNeeds.map(n => posGroupFromStr(n.pos) + (n.level==='critical'?' (empty)':' (thin)')).join(', ') + '.' : 'Roster is positionally balanced.';
-  result.overview = `The ${teamAbbrev} are ${profileDesc}. Cap situation: ${capDesc}. ${needDesc}`;
+  const renounceNote = totalHolds > 0 && maxCapSpace > 0 ? ` Up to ${fmtMoney(maxCapSpace)} in cap space if all holds are renounced.` : totalHolds > 0 ? ` Even renouncing all holds, the team remains ${fmtMoney(Math.abs(maxCapSpace))} over the cap.` : '';
+  result.overview = `The ${teamAbbrev} are ${profileDesc}. Cap situation: ${capDesc}.${renounceNote} ${needDesc}`;
 
   // Max cap space if all holds renounced
   const totalHolds = fas.reduce((s,p) => s + (p.capHold||0), 0);
@@ -6168,15 +6170,19 @@ function generateAGMRecs() {
         const isTO = p.category === 'team_option';
         const val = (p.rat||0) / Math.max((p.salary||1)/1e6, 1);
         const isGoodVal = val > 1.5 || (p.rat||0) > 12;
+        const isMin = (p.salary||0) <= MIN_SALARY_0YOS * 1.2;
         const ageNum = parseFloat(p.age) || 25;
+        const hasTVValue = (p.tv||0) > 3;
         let advice;
         if (isTO) {
-          if (isGoodVal) advice = `Leaning toward picking up — solid production at ${fmtMoney(p.salary)} is fair value`;
-          else if (isApron) advice = `At ${fmtMoney(p.salary)}, declining would help navigate the apron — but he provides ${posGroup(p)} depth`;
-          else if (isRebuilding && ageNum >= 28) advice = `At ${Math.floor(ageNum)}, he doesn't fit the rebuild timeline — likely decline`;
-          else advice = `Could go either way — ${fmtMoney(p.salary)} is steep for his production, but the contract has trade value`;
+          if (isMin) advice = `At the minimum salary, this is a no-brainer pickup — virtually no cost for ${posGroup(p)} depth`;
+          else if (isGoodVal) advice = `Leaning toward picking up — solid production at ${fmtMoney(p.salary)} represents good value`;
+          else if (isApron) advice = `At ${fmtMoney(p.salary)}, declining would help navigate the apron — though he does provide ${posGroup(p)} depth`;
+          else if (isRebuilding && ageNum >= 28) advice = `At ${Math.floor(ageNum)}, doesn't align with the rebuild timeline — declining saves ${fmtMoney(p.salary)} for younger investments`;
+          else if (!hasTVValue && (p.rat||0) < 4) advice = `Limited production and trade value suggest declining — the ${fmtMoney(p.salary)} and roster spot are worth more`;
+          else advice = `Production doesn't quite match ${fmtMoney(p.salary)}, but picking up creates a tradeable contract for salary matching`;
         } else {
-          advice = (p.rat||0) > 10 ? `Likely opts out at ${Math.floor(ageNum)} to pursue a bigger contract on the open market` : `May exercise at ${fmtMoney(p.salary)} — above what he'd get elsewhere`;
+          advice = (p.rat||0) > 10 ? `Likely opts out at ${Math.floor(ageNum)} to pursue a larger deal on the open market` : `Expected to exercise at ${fmtMoney(p.salary)} — it's above what the market would offer him`;
         }
         return { name: p.name, action: 'info',
           detail: `${p.pos} · ${fmtMoney(p.salary)} · ${isTO ? 'Team Option' : 'Player Option'}`,
@@ -6210,7 +6216,7 @@ function generateAGMRecs() {
       const recs = fas.sort((a,b) => (b.capHold||0) - (a.capHold||0)).slice(0, 6).map((p, i) => {
         const isMinLevel = estMarketValue(p.rat||0) <= MIN_SALARY_0YOS * 1.5;
         let advice;
-        if (isMinLevel) advice = 'Can be re-signed at the minimum without needing his cap hold — renouncing costs nothing';
+        if (isMinLevel) advice = 'Can be re-signed without using an exception — renouncing this hold frees cap space at no cost';
         else if ((p.rat||0) > 10) advice = `Bird rights allow going over the cap to re-sign — keeping the hold preserves this flexibility`;
         else if ((p.capHold||0) > 15e6) advice = `Large cap hold of ${fmtMoney(p.capHold)} for a player who may not return — worth evaluating`;
         else advice = `Carries a ${fmtMoney(p.capHold)} cap hold that weighs on available space`;
@@ -6262,17 +6268,24 @@ function generateAGMRecs() {
           return { name, bio, boardRank, needScore, pPos, ageNum, age: age||'?', total: (20-boardRank) + needScore + agePref + ((_seed+boardRank)%3-1)*0.3 };
         }).sort((a,b) => b.total - a.total);
 
-        const recs = scored.slice(0, 3).map((p, i) => {
+        const recs = scored.slice(0, 2).map((p, i) => {
           const pg = posGroupFromStr(p.pPos);
           let reason;
-          if (i === 0 && p.needScore > 0) reason = `Addresses the ${pg} need — realistic and smart at #${pickNum}`;
-          else if (i === 0) reason = `Best prospect realistically available at this range`;
-          else if (p.needScore > 0) reason = `A ${pg} who fills a positional gap — strong fit`;
-          else reason = `${p.bio.position||'Versatile'} prospect from ${p.bio.preDraftTeam||'unknown'} — ${p.ageNum <= 19 ? 'high-ceiling talent' : 'polished and ready to contribute'}`;
+          if (p.needScore > 0) reason = i === 0 ? `Addresses the ${pg} need — realistic and smart at #${pickNum}` : `Another ${pg} option who fills a positional gap`;
+          else reason = i === 0 ? `Top talent realistically available at this range` : `Strong prospect from ${p.bio.preDraftTeam||'unknown'} — ${p.ageNum <= 19 ? 'high-ceiling talent with room to grow' : p.ageNum <= 20 ? 'good blend of upside and readiness' : 'experienced and NBA-ready at ' + p.age}`;
           return { name: p.name, action: 'info',
             detail: `${p.bio.position||'?'} · ${p.bio.preDraftTeam||'?'} · ${p.age}y · Overall #${p.boardRank+1}`,
             reason, priority: i === 0 ? 'high' : 'medium' };
         });
+        // Add a pure BPA alternative (highest board rank not already recommended)
+        const bpaAlt = scored.find(p => !recs.some(r => r.name === p.name) && p.needScore === 0) || scored.find(p => !recs.some(r => r.name === p.name));
+        if (bpaAlt) {
+          const pg = posGroupFromStr(bpaAlt.pPos);
+          recs.push({ name: bpaAlt.name, action: 'info',
+            detail: `${bpaAlt.bio.position||'?'} · ${bpaAlt.bio.preDraftTeam||'?'} · ${bpaAlt.age}y · Overall #${bpaAlt.boardRank+1}`,
+            reason: `Pure talent play — the best available prospect regardless of position`,
+            priority: 'low' });
+        }
         result.sections.push({ title: `Pick #${pickNum} Targets — ${tier} Tier`, icon: '🎯', recs });
       }
 
@@ -6353,35 +6366,65 @@ function generateAGMRecs() {
         return { name, bio, boardRank, total, needScore, pPos, ageNum, age: age||'?', idx };
       }).sort((a,b) => b.total - a.total);
 
-      const top3 = candidates.slice(0, 3);
+      const top = candidates.slice(0, 5); // get a wider pool
       const recs = [];
       const usedTypes = new Set();
+      const olderPhrases = [
+        `More polished at ${top[0]?.age || '?'} — could contribute to a playoff run right away`,
+        `College experience shows — more NBA-ready than younger alternatives`,
+        `At ${top[0]?.age || '?'}, brings maturity and a refined skill set to the rotation`,
+        `Experienced prospect who can step in and produce immediately`
+      ];
+      let _oi = (_seed % 4);
       
-      top3.forEach((p, i) => {
-        const pg = posGroupFromStr(p.pPos);
+      // Pick 1: Best strategic fit (need or BPA)
+      const strat1 = top[0];
+      if (strat1) {
+        const pg = posGroupFromStr(strat1.pPos);
         let reason;
-        if (p.needScore > 0 && !usedTypes.has('need')) {
+        if (strat1.needScore > 0) {
           reason = `Fills the ${pg} gap — ${tier === 'Star' ? 'a cornerstone at a position of need' : tier === 'Starter' ? 'could step into the starting lineup immediately' : 'addresses a rotation weakness'}`;
           usedTypes.add('need');
-        } else if (!usedTypes.has('bpa')) {
+        } else {
           reason = `The best prospect still on the board at #${pickNum} — too much value to pass up`;
           usedTypes.add('bpa');
-        } else if (p.ageNum <= 19 && isRebuilding && !usedTypes.has('age')) {
-          reason = `At ${p.age}, highest ceiling in this group — fits the development timeline of a young team`;
-          usedTypes.add('age');
-        } else if (p.ageNum >= 21 && isContender && !usedTypes.has('age')) {
-          reason = `More polished at ${p.age} — could contribute to a playoff run right away`;
-          usedTypes.add('age');
-        } else if (!usedTypes.has('pos')) {
-          reason = `A ${pg} from ${p.bio.preDraftTeam||'unknown'} who projects as a ${tier === 'Depth' ? 'long-term project' : 'solid contributor'} at the next level`;
-          usedTypes.add('pos');
-        } else {
-          reason = `${p.bio.position||'Versatile'} prospect — ${p.ageNum <= 20 ? 'high upside' : 'pro-ready skill set'} at this range`;
         }
-        recs.push({ name: p.name, action: 'draft',
-          detail: `${p.bio.position||'?'} · ${p.bio.preDraftTeam||'?'} · ${p.age}y · Overall #${p.boardRank+1}`,
-          reason, priority: i === 0 ? 'high' : 'medium' });
-      });
+        recs.push({ name: strat1.name, action: 'draft',
+          detail: `${strat1.bio.position||'?'} · ${strat1.bio.preDraftTeam||'?'} · ${strat1.age}y · Overall #${strat1.boardRank+1}`,
+          reason, priority: 'high' });
+      }
+      
+      // Pick 2: Different strategic angle
+      const strat2 = top.find(p => p !== strat1 && (
+        (p.needScore > 0 && !usedTypes.has('need')) || 
+        (p.ageNum <= 19 && isRebuilding) || 
+        (p.ageNum >= 21 && isContender)
+      )) || top[1];
+      if (strat2 && strat2 !== strat1) {
+        const pg = posGroupFromStr(strat2.pPos);
+        let reason;
+        if (strat2.needScore > 0 && !usedTypes.has('need')) {
+          reason = `Another option to address the ${pg} need — different profile but fills the same gap`;
+        } else if (strat2.ageNum <= 19 && isRebuilding) {
+          reason = `At just ${strat2.age}, the highest ceiling in this tier — fits the development timeline`;
+        } else if (strat2.ageNum >= 21 && isContender) {
+          reason = olderPhrases[(_oi++) % olderPhrases.length];
+        } else {
+          reason = `A ${pg} from ${strat2.bio.preDraftTeam||'unknown'} who projects as a ${tier === 'Depth' ? 'developmental piece' : 'rotation contributor'}`;
+        }
+        recs.push({ name: strat2.name, action: 'draft',
+          detail: `${strat2.bio.position||'?'} · ${strat2.bio.preDraftTeam||'?'} · ${strat2.age}y · Overall #${strat2.boardRank+1}`,
+          reason, priority: 'medium' });
+      }
+      
+      // Pick 3: Pure BPA alternative (different from above)
+      const bpaAlt = top.find(p => p !== strat1 && p !== strat2);
+      if (bpaAlt) {
+        recs.push({ name: bpaAlt.name, action: 'draft',
+          detail: `${bpaAlt.bio.position||'?'} · ${bpaAlt.bio.preDraftTeam||'?'} · ${bpaAlt.age}y · Overall #${bpaAlt.boardRank+1}`,
+          reason: `Pure talent pick — the best available prospect regardless of positional fit`,
+          priority: 'low' });
+      }
       result.sections.push({ title: `Pick #${pickNum} — ${tier} Tier`, icon: '🎯', recs });
     }
   }
@@ -6411,12 +6454,13 @@ function generateAGMRecs() {
           else if (isGoodVal) reason = `Production justifies the cost at ${fmtMoney(p.salary)}. That said, declining frees ${fmtMoney(p.salary)} and the roster spot.`;
           else if (isRebuilding && ageNum >= 28) reason = `At ${Math.floor(ageNum)}, doesn't fit the rebuild window. Declining saves ${fmtMoney(p.salary)} and opens a developmental spot.`;
           else if (isApron) reason = `For an apron team, ${fmtMoney(p.salary)} is significant. Declining provides cap relief, though picking up gives a tradeable contract.`;
+          else if ((p.tv||0) < 3 && (p.rat||0) < 4) reason = `Limited production and trade value — the ${fmtMoney(p.salary)} and roster spot are worth more than keeping him.`;
           else reason = `${fmtMoney(p.salary)} exceeds his output. Declining frees flexibility, but the contract has trade-matching value if picked up.`;
         } else {
           if ((p.rat||0) > 12) reason = `At ${Math.floor(ageNum)}, likely opts out to pursue a max or near-max deal on the open market.`;
           else reason = `May exercise at ${fmtMoney(p.salary)} — it's above what he'd likely get on the market. Plan for him staying.`;
         }
-        return { name: p.name, action: isTO ? (isGoodVal || isMin ? 'exercise' : 'decline') : 'info',
+        return { name: p.name, action: isTO ? (isGoodVal || isMin ? 'exercise' : ((p.tv||0) < 3 && (p.rat||0) < 4) ? 'decline' : 'decline') : 'info',
           detail: `${p.pos} · ${fmtMoney(p.salary)} · ${isTO ? 'Team Option' : 'Player Option'}`,
           reason, priority: 'high' };
       });
@@ -6476,7 +6520,7 @@ function generateAGMRecs() {
           const isMinLevel = estMarketValue(p.rat||0) <= MIN_SALARY_0YOS * 1.5;
           return { name: p.name, action: 'renounce',
             detail: `${posGroup(p)} · ${fmtMoney(p.capHold)} cap hold`,
-            reason: isMinLevel ? `Can be re-signed at the minimum without needing Bird rights — renouncing this hold is free cap space` : `Frees ${fmtMoney(p.capHold)} — unlikely to return at this production level`,
+            reason: isMinLevel ? `Can be re-signed without using an exception — renouncing this hold frees cap space at no cost` : `Frees ${fmtMoney(p.capHold)} — unlikely to return at this production level`,
             priority: (p.capHold||0) > 10e6 ? 'high' : 'medium' };
         });
         result.sections.push({ title: 'Cap Hold Cleanup', icon: '🧹', recs });
