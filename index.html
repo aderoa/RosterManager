@@ -6119,6 +6119,8 @@ function generateAGMRecs() {
   const isLotteryTeam = standingsRank <= 14;
   const isContender = standingsRank >= 25;
   const isRebuilding = standingsRank <= 5;
+  const isCapSpace = cap.status === 'Cap Space';
+  const isApron = cap.status.includes('Apron');
   const youngStars = contractRoster.filter(p => parseFloat(p.age) <= 25 && (p.rat||0) > 10);
   const hasYoungCore = youngStars.length >= 2;
   
