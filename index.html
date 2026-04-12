@@ -5951,7 +5951,13 @@ function openAGM() {
         <div class="agm-loading-text">Analyzing your roster...</div>
         <div class="agm-loading-sub">Building recommendations for ${PHASES.find(p=>p.id===phase)?.label || phase}</div>
       </div>`;
-    generateAGMRecs();
+    setTimeout(() => {
+      try { generateAGMRecs(); }
+      catch(e) {
+        console.error('[AGM] Error:', e);
+        document.getElementById('agmBody').innerHTML = `<div class="agm-error"><div>Error: ${e.message}</div><div style="font-size:.5rem;color:var(--muted);margin-top:.5rem;white-space:pre-wrap">${e.stack||''}</div></div>`;
+      }
+    }, 50);
   }
 }
 
@@ -5968,7 +5974,13 @@ function refreshAGM() {
       <div class="agm-loading-text">Re-analyzing...</div>
       <div class="agm-loading-sub">Generating fresh recommendations</div>
     </div>`;
-  generateAGMRecs();
+  setTimeout(() => {
+    try { generateAGMRecs(); }
+    catch(e) {
+      console.error('[AGM] Error:', e);
+      document.getElementById('agmBody').innerHTML = `<div class="agm-error"><div>Error: ${e.message}</div></div>`;
+    }
+  }, 50);
 }
 
 function buildAGMContext() {
