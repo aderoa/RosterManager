@@ -9030,9 +9030,9 @@ async function init() {
       for (const key of Object.keys(localStorage)) {
         if (key.startsWith('rm_state_') || key === 'rm_last_team') localStorage.removeItem(key);
       }
-      selectTeam(matchedTeam);
       
       // Check for phase in second segment
+      let targetPhase = null;
       if (relevantParts.length >= 2) {
         const phasePart = relevantParts[1].toLowerCase().replace(/-/g, '_');
         const PHASE_ALIASES = {
@@ -9045,10 +9045,25 @@ async function init() {
           'training_camp': 'training_camp', 'trainingcamp': 'training_camp', 'camp': 'training_camp',
           'season_ready': 'season_ready', 'seasonready': 'season_ready', 'ready': 'season_ready'
         };
-        const targetPhase = PHASE_ALIASES[phasePart];
-        if (targetPhase && STATE && targetPhase !== 'pre_lottery') {
-          setTimeout(() => autoSimulateToPhase(targetPhase), 100);
-        }
+        targetPhase = PHASE_ALIASES[phasePart] || null;
+      }
+      
+      // If phase specified, pre-seed the state BEFORE selectTeam loads it
+      if (targetPhase && targetPhase !== 'pre_lottery') {
+        const preState = defaultState(matchedTeam);
+        preState.phase = targetPhase;
+        preState._overviewSeen = true;
+        // Save so loadState() picks it up
+        const stateKey = 'rm_state_' + matchedTeam;
+        const serializable = { ...preState, renounced: [...preState.renounced], waived: [...preState.waived], stretched: [...preState.stretched], guaranteed: [...preState.guaranteed], dwSkipped: [...preState.dwSkipped] };
+        localStorage.setItem(stateKey, JSON.stringify(serializable));
+      }
+      
+      selectTeam(matchedTeam);
+      
+      // Run auto-simulation after selectTeam loaded the pre-seeded state
+      if (targetPhase && targetPhase !== 'pre_lottery' && STATE) {
+        autoSimulateToPhase(targetPhase);
       }
       return;
     }
