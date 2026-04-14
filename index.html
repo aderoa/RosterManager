@@ -923,7 +923,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v8.5 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v8.7 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -933,7 +933,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.5</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.7</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -6320,7 +6320,7 @@ function generateAGMRecs() {
   const isEliminated = ELIMINATED_ABBREVS.has(teamAbbrev);
   const isRebuilding = isEliminated && lotteryRank >= 0 && lotteryRank <= 4; // bottom 5 of eliminated
   const isPlayIn = isLotteryTeam && !isEliminated; // in lottery order but not eliminated = play-in
-  const isContender = !isEliminated; // playoffs or play-in
+  const isContender = !isEliminated; // all non-eliminated teams; win tiers determine description
   
   // Star tiers by REAL VALUE (baseTV without potential bonus — matches standalone Trade Value ranking)
   const allRostered = contractRoster.filter(p => !p.isTwoWay);
@@ -6485,9 +6485,11 @@ function generateAGMRecs() {
       profileDesc = 'in the playoff mix but need upgrades to become a legitimate contender';
     }
   } else if (isContender) {
-    // Under 40 wins but not eliminated (play-in fringe)
-    if (isStar) {
-      profileDesc = `on the fringes of the playoffs, anchored by ${bestPlayer.name} — facing a pivotal offseason`;
+    // Under 40 wins but not eliminated (playoff fringe)
+    if (isStar && bestPlayerAge > 30) {
+      profileDesc = `on the fringes of the playoffs despite ${bestPlayer.name} — facing a pivotal offseason on the franchise's direction`;
+    } else if (isStar) {
+      profileDesc = `on the fringes of the playoffs behind ${bestPlayer.name} — need significant upgrades to compete`;
     } else {
       profileDesc = 'on the fringes of the playoffs — facing a pivotal offseason';
     }
