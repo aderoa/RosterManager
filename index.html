@@ -6207,33 +6207,115 @@ function generateAGMRecs() {
   function pick(arr) { return arr[(_ci++) % arr.length]; }
   
   // ===== TEAM PROFILE =====
-  let standingsRank = 30;
-  for (let i = 1; i <= 60; i++) { if (allPickSlots[i] && allPickSlots[i].team === teamAbbrev) { standingsRank = i; break; } }
-  const isLotteryTeam = standingsRank <= 14;
-  const isContender = standingsRank >= 25;
-  const isRebuilding = standingsRank <= 5;
   const isCapSpace = cap.status === 'Cap Space';
   const isApron = cap.status.includes('Apron');
-  const youngStars = contractRoster.filter(p => parseFloat(p.age) <= 25 && (p.rat||0) > 10);
+
+  // Standings: use preLotteryOrder (actual record, worst to best, indices 0-13 = lottery)
+  const isLotteryTeam = preLotteryOrder.includes(teamAbbrev);
+  const lotteryRank = preLotteryOrder.indexOf(teamAbbrev); // 0=worst, 13=14th worst; -1=playoff
+  const isRebuilding = lotteryRank >= 0 && lotteryRank <= 4; // bottom 5
+  const isFringe = lotteryRank >= 10; // picks 11-14, close to playoffs
+  const isContender = !isLotteryTeam; // made the playoffs
+  
+  // Star tiers by rating
+  const allRostered = contractRoster.filter(p => !p.isTwoWay);
+  const stars = allRostered.filter(p => (p.rat||0) > 15).sort((a,b) => (b.rat||0) - (a.rat||0));
+  const starters = allRostered.filter(p => (p.rat||0) > 10);
+  const rotationPlayers = allRostered.filter(p => (p.rat||0) > 6);
+  
+  // Age composition
+  const youngStars = starters.filter(p => parseFloat(p.age) <= 25);
+  const primeStars = starters.filter(p => { const a = parseFloat(p.age); return a > 25 && a <= 29; });
+  const vetStars = starters.filter(p => parseFloat(p.age) > 29);
   const hasYoungCore = youngStars.length >= 2;
+  const hasVetCore = vetStars.length >= 2 || (vetStars.length >= 1 && primeStars.length >= 1 && stars.some(s => parseFloat(s.age) > 28));
+  const hasPrimeCore = primeStars.length >= 2 || (primeStars.length >= 1 && stars.length >= 2);
   
+  // ===== POSITION ANALYSIS: Quality (rotation top 9) + Depth (full roster) =====
+  const POS_GROUPS = { PG: 'playmaker', SG: 'wing', SF: 'wing', PF: 'big', C: 'big' };
+  function getGroup(p) { return POS_GROUPS[(p.pos||'SF').split('/')[0].split('-')[0].trim().toUpperCase()] || 'wing'; }
+  
+  // Rotation = top 9 by rating (quality)
+  const rotation = [...allRostered].sort((a,b) => (b.rat||0) - (a.rat||0)).slice(0, 9);
+  const rotByGroup = { playmaker: [], wing: [], big: [] };
+  for (const p of rotation) rotByGroup[getGroup(p)].push(p);
+  
+  // Full roster (depth)
+  const fullByGroup = { playmaker: [], wing: [], big: [] };
+  for (const p of allRostered) fullByGroup[getGroup(p)].push(p);
+  
+  // Position needs: quality first, then depth
   const posNeeds = [], posStrengths = [];
-  for (const [p, count] of Object.entries(pos)) {
-    if (count === 0) posNeeds.push({ pos: p, level: 'critical' });
-    else if (count === 1) posNeeds.push({ pos: p, level: 'need' });
-    else if (count >= 4) posStrengths.push(p);
-  }
-  const needGroups = posNeeds.map(n => posGroupFromStr(n.pos));
+  const groupLabels = { playmaker: 'playmaker', wing: 'wing', big: 'big man' };
   
+  for (const [grp, label] of Object.entries(groupLabels)) {
+    const rotCount = rotByGroup[grp].length;
+    const rotQuality = rotByGroup[grp].reduce((s,p) => s + (p.rat||0), 0) / Math.max(rotCount, 1);
+    const fullCount = fullByGroup[grp].length;
+    const expectedRot = grp === 'wing' ? 4 : grp === 'big' ? 3 : 2; // expected in top-9 rotation
+    const expectedDepth = grp === 'wing' ? 5 : grp === 'big' ? 4 : 3; // expected on full roster
+    
+    if (rotCount === 0) {
+      // Map back to raw positions for downstream compatibility
+      const rawPositions = grp === 'playmaker' ? ['PG'] : grp === 'wing' ? ['SG','SF'] : ['PF','C'];
+      rawPositions.forEach(rp => posNeeds.push({ pos: rp, level: 'critical', group: grp }));
+    } else if (rotCount < expectedRot && rotQuality < 8) {
+      const rawPositions = grp === 'playmaker' ? ['PG'] : grp === 'wing' ? ['SG'] : ['C'];
+      rawPositions.forEach(rp => posNeeds.push({ pos: rp, level: 'quality', group: grp }));
+    } else if (fullCount < expectedDepth) {
+      const rawPositions = grp === 'playmaker' ? ['PG'] : grp === 'wing' ? ['SF'] : ['PF'];
+      rawPositions.forEach(rp => posNeeds.push({ pos: rp, level: 'depth', group: grp }));
+    } else if (fullCount >= expectedDepth + 2) {
+      posStrengths.push(grp);
+    }
+  }
+  
+  // Also keep raw pos counts for backward compatibility in downstream code
+  const needGroups = [...new Set(posNeeds.map(n => n.group))].map(g => groupLabels[g]);
+  
+  // ===== TEAM DESCRIPTION =====
   let profileDesc;
-  if (isRebuilding) profileDesc = hasYoungCore ? 'rebuilding around a promising young core' : 'in full rebuild mode, accumulating assets and developing talent';
-  else if (isContender) profileDesc = 'a top contender with legitimate championship aspirations';
-  else if (standingsRank >= 20) profileDesc = hasYoungCore ? 'a rising team with a talented young nucleus' : 'a competitive playoff team looking to improve';
-  else if (isLotteryTeam && hasYoungCore) profileDesc = 'a young team on the rise — not far from playoff contention';
-  else profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
+  if (isRebuilding && !hasYoungCore) {
+    profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
+  } else if (isRebuilding && hasYoungCore) {
+    profileDesc = `rebuilding around a promising young core led by ${youngStars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')}`;
+  } else if (isLotteryTeam && hasYoungCore) {
+    profileDesc = `a young team on the rise with ${youngStars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')} leading the way`;
+  } else if (isLotteryTeam && hasVetCore) {
+    profileDesc = 'a veteran team that underperformed — facing decisions on the direction of the franchise';
+  } else if (isLotteryTeam && isFringe) {
+    profileDesc = 'on the playoff bubble, needing targeted upgrades to break through';
+  } else if (isLotteryTeam) {
+    profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
+  } else if (isContender && stars.length >= 2 && hasVetCore) {
+    profileDesc = `a veteran-led contender built around ${stars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')} — the championship window is now`;
+  } else if (isContender && stars.length >= 2 && hasPrimeCore) {
+    profileDesc = `a strong playoff team with ${stars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')} in their prime — built to compete`;
+  } else if (isContender && hasYoungCore) {
+    profileDesc = `a playoff team powered by young talent — ${youngStars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')} are just getting started`;
+  } else if (isContender && stars.length >= 1) {
+    profileDesc = `a competitive playoff team anchored by ${stars[0].name.split(' ').pop()}`;
+  } else if (isContender) {
+    profileDesc = 'a solid playoff team looking to take the next step';
+  } else {
+    profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
+  }
   
   const capDesc = `${cap.status} with ${fmtMoney(Math.abs(cap.capSpace))} ${cap.capSpace >= 0 ? 'in available space' : 'over the cap'}`;
-  const needDesc = posNeeds.length ? 'Positional gaps: ' + posNeeds.map(n => posGroupFromStr(n.pos) + (n.level==='critical'?' (empty)':' (thin)')).join(', ') + '.' : 'Roster is positionally balanced.';
+  
+  // Position needs description (quality vs depth distinction)
+  let needDesc;
+  if (!posNeeds.length) {
+    needDesc = 'Roster is balanced in both quality and depth.';
+  } else {
+    const qualityNeeds = [...new Set(posNeeds.filter(n => n.level === 'critical' || n.level === 'quality').map(n => groupLabels[n.group]))];
+    const depthNeeds = [...new Set(posNeeds.filter(n => n.level === 'depth').map(n => groupLabels[n.group]))];
+    const parts = [];
+    if (qualityNeeds.length) parts.push('needs a rotation-level ' + qualityNeeds.join(' and '));
+    if (depthNeeds.length) parts.push('thin on ' + depthNeeds.join(' and ') + ' depth');
+    needDesc = parts.join('; ') + '.';
+    needDesc = needDesc.charAt(0).toUpperCase() + needDesc.slice(1);
+  }
 
   // Max cap space if all holds renounced
   const totalHolds = fas.reduce((s,p) => s + (p.capHold||0), 0);
@@ -6595,7 +6677,7 @@ function generateAGMRecs() {
         let reason;
         if (isRebuilding && ageNum >= 28) reason = `At ${Math.floor(ageNum)}, he's outside the rebuild timeline — his ${fmtMoney(p.salary)} salary could bring back younger assets or future picks`;
         else if (isContender && (p.rat||0) < 6) reason = `Not contributing enough for a team in win-now mode — his trade value could net a more impactful ${posGroup(p)}`;
-        else if (posStrengths.length) reason = `Surplus at the ${posGroupFromStr(posStrengths[0])} spots — his value is better used addressing a different need via trade`;
+        else if (posStrengths.length) reason = `Surplus at the ${posStrengths[0]} spots — his value is better used addressing a different need via trade`;
         else reason = `At ${fmtMoney(p.salary)}, the production doesn't match the investment — the trade market may offer better alternatives`;
         return { name: p.name, action: 'trade_for',
           detail: `${p.pos} · ${fmtMoney(p.salary)} · Age ${Math.floor(ageNum)}`, reason, priority: (p.salary||0) > 15e6 ? 'high' : 'medium' };
@@ -6726,19 +6808,23 @@ function generateAGMRecs() {
     }
     
     // Depth concerns with actual player suggestions
-    const thinPositions = posNeeds.filter(n => n.level === 'critical' || n.level === 'need');
+    const thinPositions = posNeeds.filter(n => n.level === 'critical' || n.level === 'quality' || n.level === 'depth');
     if (thinPositions.length) {
-      const recs = thinPositions.map(n => {
-        const pg = posGroupFromStr(n.pos);
+      // Deduplicate by group (avoid showing both PF and C for same big man need)
+      const seenGroups = new Set();
+      const deduped = thinPositions.filter(n => { if (seenGroups.has(n.group)) return false; seenGroups.add(n.group); return true; });
+      const recs = deduped.map(n => {
+        const pg = groupLabels[n.group] || posGroupFromStr(n.pos);
         // Find FAs at this position the team could realistically sign
         const candidates = allPlayers.filter(p =>
           p.team !== STATE.team && p.category === 'free_agent' && !p.isTwoWay &&
           (p.pos||'').toUpperCase().includes(n.pos) && estMarketValue(p.rat365||0) <= (isApron ? T.tmle : T.ntmle)
         ).sort((a,b) => (b.rat365||0) - (a.rat365||0)).slice(0, 2);
         
+        const levelLabel = n.level === 'critical' ? 'Empty' : n.level === 'quality' ? 'Lacks rotation quality' : 'Thin on depth';
         const detail = candidates.length 
-          ? `${n.level === 'critical' ? 'Empty' : 'Thin'} — options include ${candidates.map(c => c.name + ' (~' + fmtEst(estMarketValue(c.rat365||0)) + ')').join(', ')}`
-          : `${n.level === 'critical' ? 'No players' : 'Only one player'} — consider a minimum-salary ${pg}`;
+          ? `${levelLabel} — options include ${candidates.map(c => c.name + ' (~' + fmtEst(estMarketValue(c.rat365||0)) + ')').join(', ')}`
+          : `${levelLabel} — consider a minimum-salary ${pg}`;
         return { name: `${pg.charAt(0).toUpperCase()+pg.slice(1)} Depth`, action: 'sign', detail,
           reason: `Adding a ${pg} provides injury insurance and rotation flexibility`, priority: n.level === 'critical' ? 'high' : 'medium' };
       });
