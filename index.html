@@ -8935,14 +8935,14 @@ async function init() {
     return;
   }
 
-  // Check URL path for direct team link (e.g. /RosterManager/Houston or /RosterManager/Houston/Draft)
-  // Also check sessionStorage redirect from 404.html
+  // Check URL path for direct team link (e.g. /roster/houston or /roster/houston/draft)
+  // Also check sessionStorage redirect from 404.html (GitHub Pages fallback)
   const redirectPath = sessionStorage.getItem('rm_redirect');
   if (redirectPath) sessionStorage.removeItem('rm_redirect');
   const rawPath = redirectPath || window.location.pathname;
   const pathParts = decodeURIComponent(rawPath).split('/').filter(Boolean);
-  // Remove 'RosterManager' and 'index.html' from parts
-  const relevantParts = pathParts.filter(p => p !== 'RosterManager' && p !== 'index.html');
+  // Remove known prefixes: 'roster', 'RosterManager', 'index.html'
+  const relevantParts = pathParts.filter(p => p !== 'roster' && p !== 'RosterManager' && p !== 'index.html');
   
   if (relevantParts.length >= 1) {
     const teamPart = relevantParts[0].toLowerCase().replace(/-/g, ' ');
