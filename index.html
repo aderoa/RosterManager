@@ -6235,11 +6235,11 @@ function generateAGMRecs() {
   // Standings: use preLotteryOrder (actual record, worst to best, indices 0-13 = lottery)
   const isLotteryTeam = preLotteryOrder.includes(teamAbbrev);
   const lotteryRank = preLotteryOrder.indexOf(teamAbbrev); // 0=worst, 13=14th worst; -1=playoff
-  const isRebuilding = lotteryRank >= 0 && lotteryRank <= 4; // bottom 5
-  const isFringe = lotteryRank >= 10; // picks 11-14, play-in teams
-  const isPlayIn = isFringe; // play-in teams are NOT eliminated — still competing
-  const isEliminated = isLotteryTeam && !isPlayIn; // truly out of the playoffs
-  const isContender = !isLotteryTeam || isPlayIn; // playoffs or play-in
+  const ELIMINATED_ABBREVS = new Set(['MIL','CHI','BKN','IND','WAS','NOP','DAL','MEM','SAC','UTA']);
+  const isEliminated = ELIMINATED_ABBREVS.has(teamAbbrev);
+  const isRebuilding = isEliminated && lotteryRank >= 0 && lotteryRank <= 4; // bottom 5 of eliminated
+  const isPlayIn = isLotteryTeam && !isEliminated; // in lottery order but not eliminated = play-in
+  const isContender = !isEliminated; // playoffs or play-in
   
   // Star tiers by TRADE VALUE (better reflects actual player value regardless of injury)
   const allRostered = contractRoster.filter(p => !p.isTwoWay);
