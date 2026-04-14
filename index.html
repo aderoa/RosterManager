@@ -1244,6 +1244,7 @@ let allProspects = []; // all prospect names from Draft Predictor
 let allPickSlots = {}; // pickSlot# -> {team (abbrev), defaultProspect}
 let contractsMap = {}; // playerName -> { yrs: [{sal, ch, st},...], totG }
 let tradeValueMap = {}; // playerName (lowercase) -> trade value ($)
+let maxPlayerSet = new Set(); // playerName (lowercase) -> is a "Max Player" by real value
 let preLotteryOrder = []; // team abbrevs in standings order (worst to best)
 let prospectBioMap = {}; // name → { birthDate, country, position }
 
@@ -1492,6 +1493,7 @@ async function fetchContracts() {
 
 async function fetchTradeValues() {
   tradeValueMap = {};
+  maxPlayerSet = new Set();
   try {
     const r = await fetch('https://hoopsmatic.com/api/rm-tv');
     if (!r.ok) throw new Error('API error');
@@ -1539,6 +1541,8 @@ async function fetchTradeValues() {
         const baseTV = tWA>0 ? Math.round((p.tvWithAge/tWA)*tSP) : 0; let bonus = 0;
         if (p.age!==null && p.age<25 && p.draftPick && p.draftPick>=1 && p.draftPick<=60) { bonus = Math.round(7e6 * Math.exp(-0.05*(p.draftPick-1)) * Math.exp(-0.5*Math.max(0,p.age-18.82))); }
         tradeValueMap[p.player.toLowerCase()] = baseTV+bonus;
+        // "Max Player" = real value exceeds max salary (35% of cap)
+        if (baseTV > THRESHOLDS['2025-2026'].cap * 0.35) maxPlayerSet.add(p.player.toLowerCase());
       }
       // Scale trade values for salary cap growth (2025-26 → 2026-27)
       const CAP_GROWTH = THRESHOLDS['2026-2027'].cap / THRESHOLDS['2025-2026'].cap;
@@ -1650,7 +1654,8 @@ function parseAllPlayers(csv) {
       name, team, sal26, ch26, st26, sal27, ch27, st27,
       exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
       category, capHold, extEligible: computedExtEligible, rat365, isTwoWay,
-      tv: tradeValueMap[name.toLowerCase()] || 0
+      tv: tradeValueMap[name.toLowerCase()] || 0,
+      isMaxPlayer: maxPlayerSet.has(name.toLowerCase())
     });
   }
   return players;
@@ -6295,13 +6300,13 @@ function generateAGMRecs() {
   }
   const bestYoung = allRostered.filter(p => parseFloat(p.age) < 25).sort((a,b) => (b.tv||0) - (a.tv||0))[0] || null;
   const bestPlayerIsYoung = bestPlayer && bestYoung && bestPlayer.name === bestYoung.name;
-  const isFranchiseTV = bestPlayer && (bestPlayer.tv||0) > 30e6; // max-contract level TV = "build around"
+  const isMaxPlayerBest = bestPlayer && bestPlayer.isMaxPlayer; // "Max Player" category from TV = "build around"
   
   let profileDesc;
   if (isRebuilding && !hasYoungCore && !bestPlayer) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
   } else if (isRebuilding && bestPlayer && bestYoung && !bestPlayerIsYoung) {
-    profileDesc = isFranchiseTV
+    profileDesc = isMaxPlayerBest
       ? `rebuilding around ${bestPlayer.name} while developing ${bestYoung.name} for the future`
       : `rebuilding with ${bestPlayer.name} as the top asset and ${bestYoung.name} leading the young core`;
   } else if (isRebuilding && hasYoungCore) {
@@ -6309,7 +6314,7 @@ function generateAGMRecs() {
   } else if (isRebuilding) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
   } else if (isLotteryTeam && bestPlayer && bestYoung && !bestPlayerIsYoung) {
-    profileDesc = isFranchiseTV
+    profileDesc = isMaxPlayerBest
       ? `looking to build around ${bestPlayer.name} while developing ${bestYoung.name} for the future`
       : `led by ${bestPlayer.name}, with ${bestYoung.name} as a key young piece for the future`;
   } else if (isLotteryTeam && hasYoungCore) {
