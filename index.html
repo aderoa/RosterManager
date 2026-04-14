@@ -5143,6 +5143,82 @@ function closeWaiveModal() {
 }
 
 // ======================== PHASE NAVIGATION ========================
+// ======================== AUTO-SIMULATE TO PHASE (URL deep-link) ========================
+function autoSimulateToPhase(targetPhase) {
+  if (!STATE) return;
+  const phaseOrder = PHASES.map(p => p.id);
+  const targetIdx = phaseOrder.indexOf(targetPhase);
+  if (targetIdx <= 0) return; // pre_lottery or invalid
+  
+  STATE._overviewSeen = true;
+  
+  // 1. Run lottery if target is past lottery phase
+  if (targetIdx >= 2 && !STATE.lotteryResults) { // pre_draft or later
+    const results = runLotterySimulation();
+    if (results) {
+      STATE.lotteryResults = results;
+      applyLotteryResults(results);
+    }
+  }
+  
+  // 2. Run draft if target is past draft phase
+  if (targetIdx >= 4) { // pre_fa or later
+    if ((STATE.draftCurrentPick || 0) <= 60) {
+      // Auto-draft all picks silently (same logic as skipDraft but without toasts/renders)
+      const teamAbbrev = TEAMS[STATE.team];
+      const drafted = getDraftedProspects();
+      for (let pick = 1; pick <= 60; pick++) {
+        const pickTeam = getPickTeam(pick);
+        if (!pickTeam) continue;
+        if (STATE.draftResults.some(r => r.pick === pick)) continue;
+        const available = allProspects.filter(n => !drafted.has(n));
+        if (!available.length) continue;
+        const decay = pick <= 5 ? 2.5 : pick <= 14 ? 2.0 : pick <= 30 ? 1.6 : 1.2;
+        const weights = available.map((_, i) => 1 / Math.pow(1 + i, decay));
+        const totalW = weights.reduce((s, w) => s + w, 0);
+        let rand = Math.random() * totalW;
+        let prospect = available[0];
+        for (let i = 0; i < available.length; i++) { rand -= weights[i]; if (rand <= 0) { prospect = available[i]; break; } }
+        STATE.draftResults.push({ pick, team: pickTeam, prospect });
+        drafted.add(prospect);
+        if (pickTeam === teamAbbrev) {
+          STATE.draftSelections[pick] = prospect;
+        }
+      }
+      STATE.draftCurrentPick = 61;
+    }
+  }
+  
+  // 3. Auto-decide options if target is past pre_fa
+  if (targetIdx >= 5) { // free_agency or later
+    const tradedOut = new Set();
+    for (const trade of (STATE.trades || [])) for (const p of (trade.out || [])) tradedOut.add(p.name);
+    const teamPlayers = allPlayers.filter(p => p.team === STATE.team);
+    const pending = teamPlayers.filter(p =>
+      (p.category === 'team_option' || p.category === 'player_option') &&
+      !STATE.optionDecisions[p.name] && !STATE.waived.has(p.name) && !tradedOut.has(p.name)
+    );
+    for (const p of pending) {
+      if (p.category === 'team_option') {
+        // Value-based: pickup if good value or minimum salary
+        const isMin = (p.sal27 || 0) <= MIN_SALARY_0YOS * 1.2;
+        const valRatio = (p.rat365 || 0) / Math.max((p.sal27 || 1) / 1e6, 1);
+        const decision = (isMin || valRatio > 1.5 || (p.rat365 || 0) > 12) ? 'pickup' : 'decline';
+        STATE.optionDecisions[p.name] = decision;
+      } else {
+        // Player option: high-value players opt out, others exercise
+        const decision = (p.rat365 || 0) > 10 ? 'decline' : 'pickup';
+        STATE.optionDecisions[p.name] = decision;
+      }
+    }
+  }
+  
+  // Set target phase
+  STATE.phase = targetPhase;
+  saveState();
+  render();
+}
+
 function setPhase(id) {
   const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
   const targetIdx = PHASES.findIndex(p => p.id === id);
@@ -8970,11 +9046,8 @@ async function init() {
           'season_ready': 'season_ready', 'seasonready': 'season_ready', 'ready': 'season_ready'
         };
         const targetPhase = PHASE_ALIASES[phasePart];
-        if (targetPhase && STATE) {
-          STATE.phase = targetPhase;
-          STATE._overviewSeen = true;
-          saveState();
-          render();
+        if (targetPhase && STATE && targetPhase !== 'pre_lottery') {
+          setTimeout(() => autoSimulateToPhase(targetPhase), 100);
         }
       }
       return;
