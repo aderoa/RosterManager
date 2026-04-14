@@ -1510,7 +1510,7 @@ async function fetchTradeValues() {
       const playerHist = {}; for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
       const WEIGHTS = {'2025-26':1.0,'2024-25':0.6,'2023-24':0.36,'2022-23':0.216,'2021-22':0.1296};
       const EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':82};
-      const EXP=1.8, BETA=0.8, MAX_MULT=2.5, MIN_PCT=0.25, WM_W=0.92, RAT_W=0.08, AGE_BONUS=0.7, OLD_TH=35, OLD_PEN=0.03;
+      const EXP=1.8, BETA=0.8, MAX_MULT=2.5, MIN_PCT=0.25, WM_W=0.92, RAT_W=0.08, AGE_BONUS=0.85, OLD_TH=35, OLD_PEN=0.03;
       for (const p of roster) {
         const hist = playerHist[p.player.toLowerCase()]||[]; let num=0, den=0, priorNum=0, priorDen=0;
         for (const h of hist) { const w = WEIGHTS[h.year]||0; if (w<=0||h.games<=0) continue; let pg = h.totalRat/h.games; const exp = EXPECTED[h.year]||82; if (h.games/exp >= MIN_PCT) pg *= Math.max(1.0, Math.min(MAX_MULT, Math.pow(exp/h.games, BETA))); num += pg*w*h.games; den += w*h.games; if (h.year !== '2025-26') { priorNum += pg*w*h.games; priorDen += w*h.games; } }
@@ -6306,7 +6306,8 @@ function generateAGMRecs() {
   }
   const bestYoung = allRostered.filter(p => parseFloat(p.age) < 25).sort((a,b) => (b.tv||0) - (a.tv||0))[0] || null;
   const bestPlayerIsYoung = bestPlayer && bestYoung && bestPlayer.name === bestYoung.name;
-  const isMaxPlayerBest = bestPlayer && bestPlayer.isMaxPlayer; // "Max Player" category from TV = "build around"
+  // "Star" = best player has TV > $20M (from stars array). More reliable than maxPlayerSet threshold.
+  const isStar = stars.length >= 1 && bestPlayer && stars[0].name === bestPlayer.name;
   
   // Top-9 rotation analysis for richer descriptions
   const top9 = [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0)).slice(0, Math.min(9, allRostered.length));
@@ -6316,29 +6317,32 @@ function generateAGMRecs() {
   const rotYoungCount = top9Ages.filter(a => a < 25).length;
   const rotIsAging = rotAvgAge > 29 || rotVetCount >= 5;
   const rotIsYoung = rotAvgAge < 25 || rotYoungCount >= 5;
-  const maxPlayerCount = top9.filter(p => p.isMaxPlayer).length;
   const bestPlayerAge = bestPlayer ? parseFloat(bestPlayer.age) : 27;
-  const windowClosing = isMaxPlayerBest && bestPlayerAge > 30 && rotIsAging;
+  const windowClosing = isStar && bestPlayerAge > 30 && rotIsAging;
   
   let profileDesc;
   if (isRebuilding && !hasYoungCore && !bestPlayer) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
+  } else if (isRebuilding && isStar && bestYoung && !bestPlayerIsYoung) {
+    profileDesc = `rebuilding around ${bestPlayer.name} while developing ${bestYoung.name} for the future`;
   } else if (isRebuilding && bestPlayer && bestYoung && !bestPlayerIsYoung) {
-    profileDesc = isMaxPlayerBest
-      ? `rebuilding around ${bestPlayer.name} while developing ${bestYoung.name} for the future`
-      : `rebuilding with ${bestPlayer.name} as the top asset and ${bestYoung.name} leading the young core`;
+    profileDesc = `rebuilding with ${bestPlayer.name} as the top asset and ${bestYoung.name} leading the young core`;
   } else if (isRebuilding && hasYoungCore) {
     profileDesc = `rebuilding around a promising young core led by ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} — still plenty of room to grow`;
   } else if (isRebuilding) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
-  } else if (isLotteryTeam && isMaxPlayerBest && windowClosing) {
+  } else if (isLotteryTeam && isStar && windowClosing) {
     profileDesc = `underperforming despite having ${bestPlayer.name} — the window is closing and the roster needs a shake-up`;
-  } else if (isLotteryTeam && isMaxPlayerBest && rotIsAging) {
+  } else if (isLotteryTeam && isStar && rotIsAging) {
     profileDesc = `struggling around an aging core led by ${bestPlayer.name} — tough decisions ahead on whether to retool or rebuild`;
-  } else if (isLotteryTeam && isMaxPlayerBest) {
+  } else if (isLotteryTeam && isStar && bestPlayerAge > 30) {
     profileDesc = `built around ${bestPlayer.name} but missing the playoffs — needs better supporting pieces to maximize the window`;
+  } else if (isLotteryTeam && isStar && bestYoung && !bestPlayerIsYoung) {
+    profileDesc = `built around ${bestPlayer.name} but missing the playoffs — ${bestYoung.name} is a key piece for the future`;
+  } else if (isLotteryTeam && isStar) {
+    profileDesc = `built around ${bestPlayer.name} but missing the playoffs — needs better supporting pieces to compete`;
   } else if (isLotteryTeam && bestPlayer && bestYoung && !bestPlayerIsYoung) {
-    profileDesc = `led by ${bestPlayer.name}, with ${bestYoung.name} as a key young piece for the future`;
+    profileDesc = `led by ${bestPlayer.name}, with ${bestYoung.name} developing alongside — looking to make the leap`;
   } else if (isLotteryTeam && hasYoungCore) {
     profileDesc = `a young team on the rise with ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} leading the way — their ceiling is still ahead of them`;
   } else if (isLotteryTeam && hasVetCore) {
@@ -6347,7 +6351,7 @@ function generateAGMRecs() {
     profileDesc = 'on the playoff bubble, needing targeted upgrades to break through';
   } else if (isLotteryTeam) {
     profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
-  } else if (isContender && maxPlayerCount >= 2 && !rotIsAging) {
+  } else if (isContender && stars.length >= 2 && !rotIsAging) {
     profileDesc = `an elite contender with ${stars.slice(0,2).map(p=>p.name).join(' and ')} — a championship-caliber core`;
   } else if (isContender && stars.length >= 2 && hasVetCore) {
     profileDesc = windowClosing
@@ -6361,9 +6365,9 @@ function generateAGMRecs() {
       : `a strong playoff team led by ${mentioned.map(p=>p.name).join(' and ')} — built to compete now`;
   } else if (isContender && stars.length >= 2 && stars.every(s => parseFloat(s.age) < 25)) {
     profileDesc = `a playoff team powered by ${stars.slice(0,2).map(p=>p.name).join(' and ')} — still developing and their best basketball is ahead of them`;
-  } else if (isContender && isMaxPlayerBest && rotIsAging) {
+  } else if (isContender && isStar && rotIsAging) {
     profileDesc = `a playoff team leaning heavily on ${bestPlayer.name} with an aging supporting cast — needs to balance win-now moves with future flexibility`;
-  } else if (isContender && isMaxPlayerBest && rotIsYoung) {
+  } else if (isContender && isStar && rotIsYoung) {
     profileDesc = `a playoff team led by ${bestPlayer.name} surrounded by a young, developing roster — the upside is significant`;
   } else if (isContender && stars.length >= 1 && hasYoungCore) {
     profileDesc = `a playoff team led by ${stars[0].name}, with ${youngStars[0].name} emerging as a key piece — their potential is still untapped`;
