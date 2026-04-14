@@ -236,8 +236,10 @@ a{color:var(--accent);text-decoration:none}
 .mbb-stat{display:flex;flex-direction:column;align-items:center;gap:1px}
 .mbb-val{font-weight:800;font-size:.75rem}
 .mbb-label{font-size:.45rem;text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
-.mbb-next{padding:6px 12px;border-radius:8px;background:var(--green);color:#fff;border:none;font-size:.6rem;font-weight:700;cursor:pointer;font-family:inherit}
+.mbb-next{padding:10px 16px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(22,163,74,.35);letter-spacing:.02em}
 .mbb-next:active{transform:scale(.95)}
+.mbb-next.advance{animation:pulseGreen 2s ease-in-out infinite}
+@keyframes pulseGreen{0%,100%{box-shadow:0 2px 8px rgba(22,163,74,.35)}50%{box-shadow:0 2px 16px rgba(22,163,74,.6)}}
 .roster-panel{display:flex;flex-direction:column;gap:.75rem}
 .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .section-hdr{padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);background:var(--bg)}
@@ -464,8 +466,8 @@ a{color:var(--accent);text-decoration:none}
 .phase-step.completed{color:var(--green);opacity:.8}
 .phase-step.locked{opacity:.4;cursor:not-allowed}
 .phase-arrow{color:var(--muted);font-size:.6rem;opacity:.5}
-.phase-advance{font-size:.65rem;padding:.3rem .7rem;border-radius:8px;border:1px solid var(--green);background:var(--green-dim);color:#15803d;cursor:pointer;font-weight:600;margin-left:.5rem;transition:all .15s;font-family:inherit}
-.phase-advance:hover{background:var(--green);color:#fff}
+.phase-advance{font-size:.65rem;padding:.4rem .8rem;border-radius:8px;border:none;background:var(--green);color:#fff;cursor:pointer;font-weight:700;margin-left:.5rem;transition:all .15s;font-family:inherit;box-shadow:0 1px 4px rgba(22,163,74,.3)}
+.phase-advance:hover{background:#15803d;color:#fff}
 
 /* Waive modal */
 .waive-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
@@ -923,7 +925,6 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v8.9 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -933,7 +934,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.9</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v9.0</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -3882,7 +3883,6 @@ function renderDraftBoard() {
         h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;background:rgba(59,130,246,.06);border-radius:4px;margin-bottom:.2rem;font-size:.75rem">`;
         h += `<span style="font-weight:700;color:var(--orange)">#${p.draftRnk}</span>`;
         h += `<span>${rd} Round</span>`;
-        h += `<span style="color:var(--muted)">· projection: ${p.prospect}</span>`;
         h += `</div>`;
       }
       h += `</div>`;
@@ -3919,18 +3919,8 @@ function renderDraftBoard() {
       h += `<td style="font-weight:700;color:var(--muted)">#${pick}</td>`;
       h += `<td><div style="display:flex;align-items:center;gap:.3rem">${logo?`<img src="${logo}" style="width:18px;height:18px">`:''}<span style="font-weight:${isUser?'700':'400'};color:${isUser?'var(--accent)':'var(--text)'}">${pickTeam}</span></div></td>`;
       const slotInfo = allPickSlots[pick];
-      const prospect = slotInfo ? slotInfo.defaultProspect : '';
-      const bio = prospect ? prospectBioMap[prospect] : null;
-      h += `<td style="color:var(--muted);font-size:.7rem">${prospect || '—'}</td>`;
-      if (bio) {
-        const parts = [];
-        if (bio.position) parts.push(bio.position);
-        if (bio.preDraftTeam) parts.push(bio.preDraftTeam);
-        if (bio.birthDate) { const age = calcProspectAge(bio.birthDate); if (age) parts.push(age + 'y'); }
-        h += `<td style="font-size:.58rem;color:var(--muted)">${parts.join(' · ')}</td>`;
-      } else {
-        h += `<td></td>`;
-      }
+      h += `<td style="color:var(--muted);font-size:.7rem">—</td>`;
+      h += `<td></td>`;
       h += `</tr>`;
     }
     h += `</tbody></table></div>`;
@@ -6913,7 +6903,24 @@ function generateAGMRecs() {
 
   // ==================== FREE AGENCY ====================
   if (phase === 'free_agency') {
-    // Cap tools first
+    // Sign draft picks first — highest priority
+    const signedDraftPicks = new Set((STATE.signings || []).filter(s => s.isDraftPick).map(s => s.draftPick));
+    const unsignedPicks = (cap.roster.draft_picks || []).filter(pick => {
+      const pickKey = 'PICK_' + pick.draftRnk;
+      return !signedDraftPicks.has(pick.draftRnk) && !STATE.renounced.has(pickKey);
+    });
+    if (unsignedPicks.length) {
+      const pickRecs = unsignedPicks.map(pick => ({
+        name: pick.selectedProspect || pick.prospect || `#${pick.draftRnk} Pick`,
+        action: 'sign',
+        detail: `#${pick.draftRnk} pick · Rookie scale contract · ~${fmtMoney(pick.capHold)} cap hold`,
+        reason: 'Must be signed to a rookie-scale contract — required before the season starts',
+        priority: 'high'
+      }));
+      result.sections.push({ title: `Sign Draft Picks (${unsignedPicks.length} unsigned)`, icon: '✍️', recs: pickRecs });
+    }
+
+    // Cap tools
     const capRecs = [];
     if (isCapSpace && cap.capSpace > 5e6) capRecs.push({ name: 'Cap Space', action: 'info', detail: fmtMoney(cap.capSpace), reason: 'Available room for outright signings — use before it disappears', priority: 'high' });
     if (!isApron) capRecs.push({ name: 'Non-Taxpayer Mid-Level', action: 'info', detail: `~${fmtMoney(T.ntmle)} · up to 4 years`, reason: posNeeds.length ? `Best used on a ${posGroupFromStr(posNeeds[0].pos)}` : 'Target the best available rotation piece', priority: 'medium' });
@@ -9108,7 +9115,7 @@ function updateMobileBottomBar() {
   } else {
     const ci = PHASES.findIndex(p => p.id === phase);
     if (ci < PHASES.length - 1) {
-      nextAction = `<button class="mbb-next" onclick="advancePhase()">▶ ${PHASES[ci+1].label}</button>`;
+      nextAction = `<button class="mbb-next advance" onclick="advancePhase()">▶ ${PHASES[ci+1].label}</button>`;
     }
   }
 
@@ -9419,7 +9426,6 @@ function renderLandingPage() {
   h += buildGrid(EAST);
   h += `<div class="conf-label west">Western Conference</div>`;
   h += buildGrid(WEST);
-  h += `<div style="text-align:center;margin:2rem 0"><button onclick="showAllDescriptions()" style="font-family:inherit;font-size:.8rem;font-weight:600;padding:.6rem 1.5rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋 Preview All Team Descriptions</button></div>`;
   body.innerHTML = h;
 }
 
