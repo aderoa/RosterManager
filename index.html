@@ -6209,6 +6209,8 @@ function generateAGMRecs() {
   // ===== TEAM PROFILE =====
   const isCapSpace = cap.status === 'Cap Space';
   const isApron = cap.status.includes('Apron');
+  const TEAM_FULL_NAMES = {ATL:'Atlanta Hawks',BOS:'Boston Celtics',BKN:'Brooklyn Nets',CHA:'Charlotte Hornets',CHI:'Chicago Bulls',CLE:'Cleveland Cavaliers',DAL:'Dallas Mavericks',DEN:'Denver Nuggets',DET:'Detroit Pistons',GSW:'Golden State Warriors',HOU:'Houston Rockets',IND:'Indiana Pacers',LAC:'LA Clippers',LAL:'Los Angeles Lakers',MEM:'Memphis Grizzlies',MIA:'Miami Heat',MIL:'Milwaukee Bucks',MIN:'Minnesota Timberwolves',NOP:'New Orleans Pelicans',NYK:'New York Knicks',OKC:'Oklahoma City Thunder',ORL:'Orlando Magic',PHI:'Philadelphia 76ers',PHX:'Phoenix Suns',POR:'Portland Trail Blazers',SAC:'Sacramento Kings',SAS:'San Antonio Spurs',TOR:'Toronto Raptors',UTA:'Utah Jazz',WAS:'Washington Wizards'};
+  const teamFullName = TEAM_FULL_NAMES[teamAbbrev] || STATE.team;
 
   // Standings: use preLotteryOrder (actual record, worst to best, indices 0-13 = lottery)
   const isLotteryTeam = preLotteryOrder.includes(teamAbbrev);
@@ -6217,11 +6219,11 @@ function generateAGMRecs() {
   const isFringe = lotteryRank >= 10; // picks 11-14, close to playoffs
   const isContender = !isLotteryTeam; // made the playoffs
   
-  // Star tiers by rating
+  // Star tiers by TRADE VALUE (better reflects actual player value regardless of injury)
   const allRostered = contractRoster.filter(p => !p.isTwoWay);
-  const stars = allRostered.filter(p => (p.rat||0) > 15).sort((a,b) => (b.rat||0) - (a.rat||0));
-  const starters = allRostered.filter(p => (p.rat||0) > 10);
-  const rotationPlayers = allRostered.filter(p => (p.rat||0) > 6);
+  const stars = allRostered.filter(p => (p.tv||0) > 20e6).sort((a,b) => (b.tv||0) - (a.tv||0));
+  const starters = allRostered.filter(p => (p.tv||0) > 8e6);
+  const rotationPlayers = allRostered.filter(p => (p.tv||0) > 3e6);
   
   // Age composition
   const youngStars = starters.filter(p => parseFloat(p.age) <= 25);
@@ -6278,9 +6280,9 @@ function generateAGMRecs() {
   if (isRebuilding && !hasYoungCore) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
   } else if (isRebuilding && hasYoungCore) {
-    profileDesc = `rebuilding around a promising young core led by ${youngStars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')}`;
+    profileDesc = `rebuilding around a promising young core led by ${youngStars.slice(0,2).map(p=>p.name).join(' and ')}`;
   } else if (isLotteryTeam && hasYoungCore) {
-    profileDesc = `a young team on the rise with ${youngStars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')} leading the way`;
+    profileDesc = `a young team on the rise with ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} leading the way`;
   } else if (isLotteryTeam && hasVetCore) {
     profileDesc = 'a veteran team that underperformed — facing decisions on the direction of the franchise';
   } else if (isLotteryTeam && isFringe) {
@@ -6288,13 +6290,13 @@ function generateAGMRecs() {
   } else if (isLotteryTeam) {
     profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
   } else if (isContender && stars.length >= 2 && hasVetCore) {
-    profileDesc = `a veteran-led contender built around ${stars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')} — the championship window is now`;
+    profileDesc = `a veteran-led contender built around ${stars.slice(0,2).map(p=>p.name).join(' and ')} — the championship window is now`;
   } else if (isContender && stars.length >= 2 && hasPrimeCore) {
-    profileDesc = `a strong playoff team with ${stars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')} in their prime — built to compete`;
+    profileDesc = `a strong playoff team with ${stars.slice(0,2).map(p=>p.name).join(' and ')} in their prime — built to compete`;
   } else if (isContender && hasYoungCore) {
-    profileDesc = `a playoff team powered by young talent — ${youngStars.slice(0,2).map(p=>p.name.split(' ').pop()).join(' and ')} are just getting started`;
+    profileDesc = `a playoff team powered by young talent — ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} are just getting started`;
   } else if (isContender && stars.length >= 1) {
-    profileDesc = `a competitive playoff team anchored by ${stars[0].name.split(' ').pop()}`;
+    profileDesc = `a competitive playoff team anchored by ${stars[0].name}`;
   } else if (isContender) {
     profileDesc = 'a solid playoff team looking to take the next step';
   } else {
@@ -6322,7 +6324,7 @@ function generateAGMRecs() {
   const maxCapSpace = cap.capSpace + totalHolds;
 
   const renounceNote = totalHolds > 0 && maxCapSpace > 0 ? ` Up to ${fmtMoney(maxCapSpace)} in cap space if all holds are renounced.` : totalHolds > 0 ? ` Even renouncing all holds, the team remains ${fmtMoney(Math.abs(maxCapSpace))} over the cap.` : '';
-  result.overview = `The ${teamAbbrev} are ${profileDesc}. Cap situation: ${capDesc}.${renounceNote} ${needDesc}`;
+  result.overview = `The ${teamFullName} are ${profileDesc}. Cap situation: ${capDesc}.${renounceNote} ${needDesc}`;
 
   // ==================== PRE-LOTTERY ====================
   if (phase === 'pre_lottery') {
