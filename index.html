@@ -1605,17 +1605,18 @@ async function fetchTradeValues() {
       for (const p of roster) { if (p.rat365adj < p.watermark * 0.5) p.rat365adj = p.watermark; }
       // Shooting penalty from Sheet3
       for (const p of roster) { p.shootingPenalty = (shootingMap[p.player]||0) * 2; p.shootingMult = 1 - p.shootingPenalty; }
-      // Defense SC/MPG adjustment (±4%)
+      // Defense SC/MPG: additive bonus to watermark (±3 pts, compounds through 3.2 exponent)
+      const DEF_MAX_BONUS = 3.0;
       const defVals = Object.values(defenseMap); const defAvg = defVals.length ? defVals.reduce((s,v)=>s+v,0)/defVals.length : 0;
-      for (const p of roster) { const pd2 = defenseMap[p.player]||0; p.defenseAdj = (defAvg>0 && pd2>0) ? Math.max(-0.04, Math.min(0.04, (pd2-defAvg)/defAvg*0.04)) : 0; p.defenseMult = 1+p.defenseAdj; }
-      // Real value: softScore blend × age × shooting × defense, renormalize to pool
+      for (const p of roster) { const pd2 = defenseMap[p.player]||0; p.defenseAdj = (defAvg>0 && pd2>0) ? Math.max(-DEF_MAX_BONUS, Math.min(DEF_MAX_BONUS, (pd2-defAvg)/defAvg*DEF_MAX_BONUS)) : 0; p.watermark += p.defenseAdj; p.rat365adj += p.defenseAdj; }
+      // Real value: softScore blend × age × shooting, renormalize to pool
       const tSP = roster.reduce((s,p)=>s+p.salary,0);
       const tWM = roster.reduce((s,p)=>s+softScore(p.watermark),0);
       const tRAT = roster.reduce((s,p)=>s+softScore(p.rat365adj),0);
       for (const p of roster) {
         const tvWM = tWM>0 ? (softScore(p.watermark)/tWM)*tSP : 0;
         const tvRAT = tRAT>0 ? (softScore(p.rat365adj)/tRAT)*tSP : 0;
-        p.tvWithAge = (WM_W*tvWM + RAT_W*tvRAT) * p.ageMult * p.shootingMult * p.defenseMult;
+        p.tvWithAge = (WM_W*tvWM + RAT_W*tvRAT) * p.ageMult * p.shootingMult;
       }
       const tWA = roster.reduce((s,p)=>s+p.tvWithAge,0);
       for (const p of roster) {
