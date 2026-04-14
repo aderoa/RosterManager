@@ -921,7 +921,7 @@ a{color:var(--accent);text-decoration:none}
 <!-- Landing Page -->
 <div id="landingPage" class="landing">
   <div class="landing-hdr">
-    <h1>🏀 NBA ROSTER MANAGER</h1>
+    <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
     <div class="landing-badge">v8.1 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
@@ -932,7 +932,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div>
-    <h1>🏀 NBA ROSTER MANAGER</h1>
+    <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
     <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.1</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
@@ -6330,8 +6330,10 @@ function generateAGMRecs() {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
   } else if (isRebuilding && isMaxStar && bestYoungIsNotable) {
     profileDesc = `rebuilding around ${bestPlayer.name} while developing ${bestYoung.name} for the future`;
+  } else if (isRebuilding && isStar && bestPlayerAge < 27) {
+    profileDesc = `rebuilding with ${bestPlayer.name} as the cornerstone — need more talent around the roster`;
   } else if (isRebuilding && isStar) {
-    profileDesc = `rebuilding with ${bestPlayer.name} as the centerpiece — needs more talent around the roster`;
+    profileDesc = `in rebuild mode — ${bestPlayer.name} is the most valuable asset, but at ${Math.floor(bestPlayerAge)} may not be part of the long-term core`;
   } else if (isRebuilding && hasYoungCore) {
     profileDesc = `rebuilding around a promising young core led by ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} — still plenty of room to grow`;
   } else if (isRebuilding && bestPlayer && bestYoungIsNotable) {
@@ -6343,15 +6345,15 @@ function generateAGMRecs() {
   } else if (isEliminated && isMaxStar && rotIsAging) {
     profileDesc = `struggling around an aging core led by ${bestPlayer.name} — tough decisions ahead on whether to retool or rebuild`;
   } else if (isEliminated && isMaxStar && bestPlayerAge > 30) {
-    profileDesc = `built around ${bestPlayer.name} but missing the playoffs — needs better supporting pieces to maximize the window`;
+    profileDesc = `built around ${bestPlayer.name} but missing the playoffs — need better supporting pieces to maximize the window`;
   } else if (isEliminated && isMaxStar && bestYoungIsNotable) {
     profileDesc = `built around ${bestPlayer.name} but missing the playoffs — ${bestYoung.name} is a key piece for the future`;
   } else if (isEliminated && isMaxStar) {
-    profileDesc = `built around ${bestPlayer.name} but missing the playoffs — needs better supporting pieces to compete`;
+    profileDesc = `built around ${bestPlayer.name} but missing the playoffs — need better supporting pieces to compete`;
   } else if (isEliminated && isStar && bestYoungIsNotable) {
     profileDesc = `anchored by ${bestPlayer.name} but missing the playoffs — ${bestYoung.name} is developing into a key complementary piece`;
   } else if (isEliminated && isStar) {
-    profileDesc = `anchored by ${bestPlayer.name} but missing the playoffs — needs upgrades around the roster to compete`;
+    profileDesc = `anchored by ${bestPlayer.name} but missing the playoffs — need upgrades around the roster to compete`;
   } else if (isEliminated && bestPlayer && bestYoungIsNotable) {
     profileDesc = `led by ${bestPlayer.name}, with ${bestYoung.name} developing alongside — looking to make the leap`;
   } else if (isEliminated && hasYoungCore) {
@@ -6360,7 +6362,7 @@ function generateAGMRecs() {
     profileDesc = 'a veteran team that underperformed — facing decisions on the direction of the franchise';
   } else if (isEliminated) {
     profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
-  } else if (isContender && stars.length >= 2 && !rotIsAging) {
+  } else if (isContender && stars.filter(s => s.isMaxPlayer).length >= 2 && !rotIsAging) {
     profileDesc = `an elite contender with ${stars.slice(0,2).map(p=>p.name).join(' and ')} — a championship-caliber core`;
   } else if (isContender && stars.length >= 2 && hasVetCore) {
     profileDesc = windowClosing
@@ -6375,7 +6377,7 @@ function generateAGMRecs() {
   } else if (isContender && stars.length >= 2 && stars.every(s => parseFloat(s.age) < 25)) {
     profileDesc = `a playoff team powered by ${stars.slice(0,2).map(p=>p.name).join(' and ')} — still developing and their best basketball is ahead of them`;
   } else if (isContender && isStar && rotIsAging) {
-    profileDesc = `a playoff team leaning heavily on ${bestPlayer.name} with an aging supporting cast — needs to balance win-now moves with future flexibility`;
+    profileDesc = `a playoff team leaning heavily on ${bestPlayer.name} with an aging supporting cast — need to balance win-now moves with future flexibility`;
   } else if (isContender && isStar && rotIsYoung) {
     profileDesc = `a playoff team led by ${bestPlayer.name} surrounded by a young, developing roster — the upside is significant`;
   } else if (isContender && stars.length >= 1 && hasYoungCore) {
@@ -6402,7 +6404,7 @@ function generateAGMRecs() {
     const qualityNeeds = [...new Set(posNeeds.filter(n => n.level === 'critical' || n.level === 'quality').map(n => groupLabels[n.group]))];
     const depthNeeds = [...new Set(posNeeds.filter(n => n.level === 'depth').map(n => groupLabels[n.group]))];
     const parts = [];
-    if (qualityNeeds.length) parts.push('needs a rotation-level ' + qualityNeeds.join(' and '));
+    if (qualityNeeds.length) parts.push('need a rotation-level ' + qualityNeeds.join(' and '));
     if (depthNeeds.length) parts.push('thin on ' + depthNeeds.join(' and ') + ' depth');
     needDesc = parts.join('; ') + '.';
     needDesc = needDesc.charAt(0).toUpperCase() + needDesc.slice(1);
