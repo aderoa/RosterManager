@@ -1521,7 +1521,7 @@ async function fetchTradeValues() {
     // Fetch trade value data + defense data in parallel
     const [r, defRes] = await Promise.all([
       fetch('https://hoopsmatic.com/api/rm-tv'),
-      fetch('/api/defense-data').catch(() => null)
+      fetch('/api/season-data?tab=rsStatsPerGame').catch(() => null)
     ]);
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
@@ -1536,18 +1536,17 @@ async function fetchTradeValues() {
         // Shooting penalty from cols 12 (player name) + 17 (shooting value)
         if (row[12] && row[17]) { const sv = parseFloat(row[17]); if (!isNaN(sv) && sv > 0) shootingMap[row[12].trim()] = sv; }
       }
-      // Parse defense data for SC/MPG adjustment
+      // Parse defense data (per-game stats CSV) for SC/MPG adjustment
       if (defRes && defRes.ok) {
         try {
-          const defData = await defRes.json();
-          const defRows = defData.values || [];
+          const defRows = parseCSV(await defRes.text());
           if (defRows.length > 1) {
             const defH = defRows[0].map(h => (h||'').trim().toUpperCase());
             const scMpgCol = defH.findIndex(h => h.includes('SC') && h.includes('MPG'));
-            const stlCol = defH.findIndex(h => h.includes('STL'));
-            const blkCol = defH.findIndex(h => h.includes('BLK'));
-            const mpgCol = defH.findIndex(h => h === 'MPG' || h.includes('MIN'));
-            const nameCol = defH.findIndex(h => h === 'PLAYER' || h === 'NAME');
+            const stlCol = defH.findIndex(h => h === 'STL' || h === 'STL/G');
+            const blkCol = defH.findIndex(h => h === 'BLK' || h === 'BLK/G');
+            const mpgCol = defH.findIndex(h => h === 'MIN' || h === 'MPG');
+            const nameCol = defH.findIndex(h => h === 'PLAYER_NAME' || h === 'PLAYER' || h === 'NAME');
             if (nameCol >= 0) {
               for (let i = 1; i < defRows.length; i++) {
                 const dr = defRows[i]; if (!dr || !dr[nameCol]) continue;
@@ -1560,7 +1559,7 @@ async function fetchTradeValues() {
                 if (ratio && !isNaN(ratio) && ratio > 0) defenseMap[dr[nameCol].trim()] = ratio;
               }
             }
-            console.log(`[Defense] Parsed ${Object.keys(defenseMap).length} players (SC/MPG=${scMpgCol}, STL=${stlCol}, BLK=${blkCol})`);
+            console.log(`[Defense] Parsed ${Object.keys(defenseMap).length} players (STL=${stlCol}, BLK=${blkCol}, MIN=${mpgCol}, Name=${nameCol})`);
           }
         } catch(e) { console.warn('[Defense] Parse error:', e); }
       }
