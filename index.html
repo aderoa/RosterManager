@@ -923,7 +923,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v8.2 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v8.3 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -933,7 +933,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.2</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.3</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -6365,34 +6365,53 @@ function generateAGMRecs() {
     profileDesc = 'a veteran team that underperformed — facing decisions on the direction of the franchise';
   } else if (isEliminated) {
     profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
-  } else if (isContender && isEliteByRecord && stars.length >= 2) {
-    profileDesc = `an elite contender with ${stars.slice(0,2).map(p=>p.name).join(' and ')} — a championship-caliber core`;
-  } else if (isContender && stars.length >= 2 && hasVetCore) {
-    profileDesc = windowClosing
-      ? `a veteran contender built around ${stars.slice(0,2).map(p=>p.name).join(' and ')} — the championship window is closing and every move matters`
-      : `a veteran-led contender built around ${stars.slice(0,2).map(p=>p.name).join(' and ')} — the championship window is now`;
-  } else if (isContender && stars.length >= 2 && hasPrimeCore) {
-    const mentioned = stars.slice(0,2);
-    const bothPrime = mentioned.every(s => { const a = parseFloat(s.age); return a >= 27 && a <= 32; });
-    profileDesc = bothPrime
-      ? `a strong playoff team with ${mentioned.map(p=>p.name).join(' and ')} in their prime — built to compete`
-      : `a strong playoff team led by ${mentioned.map(p=>p.name).join(' and ')} — built to compete now`;
-  } else if (isContender && stars.length >= 2 && stars.every(s => parseFloat(s.age) < 25)) {
-    profileDesc = `a playoff team powered by ${stars.slice(0,2).map(p=>p.name).join(' and ')} — still developing and their best basketball is ahead of them`;
-  } else if (isContender && isStar && rotIsAging) {
-    profileDesc = `a playoff team leaning heavily on ${bestPlayer.name} with an aging supporting cast — need to balance win-now moves with future flexibility`;
-  } else if (isContender && isStar && rotIsYoung) {
-    profileDesc = `a playoff team led by ${bestPlayer.name} surrounded by a young, developing roster — the upside is significant`;
-  } else if (isContender && stars.length >= 1 && hasYoungCore) {
-    profileDesc = `a playoff team led by ${stars[0].name}, with ${youngStars[0].name} emerging as a key piece — their potential is still untapped`;
-  } else if (isContender && hasYoungCore) {
-    profileDesc = `a playoff team powered by young talent — ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} are just getting started`;
-  } else if (isContender && stars.length >= 1 && rotIsAging) {
-    profileDesc = `a competitive playoff team anchored by ${stars[0].name}, but the supporting cast is aging — a crossroads offseason`;
-  } else if (isContender && stars.length >= 1) {
-    profileDesc = `a competitive playoff team anchored by ${stars[0].name}`;
+  } else if (isContender && isEliteByRecord) {
+    // 55+ wins: true elite
+    const topTwo = [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0)).slice(0,2);
+    if (topTwo.length >= 2 && topTwo.every(s => parseFloat(s.age) < 25)) {
+      profileDesc = `an elite contender powered by ${topTwo.map(p=>p.name).join(' and ')} — still developing and their best basketball is ahead of them`;
+    } else if (topTwo.length >= 2) {
+      profileDesc = `an elite contender with ${topTwo.map(p=>p.name).join(' and ')} — a championship-caliber core`;
+    } else {
+      profileDesc = `an elite contender with a deep, balanced roster — a legitimate title threat`;
+    }
+  } else if (isContender && teamWins >= 50) {
+    // 50-54 wins: strong contender
+    const topTwo = stars.length >= 2 ? stars.slice(0,2) : [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0)).slice(0,2);
+    if (topTwo.length >= 2 && topTwo.every(s => parseFloat(s.age) < 25)) {
+      profileDesc = `a strong contender led by ${topTwo.map(p=>p.name).join(' and ')} — still young and getting better`;
+    } else if (topTwo.length >= 2) {
+      profileDesc = `a strong contender led by ${topTwo.map(p=>p.name).join(' and ')} — built to compete for a title`;
+    } else {
+      profileDesc = 'a strong contender with legitimate playoff aspirations';
+    }
+  } else if (isContender && teamWins >= 45) {
+    // 45-49 wins: solid playoff team
+    if (isStar && bestPlayerAge > 30 && rotIsAging) {
+      profileDesc = `a playoff team leaning on ${bestPlayer.name} with an aging supporting cast — need to balance win-now moves with future flexibility`;
+    } else if (isStar && hasYoungCore) {
+      profileDesc = `a solid playoff team led by ${bestPlayer.name}, with ${youngStars[0].name} emerging alongside — room to grow`;
+    } else if (isStar) {
+      profileDesc = `a solid playoff team anchored by ${bestPlayer.name} — looking to take the next step`;
+    } else {
+      profileDesc = 'a solid playoff team with a balanced roster — looking to take the next step';
+    }
+  } else if (isContender && teamWins >= 40) {
+    // 40-44 wins: competitive / play-in
+    if (isStar && bestYoungIsNotable) {
+      profileDesc = `fighting for playoff positioning behind ${bestPlayer.name} — ${bestYoung.name} is a key piece going forward`;
+    } else if (isStar) {
+      profileDesc = `fighting for playoff positioning behind ${bestPlayer.name} — need roster upgrades to take the next step`;
+    } else {
+      profileDesc = 'in the playoff mix but need upgrades to become a legitimate contender';
+    }
   } else if (isContender) {
-    profileDesc = 'a solid playoff team looking to take the next step';
+    // Under 40 wins but not eliminated (play-in fringe)
+    if (isStar) {
+      profileDesc = `on the fringes of the playoffs, anchored by ${bestPlayer.name} — facing a pivotal offseason`;
+    } else {
+      profileDesc = 'on the fringes of the playoffs — facing a pivotal offseason';
+    }
   } else {
     profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
   }
