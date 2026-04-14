@@ -1509,7 +1509,7 @@ async function fetchTradeValues() {
       }
       const playerHist = {}; for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
       const WEIGHTS = {'2025-26':1.0,'2024-25':0.6,'2023-24':0.36,'2022-23':0.216,'2021-22':0.1296};
-      const EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':48};
+      const EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':82};
       const EXP=1.8, BETA=0.8, MAX_MULT=1.4, MIN_PCT=0.40, WM_W=0.85, RAT_W=0.15, AGE_BONUS=1.0, OLD_TH=35, OLD_PEN=0.03;
       for (const p of roster) {
         const hist = playerHist[p.player.toLowerCase()]||[]; let num=0, den=0;
@@ -1539,7 +1539,7 @@ async function fetchTradeValues() {
       const tWA = roster.reduce((s,p)=>s+p.tvWithAge,0);
       for (const p of roster) {
         const baseTV = tWA>0 ? Math.round((p.tvWithAge/tWA)*tSP) : 0; let bonus = 0;
-        if (p.age!==null && p.age<25 && p.draftPick && p.draftPick>=1 && p.draftPick<=60) { bonus = Math.round(7e6 * Math.exp(-0.05*(p.draftPick-1)) * Math.exp(-0.5*Math.max(0,p.age-18.82))); }
+        if (p.age!==null && p.age<25 && p.draftPick && p.draftPick>=1 && p.draftPick<=60) { bonus = Math.round(40e6 * Math.exp(-0.08*(p.draftPick-1)) * Math.exp(-0.5*Math.max(0,p.age-18.82))); }
         tradeValueMap[p.player.toLowerCase()] = baseTV+bonus;
       }
       // Scale trade values for salary cap growth (2025-26 → 2026-27)
