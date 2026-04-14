@@ -6236,8 +6236,10 @@ function generateAGMRecs() {
   const isLotteryTeam = preLotteryOrder.includes(teamAbbrev);
   const lotteryRank = preLotteryOrder.indexOf(teamAbbrev); // 0=worst, 13=14th worst; -1=playoff
   const isRebuilding = lotteryRank >= 0 && lotteryRank <= 4; // bottom 5
-  const isFringe = lotteryRank >= 10; // picks 11-14, close to playoffs
-  const isContender = !isLotteryTeam; // made the playoffs
+  const isFringe = lotteryRank >= 10; // picks 11-14, play-in teams
+  const isPlayIn = isFringe; // play-in teams are NOT eliminated — still competing
+  const isEliminated = isLotteryTeam && !isPlayIn; // truly out of the playoffs
+  const isContender = !isLotteryTeam || isPlayIn; // playoffs or play-in
   
   // Star tiers by TRADE VALUE (better reflects actual player value regardless of injury)
   const allRostered = contractRoster.filter(p => !p.isTwoWay);
@@ -6309,6 +6311,8 @@ function generateAGMRecs() {
   // "Star" = best player has TV > $20M. "Max Star" = also flagged as Max Player by TV threshold.
   const isStar = stars.length >= 1 && bestPlayer && stars[0].name === bestPlayer.name;
   const isMaxStar = isStar && bestPlayer.isMaxPlayer;
+  // Only mention a young player if they're a significant asset (TV > $15M) — don't force low-value names
+  const bestYoungIsNotable = bestYoung && !bestPlayerIsYoung && (bestYoung.tv || 0) > 15e6;
   
   // Top-9 rotation analysis for richer descriptions
   const top9 = [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0)).slice(0, Math.min(9, allRostered.length));
@@ -6324,41 +6328,37 @@ function generateAGMRecs() {
   let profileDesc;
   if (isRebuilding && !hasYoungCore && !bestPlayer) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
-  } else if (isRebuilding && isMaxStar && bestYoung && !bestPlayerIsYoung) {
+  } else if (isRebuilding && isMaxStar && bestYoungIsNotable) {
     profileDesc = `rebuilding around ${bestPlayer.name} while developing ${bestYoung.name} for the future`;
-  } else if (isRebuilding && isStar && bestYoung && !bestPlayerIsYoung) {
-    profileDesc = `rebuilding with ${bestPlayer.name} as the top asset and ${bestYoung.name} leading the young core`;
-  } else if (isRebuilding && bestPlayer && bestYoung && !bestPlayerIsYoung) {
-    profileDesc = `rebuilding with ${bestPlayer.name} as the top asset and ${bestYoung.name} leading the young core`;
+  } else if (isRebuilding && isStar) {
+    profileDesc = `rebuilding with ${bestPlayer.name} as the centerpiece — needs more talent around the roster`;
   } else if (isRebuilding && hasYoungCore) {
     profileDesc = `rebuilding around a promising young core led by ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} — still plenty of room to grow`;
+  } else if (isRebuilding && bestPlayer && bestYoungIsNotable) {
+    profileDesc = `rebuilding with ${bestPlayer.name} as the top asset and ${bestYoung.name} leading the young core`;
   } else if (isRebuilding) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
-  } else if (isLotteryTeam && isMaxStar && windowClosing) {
+  } else if (isEliminated && isMaxStar && windowClosing) {
     profileDesc = `underperforming despite having ${bestPlayer.name} — the window is closing and the roster needs a shake-up`;
-  } else if (isLotteryTeam && isMaxStar && rotIsAging) {
+  } else if (isEliminated && isMaxStar && rotIsAging) {
     profileDesc = `struggling around an aging core led by ${bestPlayer.name} — tough decisions ahead on whether to retool or rebuild`;
-  } else if (isLotteryTeam && isMaxStar && bestPlayerAge > 30) {
+  } else if (isEliminated && isMaxStar && bestPlayerAge > 30) {
     profileDesc = `built around ${bestPlayer.name} but missing the playoffs — needs better supporting pieces to maximize the window`;
-  } else if (isLotteryTeam && isMaxStar && bestYoung && !bestPlayerIsYoung) {
+  } else if (isEliminated && isMaxStar && bestYoungIsNotable) {
     profileDesc = `built around ${bestPlayer.name} but missing the playoffs — ${bestYoung.name} is a key piece for the future`;
-  } else if (isLotteryTeam && isMaxStar) {
+  } else if (isEliminated && isMaxStar) {
     profileDesc = `built around ${bestPlayer.name} but missing the playoffs — needs better supporting pieces to compete`;
-  } else if (isLotteryTeam && isStar && bestPlayerAge > 30 && bestYoung && !bestPlayerIsYoung) {
-    profileDesc = `anchored by ${bestPlayer.name} but falling short of the playoffs — ${bestYoung.name} represents the future`;
-  } else if (isLotteryTeam && isStar && bestYoung && !bestPlayerIsYoung) {
+  } else if (isEliminated && isStar && bestYoungIsNotable) {
     profileDesc = `anchored by ${bestPlayer.name} but missing the playoffs — ${bestYoung.name} is developing into a key complementary piece`;
-  } else if (isLotteryTeam && isStar) {
+  } else if (isEliminated && isStar) {
     profileDesc = `anchored by ${bestPlayer.name} but missing the playoffs — needs upgrades around the roster to compete`;
-  } else if (isLotteryTeam && bestPlayer && bestYoung && !bestPlayerIsYoung) {
+  } else if (isEliminated && bestPlayer && bestYoungIsNotable) {
     profileDesc = `led by ${bestPlayer.name}, with ${bestYoung.name} developing alongside — looking to make the leap`;
-  } else if (isLotteryTeam && hasYoungCore) {
+  } else if (isEliminated && hasYoungCore) {
     profileDesc = `a young team on the rise with ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} leading the way — their ceiling is still ahead of them`;
-  } else if (isLotteryTeam && hasVetCore) {
+  } else if (isEliminated && hasVetCore) {
     profileDesc = 'a veteran team that underperformed — facing decisions on the direction of the franchise';
-  } else if (isLotteryTeam && isFringe) {
-    profileDesc = 'on the playoff bubble, needing targeted upgrades to break through';
-  } else if (isLotteryTeam) {
+  } else if (isEliminated) {
     profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
   } else if (isContender && stars.length >= 2 && !rotIsAging) {
     profileDesc = `an elite contender with ${stars.slice(0,2).map(p=>p.name).join(' and ')} — a championship-caliber core`;
