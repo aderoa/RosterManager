@@ -1529,19 +1529,24 @@ async function fetchTradeValues() {
           if (defRows.length > 1) {
             const defH = defRows[0].map(h => (h||'').trim().toUpperCase());
             const scMpgCol = defH.findIndex(h => h.includes('SC') && h.includes('MPG'));
-            const scCol = scMpgCol < 0 ? defH.findIndex(h => h === 'SC' || h === 'STOCKS') : -1;
-            const mpgCol = scMpgCol < 0 ? defH.findIndex(h => h === 'MPG' || h === 'MIN') : -1;
+            const stlCol = defH.findIndex(h => h.includes('STL'));
+            const blkCol = defH.findIndex(h => h.includes('BLK'));
+            const mpgCol = defH.findIndex(h => h === 'MPG' || h.includes('MIN'));
             const nameCol = defH.findIndex(h => h === 'PLAYER' || h === 'NAME');
             if (nameCol >= 0) {
               for (let i = 1; i < defRows.length; i++) {
                 const dr = defRows[i]; if (!dr || !dr[nameCol]) continue;
                 let ratio;
                 if (scMpgCol >= 0) { ratio = parseFloat(dr[scMpgCol]); }
-                else if (scCol >= 0 && mpgCol >= 0) { const sc = parseFloat(dr[scCol]), mpg = parseFloat(dr[mpgCol]); ratio = mpg > 0 ? sc / mpg : 0; }
+                else if (stlCol >= 0 && blkCol >= 0 && mpgCol >= 0) {
+                  const stl = parseFloat(dr[stlCol])||0, blk = parseFloat(dr[blkCol])||0, mpg = parseFloat(dr[mpgCol])||0;
+                  ratio = mpg > 0 ? (stl + blk) / mpg : 0;
+                }
                 if (ratio && !isNaN(ratio) && ratio > 0) defenseMap[dr[nameCol].trim()] = ratio;
               }
             }
-            console.log(`[Defense] Loaded ${Object.keys(defenseMap).length} players with SC/MPG data`);
+            console.log(`[Defense] Parsed ${Object.keys(defenseMap).length} players (SC/MPG=${scMpgCol}, STL=${stlCol}, BLK=${blkCol})`);
+          }
           }
         } catch(e) { console.warn('[Defense] Parse error:', e); }
       }
