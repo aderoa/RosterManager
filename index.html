@@ -1539,7 +1539,7 @@ async function fetchTradeValues() {
       const tWA = roster.reduce((s,p)=>s+p.tvWithAge,0);
       for (const p of roster) {
         const baseTV = tWA>0 ? Math.round((p.tvWithAge/tWA)*tSP) : 0; let bonus = 0;
-        if (p.age!==null && p.age<25 && p.draftPick && p.draftPick>=1 && p.draftPick<=60) { bonus = Math.round(40e6 * Math.exp(-0.08*(p.draftPick-1)) * Math.exp(-0.5*Math.max(0,p.age-18.82))); }
+        if (p.age!==null && p.age<25 && p.draftPick && p.draftPick>=1 && p.draftPick<=60) { bonus = Math.round(7e6 * Math.exp(-0.05*(p.draftPick-1)) * Math.exp(-0.5*Math.max(0,p.age-18.82))); }
         tradeValueMap[p.player.toLowerCase()] = baseTV+bonus;
       }
       // Scale trade values for salary cap growth (2025-26 → 2026-27)
