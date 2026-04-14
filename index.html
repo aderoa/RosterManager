@@ -8935,6 +8935,27 @@ async function init() {
     return;
   }
 
+  // Check URL path for direct team link (e.g. /RosterManager/Houston)
+  // Also check sessionStorage redirect from 404.html
+  const redirectPath = sessionStorage.getItem('rm_redirect');
+  if (redirectPath) sessionStorage.removeItem('rm_redirect');
+  const rawPath = redirectPath || window.location.pathname;
+  const pathTeam = decodeURIComponent(rawPath).split('/').filter(Boolean).pop();
+  if (pathTeam && pathTeam !== 'RosterManager' && pathTeam !== 'index.html') {
+    const pathLower = pathTeam.toLowerCase().replace(/-/g, ' ');
+    const matchedTeam = Object.keys(TEAMS).find(t => t.toLowerCase() === pathLower)
+      || Object.keys(TEAMS).find(t => TEAMS[t].toLowerCase() === pathLower)
+      || Object.keys(TEAMS).find(t => t.toLowerCase().includes(pathLower));
+    if (matchedTeam) {
+      // Clean slate for direct link
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('rm_state_') || key === 'rm_last_team') localStorage.removeItem(key);
+      }
+      selectTeam(matchedTeam);
+      return;
+    }
+  }
+
   renderLandingPage();
 
   // Hard refresh = clean slate: clear all saved state
