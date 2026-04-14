@@ -2250,6 +2250,7 @@ function renderOverview() {
 
 function render() {
   if (!STATE) return;
+  updateURL();
   hidePlayerCard(); // Close any lingering hover card
   const mainEl = document.querySelector('.main');
 
@@ -5217,6 +5218,21 @@ function autoSimulateToPhase(targetPhase) {
   STATE.phase = targetPhase;
   saveState();
   render();
+}
+
+// ======================== URL SYNC ========================
+function updateURL() {
+  if (!STATE || !STATE.team) return;
+  try {
+    const teamSlug = STATE.team.toLowerCase().replace(/\s+/g, '-');
+    const phaseSlug = STATE.phase === 'pre_lottery' ? '' : '/' + STATE.phase.replace(/_/g, '-');
+    const isHM = window.location.hostname === 'hoopsmatic.com';
+    const base = isHM ? '/roster' : '/RosterManager';
+    const newPath = base + '/' + teamSlug + phaseSlug;
+    if (window.location.pathname !== newPath) {
+      history.replaceState(null, '', newPath);
+    }
+  } catch(e) {}
 }
 
 function setPhase(id) {
