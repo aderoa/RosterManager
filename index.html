@@ -1550,8 +1550,8 @@ async function fetchTradeValues() {
       for (const key of Object.keys(tradeValueMap)) {
         tradeValueMap[key] = Math.round(tradeValueMap[key] * CAP_GROWTH);
       }
-      // "Max Player" = final scaled TV exceeds max salary (35% of 2026-27 cap)
-      const maxSalaryThreshold = THRESHOLDS['2026-2027'].cap * 0.35;
+      // "Max Player" = final scaled TV exceeds 20% of cap (adjusted for RM's simpler formula)
+      const maxSalaryThreshold = THRESHOLDS['2026-2027'].cap * 0.20;
       for (const key of Object.keys(tradeValueMap)) {
         if (tradeValueMap[key] > maxSalaryThreshold) maxPlayerSet.add(key);
       }
@@ -6306,8 +6306,9 @@ function generateAGMRecs() {
   }
   const bestYoung = allRostered.filter(p => parseFloat(p.age) < 25).sort((a,b) => (b.tv||0) - (a.tv||0))[0] || null;
   const bestPlayerIsYoung = bestPlayer && bestYoung && bestPlayer.name === bestYoung.name;
-  // "Star" = best player has TV > $20M (from stars array). More reliable than maxPlayerSet threshold.
+  // "Star" = best player has TV > $20M. "Max Star" = also flagged as Max Player by TV threshold.
   const isStar = stars.length >= 1 && bestPlayer && stars[0].name === bestPlayer.name;
+  const isMaxStar = isStar && bestPlayer.isMaxPlayer;
   
   // Top-9 rotation analysis for richer descriptions
   const top9 = [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0)).slice(0, Math.min(9, allRostered.length));
@@ -6323,24 +6324,32 @@ function generateAGMRecs() {
   let profileDesc;
   if (isRebuilding && !hasYoungCore && !bestPlayer) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
-  } else if (isRebuilding && isStar && bestYoung && !bestPlayerIsYoung) {
+  } else if (isRebuilding && isMaxStar && bestYoung && !bestPlayerIsYoung) {
     profileDesc = `rebuilding around ${bestPlayer.name} while developing ${bestYoung.name} for the future`;
+  } else if (isRebuilding && isStar && bestYoung && !bestPlayerIsYoung) {
+    profileDesc = `rebuilding with ${bestPlayer.name} as the top asset and ${bestYoung.name} leading the young core`;
   } else if (isRebuilding && bestPlayer && bestYoung && !bestPlayerIsYoung) {
     profileDesc = `rebuilding with ${bestPlayer.name} as the top asset and ${bestYoung.name} leading the young core`;
   } else if (isRebuilding && hasYoungCore) {
     profileDesc = `rebuilding around a promising young core led by ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} — still plenty of room to grow`;
   } else if (isRebuilding) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
-  } else if (isLotteryTeam && isStar && windowClosing) {
+  } else if (isLotteryTeam && isMaxStar && windowClosing) {
     profileDesc = `underperforming despite having ${bestPlayer.name} — the window is closing and the roster needs a shake-up`;
-  } else if (isLotteryTeam && isStar && rotIsAging) {
+  } else if (isLotteryTeam && isMaxStar && rotIsAging) {
     profileDesc = `struggling around an aging core led by ${bestPlayer.name} — tough decisions ahead on whether to retool or rebuild`;
-  } else if (isLotteryTeam && isStar && bestPlayerAge > 30) {
+  } else if (isLotteryTeam && isMaxStar && bestPlayerAge > 30) {
     profileDesc = `built around ${bestPlayer.name} but missing the playoffs — needs better supporting pieces to maximize the window`;
-  } else if (isLotteryTeam && isStar && bestYoung && !bestPlayerIsYoung) {
+  } else if (isLotteryTeam && isMaxStar && bestYoung && !bestPlayerIsYoung) {
     profileDesc = `built around ${bestPlayer.name} but missing the playoffs — ${bestYoung.name} is a key piece for the future`;
-  } else if (isLotteryTeam && isStar) {
+  } else if (isLotteryTeam && isMaxStar) {
     profileDesc = `built around ${bestPlayer.name} but missing the playoffs — needs better supporting pieces to compete`;
+  } else if (isLotteryTeam && isStar && bestPlayerAge > 30 && bestYoung && !bestPlayerIsYoung) {
+    profileDesc = `anchored by ${bestPlayer.name} but falling short of the playoffs — ${bestYoung.name} represents the future`;
+  } else if (isLotteryTeam && isStar && bestYoung && !bestPlayerIsYoung) {
+    profileDesc = `anchored by ${bestPlayer.name} but missing the playoffs — ${bestYoung.name} is developing into a key complementary piece`;
+  } else if (isLotteryTeam && isStar) {
+    profileDesc = `anchored by ${bestPlayer.name} but missing the playoffs — needs upgrades around the roster to compete`;
   } else if (isLotteryTeam && bestPlayer && bestYoung && !bestPlayerIsYoung) {
     profileDesc = `led by ${bestPlayer.name}, with ${bestYoung.name} developing alongside — looking to make the leap`;
   } else if (isLotteryTeam && hasYoungCore) {
