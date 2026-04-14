@@ -1515,7 +1515,7 @@ async function fetchTradeValues() {
         const hist = playerHist[p.player.toLowerCase()]||[]; let num=0, den=0, priorNum=0, priorDen=0;
         for (const h of hist) { const w = WEIGHTS[h.year]||0; if (w<=0||h.games<=0) continue; let pg = h.totalRat/h.games; const exp = EXPECTED[h.year]||82; if (h.games/exp >= MIN_PCT) pg *= Math.max(1.0, Math.min(MAX_MULT, Math.pow(exp/h.games, BETA))); num += pg*w*h.games; den += w*h.games; if (h.year !== '2025-26') { priorNum += pg*w*h.games; priorDen += w*h.games; } }
         const fullWM = den > 0 ? num/den : 0; const priorWM = priorDen > 0 ? priorNum/priorDen : 0;
-        p.watermark = (priorDen > 0 && fullWM < priorWM) ? priorWM * 1.05 : fullWM;
+        if (priorDen > 0 && fullWM < priorWM * 0.95) { const dropPct = 1-(fullWM/priorWM); const boost = dropPct > 0.20 ? 1.0+dropPct*0.12 : 1.0; p.watermark = priorWM * boost; } else { p.watermark = fullWM; }
         const cur = hist.filter(h => h.year==='2025-26'); const cg = cur.reduce((s,h) => s+h.games, 0);
         p.rat365adj = (cg > 0 && cg/82 >= MIN_PCT) ? p.rat365 * Math.max(1.0, Math.min(MAX_MULT, Math.pow(82/cg, BETA))) : p.rat365;
       }
