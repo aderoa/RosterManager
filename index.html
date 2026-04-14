@@ -2040,6 +2040,9 @@ function selectTeam(team) {
   applyTeamTheme(team);
   document.getElementById('teamSelect').value = team;
   document.getElementById('appContent').style.display = 'block';
+  // Force immediate cap bar refresh for new team
+  updateHeaderCapBar(calcCapSheet(team));
+  updateMobileCapPill();
   // Re-apply lottery results if they exist
   if (STATE.lotteryResults) applyLotteryResults(STATE.lotteryResults);
   // Team banner (simplified - main info is in header now)
@@ -5225,13 +5228,19 @@ function updateURL() {
   if (!STATE || !STATE.team) return;
   try {
     const teamSlug = STATE.team.toLowerCase().replace(/\s+/g, '-');
+    const phaseObj = PHASES.find(p => p.id === STATE.phase);
     const phaseSlug = STATE.phase === 'pre_lottery' ? '' : '/' + STATE.phase.replace(/_/g, '-');
+    const phaseLabel = phaseObj ? phaseObj.label : '';
     const isHM = window.location.hostname === 'hoopsmatic.com';
     const base = isHM ? '/roster' : '/RosterManager';
     const newPath = base + '/' + teamSlug + phaseSlug;
     if (window.location.pathname !== newPath) {
       history.replaceState(null, '', newPath);
     }
+    // Update page title
+    const titleParts = ['NBA Roster Manager', STATE.team];
+    if (phaseLabel) titleParts.push(phaseLabel);
+    document.title = titleParts.join(' - ');
   } catch(e) {}
 }
 
@@ -6276,11 +6285,22 @@ function generateAGMRecs() {
   const needGroups = [...new Set(posNeeds.map(n => n.group))].map(g => groupLabels[g]);
   
   // ===== TEAM DESCRIPTION =====
+  // Key players: best overall (by TV) and best young (by TV, age <= 25)
+  const bestPlayer = allRostered.length ? [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0))[0] : null;
+  const bestYoung = allRostered.filter(p => parseFloat(p.age) <= 25).sort((a,b) => (b.tv||0) - (a.tv||0))[0] || null;
+  const bestPlayerIsYoung = bestPlayer && bestYoung && bestPlayer.name === bestYoung.name;
+  
   let profileDesc;
-  if (isRebuilding && !hasYoungCore) {
+  if (isRebuilding && !hasYoungCore && !bestPlayer) {
     profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
+  } else if (isRebuilding && bestPlayer && bestYoung && !bestPlayerIsYoung) {
+    profileDesc = `rebuilding with ${bestPlayer.name} as the top asset and ${bestYoung.name} leading the young core`;
   } else if (isRebuilding && hasYoungCore) {
     profileDesc = `rebuilding around a promising young core led by ${youngStars.slice(0,2).map(p=>p.name).join(' and ')}`;
+  } else if (isRebuilding) {
+    profileDesc = 'in full rebuild mode, accumulating assets and developing talent';
+  } else if (isLotteryTeam && bestPlayer && bestYoung && !bestPlayerIsYoung) {
+    profileDesc = `looking to build around ${bestPlayer.name} while developing ${bestYoung.name} for the future`;
   } else if (isLotteryTeam && hasYoungCore) {
     profileDesc = `a young team on the rise with ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} leading the way`;
   } else if (isLotteryTeam && hasVetCore) {
@@ -6293,6 +6313,8 @@ function generateAGMRecs() {
     profileDesc = `a veteran-led contender built around ${stars.slice(0,2).map(p=>p.name).join(' and ')} — the championship window is now`;
   } else if (isContender && stars.length >= 2 && hasPrimeCore) {
     profileDesc = `a strong playoff team with ${stars.slice(0,2).map(p=>p.name).join(' and ')} in their prime — built to compete`;
+  } else if (isContender && stars.length >= 1 && hasYoungCore) {
+    profileDesc = `a playoff team led by ${stars[0].name}, with ${youngStars[0].name} emerging as a key piece`;
   } else if (isContender && hasYoungCore) {
     profileDesc = `a playoff team powered by young talent — ${youngStars.slice(0,2).map(p=>p.name).join(' and ')} are just getting started`;
   } else if (isContender && stars.length >= 1) {
@@ -6428,21 +6450,23 @@ function generateAGMRecs() {
       for (const pk of picks) {
         const pickNum = pk.pick;
         const tier = pickNum <= 5 ? 'Star' : pickNum <= 14 ? 'Starter' : pickNum <= 30 ? 'Rotation' : 'Depth';
-        // Realistic window: prospects ranked near this pick
+        // Realistic window: prospects ranked near this pick, including some below for positional fits
         const windowStart = Math.max(0, pickNum - 4);
-        const windowEnd = Math.min(available.length, pickNum + 6);
+        const windowEnd = Math.min(available.length, pickNum + 12);
         const pool = available.slice(windowStart, windowEnd);
         
         const scored = pool.map(name => {
           const bio = prospectBioMap[name] || {};
           const pPos = (bio.position||'?').split('/')[0].trim().toUpperCase();
           const needMatch = posNeeds.find(n => n.pos === pPos);
-          const needScore = needMatch ? (needMatch.level === 'critical' ? 4 : 2) : 0;
+          const needScore = needMatch ? (needMatch.level === 'critical' ? 5 : 3) : 0;
           const boardRank = allProspects.indexOf(name);
           const age = bio.birthDate ? calcProspectAge(bio.birthDate) : null;
           const ageNum = age ? parseFloat(age) : 19;
           const agePref = isRebuilding ? (ageNum <= 19 ? 0.8 : 0) : isContender ? (ageNum >= 21 ? 0.8 : 0) : 0;
-          return { name, bio, boardRank, needScore, pPos, ageNum, age: age||'?', total: (20-boardRank) + needScore + agePref + ((_seed+boardRank)%3-1)*0.3 };
+          // BPA score decays less steeply so positional fits below the pick can compete
+          const bpaScore = Math.max(0, 15 - Math.abs(boardRank - pickNum) * 0.8);
+          return { name, bio, boardRank, needScore, pPos, ageNum, age: age||'?', total: bpaScore + needScore + agePref + ((_seed+boardRank)%3-1)*0.3 };
         }).sort((a,b) => b.total - a.total);
 
         const recs = scored.slice(0, 2).map((p, i) => {
