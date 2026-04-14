@@ -1512,9 +1512,10 @@ async function fetchTradeValues() {
       const EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':82};
       const EXP=1.8, BETA=0.8, MAX_MULT=2.5, MIN_PCT=0.25, WM_W=0.85, RAT_W=0.15, AGE_BONUS=1.0, OLD_TH=35, OLD_PEN=0.03;
       for (const p of roster) {
-        const hist = playerHist[p.player.toLowerCase()]||[]; let num=0, den=0;
-        for (const h of hist) { const w = WEIGHTS[h.year]||0; if (w<=0||h.games<=0) continue; let pg = h.totalRat/h.games; const exp = EXPECTED[h.year]||82; if (h.games/exp >= MIN_PCT) pg *= Math.max(1.0, Math.min(MAX_MULT, Math.pow(exp/h.games, BETA))); num += pg*w*h.games; den += w*h.games; }
-        p.watermark = den > 0 ? num/den : 0;
+        const hist = playerHist[p.player.toLowerCase()]||[]; let num=0, den=0, priorNum=0, priorDen=0;
+        for (const h of hist) { const w = WEIGHTS[h.year]||0; if (w<=0||h.games<=0) continue; let pg = h.totalRat/h.games; const exp = EXPECTED[h.year]||82; if (h.games/exp >= MIN_PCT) pg *= Math.max(1.0, Math.min(MAX_MULT, Math.pow(exp/h.games, BETA))); num += pg*w*h.games; den += w*h.games; if (h.year !== '2025-26') { priorNum += pg*w*h.games; priorDen += w*h.games; } }
+        const fullWM = den > 0 ? num/den : 0; const priorWM = priorDen > 0 ? priorNum/priorDen : 0;
+        p.watermark = (priorDen > 0 && fullWM < priorWM) ? priorWM : fullWM;
         const cur = hist.filter(h => h.year==='2025-26'); const cg = cur.reduce((s,h) => s+h.games, 0);
         p.rat365adj = (cg > 0 && cg/82 >= MIN_PCT) ? p.rat365 * Math.max(1.0, Math.min(MAX_MULT, Math.pow(82/cg, BETA))) : p.rat365;
       }
