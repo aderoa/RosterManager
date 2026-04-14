@@ -1300,11 +1300,11 @@ function saveState() {
     guaranteed: [...STATE.guaranteed],
     dwSkipped: [...STATE.dwSkipped]
   };
-  localStorage.setItem('rm_state_' + STATE.team, JSON.stringify(s));
+  try { localStorage.setItem('rm_state_' + STATE.team, JSON.stringify(s)); } catch(e) {}
 }
 
 function loadState(team) {
-  const raw = localStorage.getItem('rm_state_' + team);
+  let raw; try { raw = localStorage.getItem('rm_state_' + team); } catch(e) { return; }
   if (raw) {
     try {
       const s = JSON.parse(raw);
@@ -3738,6 +3738,7 @@ function showDraftPickTransferConfirm() {
 }
 
 function startFullDraft() {
+  if (STATE.draftCurrentPick > 0) return; // already started
   _draftMode = 'full';
   _draftSpeed = 1500; // Slower default for full mode
   STATE.draftCurrentPick = 1;
@@ -3747,6 +3748,7 @@ function startFullDraft() {
 }
 
 function startDraft() {
+  if (STATE.draftCurrentPick > 0) return;
   _draftMode = 'quick';
   _draftSpeed = 500;
   STATE.draftCurrentPick = 1;
@@ -3782,6 +3784,7 @@ function skipToNextPick() {
 }
 
 function skipDraft() {
+  if (STATE.draftCurrentPick > 0) return;
   // Auto-draft all 60 picks using probabilistic selection
   const teamAbbrev = TEAMS[STATE.team];
   const drafted = getDraftedProspects();
@@ -5339,7 +5342,11 @@ function setPhase(id) {
   }
 }
 
+let _advancingPhase = false;
 function advancePhase() {
+  if (_advancingPhase) return;
+  _advancingPhase = true;
+  setTimeout(() => { _advancingPhase = false; }, 500);
   const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
   if (currentIdx < PHASES.length - 1) {
     // Can't leave lottery without running it
@@ -5496,7 +5503,7 @@ function checkResetInput(el) {
 function confirmReset() {
   if (!document.getElementById('resetConfirmBtn').classList.contains('active')) return;
   closeResetModal();
-  localStorage.removeItem('rm_state_' + STATE.team);
+  try { localStorage.removeItem('rm_state_' + STATE.team); } catch(e) {}
   STATE = defaultState(STATE.team);
   showToast('All moves reset', 'warning');
   render();
@@ -9234,7 +9241,7 @@ async function init() {
   renderTeamDropdown();
 
   // Check if returning from same-tab Trade Machine
-  const returnTeam = localStorage.getItem('rm_return_team');
+  let returnTeam; try { returnTeam = localStorage.getItem('rm_return_team'); } catch(e) {}
   
   // Check for trade data via multiple methods
   let pendingTradeData = null;
@@ -9289,11 +9296,11 @@ async function init() {
     const team = returnTeam || (pendingTradeData ? pendingTradeData.team : null);
     if (!team) { renderLandingPage(); return; }
     // Coming back from TM — with or without a trade
-    const scrollY = parseInt(localStorage.getItem('rm_return_scroll') || '0');
+    let scrollY = 0; try { scrollY = parseInt(localStorage.getItem('rm_return_scroll') || '0'); } catch(e) {}
     
     // Clean up localStorage
-    localStorage.removeItem('rm_return_team');
-    localStorage.removeItem('rm_return_scroll');
+    try { localStorage.removeItem('rm_return_team'); } catch(e) {}
+    try { localStorage.removeItem('rm_return_scroll'); } catch(e) {}
     
     // Auto-select the team and restore state
     // returnTeam is the full team key; pendingTradeData.team is the abbreviation
@@ -9430,52 +9437,6 @@ function renderLandingPage() {
   body.innerHTML = h;
 }
 
-function showAllDescriptions() {
-  const savedState = STATE;
-  const savedCache = _agmCache;
-  const allTeams = Object.keys(TEAMS).sort();
-  const results = [];
-  
-  // Temporarily capture AGM results instead of rendering
-  const origRender = window.renderAGMResults;
-  let captured = null;
-  window.renderAGMResults = function(r) { captured = r; };
-  
-  for (const team of allTeams) {
-    try {
-      STATE = defaultState(team);
-      _agmCache = {};
-      captured = null;
-      generateAGMRecs();
-      if (captured && captured.overview) {
-        results.push({ team, abbr: TEAMS[team], overview: captured.overview });
-      }
-    } catch(e) {
-      results.push({ team, abbr: TEAMS[team], overview: '(error: ' + e.message + ')' });
-    }
-  }
-  
-  // Restore
-  window.renderAGMResults = origRender;
-  STATE = savedState;
-  _agmCache = savedCache;
-  
-  // Show overlay
-  let html = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;overflow-y:auto;padding:2rem" onclick="if(event.target===this)this.remove()">';
-  html += '<div style="max-width:800px;margin:0 auto;background:var(--surface);border-radius:12px;padding:2rem;box-shadow:0 12px 40px rgba(0,0,0,.2)">';
-  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem"><h2 style="margin:0;font-size:1.2rem;font-weight:700">All Team Descriptions</h2><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;padding:4px">✕</button></div>';
-  for (const r of results) {
-    const logo = teamLogos[r.team] || '';
-    html += `<div style="padding:.75rem 0;border-bottom:1px solid var(--border);display:flex;gap:.75rem;align-items:flex-start">`;
-    html += logo ? `<img src="${logo}" style="width:32px;height:32px;flex-shrink:0;margin-top:2px">` : `<div style="width:32px;height:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--accent-dim);border-radius:50%;font-size:.65rem;font-weight:700;color:var(--accent)">${r.abbr}</div>`;
-    html += `<div><div style="font-weight:700;font-size:.8rem;margin-bottom:2px">${r.team} <span style="color:var(--muted);font-weight:500">${r.abbr}</span></div>`;
-    html += `<div style="font-size:.75rem;color:var(--text2);line-height:1.5">${r.overview}</div></div></div>`;
-  }
-  html += '</div></div>';
-  const overlay = document.createElement('div');
-  overlay.innerHTML = html;
-  document.body.appendChild(overlay.firstChild);
-}
 
 function pickTeamFromLanding(team) {
   const landing = document.getElementById('landingPage');
