@@ -923,7 +923,7 @@ a{color:var(--accent);text-decoration:none}
   <div class="landing-hdr">
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
-    <div class="landing-badge">v8.3 · SELECT YOUR TEAM TO BEGIN</div>
+    <div class="landing-badge">v8.5 · SELECT YOUR TEAM TO BEGIN</div>
   </div>
   <div class="landing-body" id="landingBody">
     <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
@@ -933,7 +933,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.3</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v8.5</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1243,8 +1243,12 @@ let teamDraftPicks = {}; // abbrev -> [{prospect, draftRnk, capHold}]
 let allProspects = []; // all prospect names from Draft Predictor
 let allPickSlots = {}; // pickSlot# -> {team (abbrev), defaultProspect}
 let contractsMap = {}; // playerName -> { yrs: [{sal, ch, st},...], totG }
-let tradeValueMap = {}; // playerName (lowercase) -> trade value ($)
+let tradeValueMap = {}; // playerName (lowercase) -> trade value ($) = realValue + bonus
+let realValueMap = {}; // playerName (lowercase) -> real value ($) = baseTV only (no bonus)
 let maxPlayerSet = new Set(); // playerName (lowercase) -> is a "Max Player" by real value
+let watermarkMap = {}; // playerName (lowercase) -> watermark score
+let shootingMap = {}; // playerName -> shooting penalty value (from Sheet3)
+let defenseMap = {}; // playerName -> SC/MPG ratio (from defense API)
 let preLotteryOrder = []; // team abbrevs in standings order (worst to best)
 let prospectBioMap = {}; // name → { birthDate, country, position }
 
@@ -1493,9 +1497,17 @@ async function fetchContracts() {
 
 async function fetchTradeValues() {
   tradeValueMap = {};
+  realValueMap = {};
   maxPlayerSet = new Set();
+  watermarkMap = {};
+  shootingMap = {};
+  defenseMap = {};
   try {
-    const r = await fetch('https://hoopsmatic.com/api/rm-tv');
+    // Fetch trade value data + defense data in parallel
+    const [r, defRes] = await Promise.all([
+      fetch('https://hoopsmatic.com/api/rm-tv'),
+      fetch('/api/defense-data').catch(() => null)
+    ]);
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
     if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('HTML response');
@@ -1506,19 +1518,74 @@ async function fetchTradeValues() {
         if (row[18] && !todayStr) todayStr = row[18];
         if (row[0] && row[1]) roster.push({ player: row[1].trim(), rat365: parseFloat(row[2])||0, salary: parseInt(row[3].replace(/[$,]/g,''))||0, birthday: row[4]||'', draftPick: parseInt(row[20])||null });
         if (row[6] && row[7]) { const g = parseInt(row[9])||0; if (g > 0) historical.push({ year: row[6], player: row[7].trim(), totalRat: parseFloat(row[8].replace(/,/g,''))||0, games: g }); }
+        // Shooting penalty from cols 12 (player name) + 17 (shooting value)
+        if (row[12] && row[17]) { const sv = parseFloat(row[17]); if (!isNaN(sv) && sv > 0) shootingMap[row[12].trim()] = sv; }
+      }
+      // Parse defense data for SC/MPG adjustment
+      if (defRes && defRes.ok) {
+        try {
+          const defData = await defRes.json();
+          const defRows = defData.values || [];
+          if (defRows.length > 1) {
+            const defH = defRows[0].map(h => (h||'').trim().toUpperCase());
+            const scMpgCol = defH.findIndex(h => h.includes('SC') && h.includes('MPG'));
+            const scCol = scMpgCol < 0 ? defH.findIndex(h => h === 'SC' || h === 'STOCKS') : -1;
+            const mpgCol = scMpgCol < 0 ? defH.findIndex(h => h === 'MPG' || h === 'MIN') : -1;
+            const nameCol = defH.findIndex(h => h === 'PLAYER' || h === 'NAME');
+            if (nameCol >= 0) {
+              for (let i = 1; i < defRows.length; i++) {
+                const dr = defRows[i]; if (!dr || !dr[nameCol]) continue;
+                let ratio;
+                if (scMpgCol >= 0) { ratio = parseFloat(dr[scMpgCol]); }
+                else if (scCol >= 0 && mpgCol >= 0) { const sc = parseFloat(dr[scCol]), mpg = parseFloat(dr[mpgCol]); ratio = mpg > 0 ? sc / mpg : 0; }
+                if (ratio && !isNaN(ratio) && ratio > 0) defenseMap[dr[nameCol].trim()] = ratio;
+              }
+            }
+            console.log(`[Defense] Loaded ${Object.keys(defenseMap).length} players with SC/MPG data`);
+          }
+        } catch(e) { console.warn('[Defense] Parse error:', e); }
       }
       const playerHist = {}; for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
       const WEIGHTS = {'2025-26':1.0,'2024-25':0.6,'2023-24':0.36,'2022-23':0.216,'2021-22':0.1296};
       const EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':82};
-      const EXP=1.8, BETA=0.8, MAX_MULT=2.5, MIN_PCT=0.25, WM_W=0.92, RAT_W=0.08, AGE_BONUS=0.85, OLD_TH=35, OLD_PEN=0.03;
+      // Match standalone v3.4 formula exactly
+      const EXPONENT=3.2, KNEE=14000, BETA=0.8, MAX_MULT=2.5, MIN_PCT=0.25;
+      const WM_W=0.92, RAT_W=0.08, AGE_BONUS=0.85, OLD_TH=35, OLD_PEN=0.03;
+      const GP_AGE_TH=28, GP_AGE_DECAY=0.12;
+      const POT_MAX=18e6, DRAFT_DECAY=0.05, AGE_DECAY_POT=0.5, MIN_ROOKIE_AGE=18.82, MAX_POT_AGE=25;
+      function softScore(r) { const s = Math.pow(Math.max(r,0), EXPONENT); return s / (1.0 + s / KNEE); }
+      function gpCorr(perGame, exp, games, age) {
+        const pct = games / exp;
+        if (pct < MIN_PCT) return perGame;
+        let rawMult = Math.max(1.0, Math.min(MAX_MULT, Math.pow(exp/games, BETA)));
+        if (age !== null && age > GP_AGE_TH) {
+          const fade = Math.exp(-GP_AGE_DECAY * (age - GP_AGE_TH));
+          return perGame * (1.0 + (rawMult - 1.0) * fade);
+        }
+        return perGame * rawMult;
+      }
+      // Compute watermark with injury protection and GP age fade
       for (const p of roster) {
         const hist = playerHist[p.player.toLowerCase()]||[]; let num=0, den=0, priorNum=0, priorDen=0;
-        for (const h of hist) { const w = WEIGHTS[h.year]||0; if (w<=0||h.games<=0) continue; let pg = h.totalRat/h.games; const exp = EXPECTED[h.year]||82; if (h.games/exp >= MIN_PCT) pg *= Math.max(1.0, Math.min(MAX_MULT, Math.pow(exp/h.games, BETA))); num += pg*w*h.games; den += w*h.games; if (h.year !== '2025-26') { priorNum += pg*w*h.games; priorDen += w*h.games; } }
+        for (const h of hist) { const w = WEIGHTS[h.year]||0; if (w<=0||h.games<=0) continue;
+          let pg = h.totalRat/h.games; const exp = EXPECTED[h.year]||82;
+          pg = gpCorr(pg, exp, h.games, p.age);
+          num += pg*w*h.games; den += w*h.games;
+          if (h.year !== '2025-26') { priorNum += pg*w*h.games; priorDen += w*h.games; }
+        }
         const fullWM = den > 0 ? num/den : 0; const priorWM = priorDen > 0 ? priorNum/priorDen : 0;
         if (priorDen > 0 && fullWM < priorWM * 0.95) { const dropPct = 1-(fullWM/priorWM); const boost = dropPct > 0.20 ? 1.0+dropPct*0.12 : 1.0; p.watermark = priorWM * boost; } else { p.watermark = fullWM; }
+        watermarkMap[p.player.toLowerCase()] = p.watermark;
         const cur = hist.filter(h => h.year==='2025-26'); const cg = cur.reduce((s,h) => s+h.games, 0);
-        p.rat365adj = (cg > 0 && cg/82 >= MIN_PCT) ? p.rat365 * Math.max(1.0, Math.min(MAX_MULT, Math.pow(82/cg, BETA))) : p.rat365;
+        if (cg > 0 && cg/82 >= MIN_PCT) {
+          const rawMult = Math.max(1.0, Math.min(MAX_MULT, Math.pow(82/cg, BETA)));
+          if (p.age !== null && p.age > GP_AGE_TH) {
+            const fade = Math.exp(-GP_AGE_DECAY * (p.age - GP_AGE_TH));
+            p.rat365adj = p.rat365 * (1.0 + (rawMult - 1.0) * fade);
+          } else { p.rat365adj = p.rat365 * rawMult; }
+        } else { p.rat365adj = p.rat365; }
       }
+      // Age multiplier
       const pd = s => { if (!s) return null; const p = s.split('/'); return p.length===3 ? new Date(+p[2],+p[0]-1,+p[1]) : null; };
       const today = pd(todayStr)||new Date(); const ages = [];
       for (const p of roster) { const bd = pd(p.birthday); p.age = bd ? (today-bd)/(365.25*864e5) : null; if (p.age) ages.push(p.age); }
@@ -1529,21 +1596,30 @@ async function fetchTradeValues() {
         else if (p.age!==null && p.age >= OLD_TH) p.ageMult = Math.max(0.5, 1.0-OLD_PEN*(p.age-OLD_TH));
         else p.ageMult = 1.0;
       }
-      // Injury protection: if rat365adj is far below watermark, use watermark as floor
+      // Injury protection for rat365adj
       for (const p of roster) { if (p.rat365adj < p.watermark * 0.5) p.rat365adj = p.watermark; }
+      // Shooting penalty from Sheet3
+      for (const p of roster) { p.shootingPenalty = (shootingMap[p.player]||0) * 2; p.shootingMult = 1 - p.shootingPenalty; }
+      // Defense SC/MPG adjustment (±4%)
+      const defVals = Object.values(defenseMap); const defAvg = defVals.length ? defVals.reduce((s,v)=>s+v,0)/defVals.length : 0;
+      for (const p of roster) { const pd2 = defenseMap[p.player]||0; p.defenseAdj = (defAvg>0 && pd2>0) ? Math.max(-0.04, Math.min(0.04, (pd2-defAvg)/defAvg*0.04)) : 0; p.defenseMult = 1+p.defenseAdj; }
+      // Real value: softScore blend × age × shooting × defense, renormalize to pool
       const tSP = roster.reduce((s,p)=>s+p.salary,0);
-      const tWM = roster.reduce((s,p)=>s+Math.pow(Math.max(p.watermark,0),EXP),0);
-      const tRAT = roster.reduce((s,p)=>s+Math.pow(Math.max(p.rat365adj,0),EXP),0);
+      const tWM = roster.reduce((s,p)=>s+softScore(p.watermark),0);
+      const tRAT = roster.reduce((s,p)=>s+softScore(p.rat365adj),0);
       for (const p of roster) {
-        const tvWM = tWM>0 ? (Math.pow(Math.max(p.watermark,0),EXP)/tWM)*tSP : 0;
-        const tvRAT = tRAT>0 ? (Math.pow(Math.max(p.rat365adj,0),EXP)/tRAT)*tSP : 0;
-        p.tvWithAge = (WM_W*tvWM + RAT_W*tvRAT) * p.ageMult;
+        const tvWM = tWM>0 ? (softScore(p.watermark)/tWM)*tSP : 0;
+        const tvRAT = tRAT>0 ? (softScore(p.rat365adj)/tRAT)*tSP : 0;
+        p.tvWithAge = (WM_W*tvWM + RAT_W*tvRAT) * p.ageMult * p.shootingMult * p.defenseMult;
       }
       const tWA = roster.reduce((s,p)=>s+p.tvWithAge,0);
       for (const p of roster) {
         const baseTV = tWA>0 ? Math.round((p.tvWithAge/tWA)*tSP) : 0; let bonus = 0;
-        if (p.age!==null && p.age<25 && p.draftPick && p.draftPick>=1 && p.draftPick<=60) { bonus = Math.round(7e6 * Math.exp(-0.05*(p.draftPick-1)) * Math.exp(-0.5*Math.max(0,p.age-18.82))); }
+        if (p.age!==null && p.age<MAX_POT_AGE && p.draftPick && p.draftPick>=1 && p.draftPick<=60) {
+          bonus = Math.round(POT_MAX * Math.exp(-DRAFT_DECAY*(p.draftPick-1)) * Math.exp(-AGE_DECAY_POT*Math.max(0,p.age-MIN_ROOKIE_AGE)));
+        }
         tradeValueMap[p.player.toLowerCase()] = baseTV+bonus;
+        realValueMap[p.player.toLowerCase()] = baseTV;
       }
       // Scale trade values for salary cap growth (2025-26 → 2026-27)
       const CAP_GROWTH = THRESHOLDS['2026-2027'].cap / THRESHOLDS['2025-2026'].cap;
@@ -1661,7 +1737,9 @@ function parseAllPlayers(csv) {
       exception, logo, headshot, pos, age, end, totalGuar, tradeKicker,
       category, capHold, extEligible: computedExtEligible, rat365, isTwoWay,
       tv: tradeValueMap[name.toLowerCase()] || 0,
-      isMaxPlayer: maxPlayerSet.has(name.toLowerCase())
+      realValue: realValueMap[name.toLowerCase()] || 0,
+      isMaxPlayer: maxPlayerSet.has(name.toLowerCase()),
+      wm: watermarkMap[name.toLowerCase()] || 0
     });
   }
   return players;
@@ -6120,9 +6198,9 @@ function buildAGMContext() {
     rosterSummary.push({
       name: p.name, pos: p.pos, age: p.age, 
       salary: p.sal27 || p.sal26, rat: p.rat365,
-      tv: p.tv, category: p.category, exception: p.exception,
+      tv: p.tv, wm: p.wm, realValue: p.realValue, category: p.category, exception: p.exception,
       end: p.end, capHold: p.capHold, extEligible: p.extEligible,
-      isTwoWay: p.isTwoWay
+      isTwoWay: p.isTwoWay, isMaxPlayer: p.isMaxPlayer
     });
   }
   // Add traded-in players
@@ -6244,9 +6322,9 @@ function generateAGMRecs() {
   const isPlayIn = isLotteryTeam && !isEliminated; // in lottery order but not eliminated = play-in
   const isContender = !isEliminated; // playoffs or play-in
   
-  // Star tiers by TRADE VALUE (better reflects actual player value regardless of injury)
+  // Star tiers by REAL VALUE (baseTV without potential bonus — matches standalone Trade Value ranking)
   const allRostered = contractRoster.filter(p => !p.isTwoWay);
-  const stars = allRostered.filter(p => (p.tv||0) > 20e6).sort((a,b) => (b.tv||0) - (a.tv||0));
+  const stars = allRostered.filter(p => (p.tv||0) > 20e6).sort((a,b) => (b.realValue||0) - (a.realValue||0));
   const starters = allRostered.filter(p => (p.tv||0) > 8e6);
   const rotationPlayers = allRostered.filter(p => (p.tv||0) > 3e6);
   
@@ -6302,23 +6380,23 @@ function generateAGMRecs() {
   const needGroups = [...new Set(posNeeds.map(n => n.group))].map(g => groupLabels[g]);
   
   // ===== TEAM DESCRIPTION =====
-  // Key players: best overall (by TV) and best young (by TV, age < 25)
-  let bestPlayer = allRostered.length ? [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0))[0] : null;
-  // GSW override: Stephen Curry is the franchise face regardless of TV
+  // Key players: best overall and best young — sorted by Real Value (no potential bonus)
+  let bestPlayer = allRostered.length ? [...allRostered].sort((a,b) => (b.realValue||0) - (a.realValue||0))[0] : null;
+  // GSW override: Stephen Curry is the franchise face regardless of value
   if (teamAbbrev === 'GSW') {
     const curry = allRostered.find(p => p.name === 'Stephen Curry');
     if (curry) bestPlayer = curry;
   }
-  const bestYoung = allRostered.filter(p => parseFloat(p.age) < 25).sort((a,b) => (b.tv||0) - (a.tv||0))[0] || null;
-  const bestPlayerIsYoung = bestPlayer && bestYoung && bestPlayer.name === bestYoung.name;
-  // "Star" = best player has TV > $20M. "Max Star" = also flagged as Max Player by TV threshold.
+  const bestYoung = allRostered.filter(p => parseFloat(p.age) < 25 && (!bestPlayer || p.name !== bestPlayer.name)).sort((a,b) => (b.realValue||0) - (a.realValue||0))[0] || null;
+  const bestPlayerIsYoung = bestPlayer && parseFloat(bestPlayer.age) < 25;
+  // "Star" = best player has realValue > $20M. "Max Star" = also flagged as Max Player.
   const isStar = stars.length >= 1 && bestPlayer && stars[0].name === bestPlayer.name;
   const isMaxStar = isStar && bestPlayer.isMaxPlayer;
-  // Only mention a young player if they're a significant asset (TV > $15M) — don't force low-value names
-  const bestYoungIsNotable = bestYoung && !bestPlayerIsYoung && (bestYoung.tv || 0) > 15e6;
+  // Only mention a young player if they're a significant asset (realValue > $15M)
+  const bestYoungIsNotable = bestYoung && (bestYoung.realValue || 0) > 15e6;
   
   // Top-9 rotation analysis for richer descriptions
-  const top9 = [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0)).slice(0, Math.min(9, allRostered.length));
+  const top9 = [...allRostered].sort((a,b) => (b.realValue||0) - (a.realValue||0)).slice(0, Math.min(9, allRostered.length));
   const top9Ages = top9.map(p => parseFloat(p.age)).filter(a => !isNaN(a));
   const rotAvgAge = top9Ages.length ? top9Ages.reduce((s,a) => s+a, 0) / top9Ages.length : 26;
   const rotVetCount = top9Ages.filter(a => a > 30).length;
@@ -6366,8 +6444,8 @@ function generateAGMRecs() {
   } else if (isEliminated) {
     profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
   } else if (isContender && isEliteByRecord) {
-    // 55+ wins: true elite
-    const topTwo = [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0)).slice(0,2);
+    // 55+ wins: true elite — sort by watermark for player ranking
+    const topTwo = [...allRostered].sort((a,b) => (b.realValue||0) - (a.realValue||0)).slice(0,2);
     if (topTwo.length >= 2 && topTwo.every(s => parseFloat(s.age) < 25)) {
       profileDesc = `an elite contender powered by ${topTwo.map(p=>p.name).join(' and ')} — still developing and their best basketball is ahead of them`;
     } else if (topTwo.length >= 2) {
@@ -6377,7 +6455,7 @@ function generateAGMRecs() {
     }
   } else if (isContender && teamWins >= 50) {
     // 50-54 wins: strong contender
-    const topTwo = stars.length >= 2 ? stars.slice(0,2) : [...allRostered].sort((a,b) => (b.tv||0) - (a.tv||0)).slice(0,2);
+    const topTwo = [...allRostered].sort((a,b) => (b.realValue||0) - (a.realValue||0)).slice(0,2);
     if (topTwo.length >= 2 && topTwo.every(s => parseFloat(s.age) < 25)) {
       profileDesc = `a strong contender led by ${topTwo.map(p=>p.name).join(' and ')} — still young and getting better`;
     } else if (topTwo.length >= 2) {
@@ -6387,10 +6465,11 @@ function generateAGMRecs() {
     }
   } else if (isContender && teamWins >= 45) {
     // 45-49 wins: solid playoff team
+    const secondBest = hasYoungCore ? youngStars.find(p => p.name !== bestPlayer?.name) : null;
     if (isStar && bestPlayerAge > 30 && rotIsAging) {
       profileDesc = `a playoff team leaning on ${bestPlayer.name} with an aging supporting cast — need to balance win-now moves with future flexibility`;
-    } else if (isStar && hasYoungCore) {
-      profileDesc = `a solid playoff team led by ${bestPlayer.name}, with ${youngStars[0].name} emerging alongside — room to grow`;
+    } else if (isStar && secondBest) {
+      profileDesc = `a solid playoff team led by ${bestPlayer.name}, with ${secondBest.name} emerging alongside — room to grow`;
     } else if (isStar) {
       profileDesc = `a solid playoff team anchored by ${bestPlayer.name} — looking to take the next step`;
     } else {
@@ -6416,7 +6495,15 @@ function generateAGMRecs() {
     profileDesc = 'in a transition phase, weighing competitiveness against long-term building';
   }
   
-  const capDesc = `${cap.status} with ${fmtMoney(Math.abs(cap.capSpace))} ${cap.capSpace >= 0 ? 'in available space' : 'over the cap'}`;
+  // Cap situation WITHOUT free agent cap holds (more accurate for planning)
+  const totalHolds = fas.reduce((s,p) => s + (p.capHold||0), 0);
+  const capSpaceNoHolds = cap.capSpace + totalHolds;
+  const taxRoomNoHolds = cap.taxRoom + totalHolds;
+  const apron1NoHolds = cap.apron1Room + totalHolds;
+  const apron2NoHolds = cap.apron2Room + totalHolds;
+  const statusNoHolds = apron2NoHolds < 0 ? '2nd Apron' : apron1NoHolds < 0 ? '1st Apron' : taxRoomNoHolds < 0 ? 'Tax Team' : capSpaceNoHolds > 0 ? 'Cap Space' : 'Below Tax';
+  const capDesc = `${statusNoHolds} with ${fmtMoney(Math.abs(capSpaceNoHolds))} ${capSpaceNoHolds >= 0 ? 'in available space' : 'over the cap'}`;
+  const holdsNote = totalHolds > 0 ? ` Cap holds on free agents total ${fmtMoney(totalHolds)}.` : '';
   
   // Position needs description (quality vs depth distinction)
   let needDesc;
@@ -6432,11 +6519,8 @@ function generateAGMRecs() {
     needDesc = needDesc.charAt(0).toUpperCase() + needDesc.slice(1);
   }
 
-  // Max cap space if all holds renounced
-  const totalHolds = fas.reduce((s,p) => s + (p.capHold||0), 0);
-  const maxCapSpace = cap.capSpace + totalHolds;
-
-  const renounceNote = totalHolds > 0 && maxCapSpace > 0 ? ` Up to ${fmtMoney(maxCapSpace)} in cap space if all holds are renounced.` : totalHolds > 0 ? ` Even renouncing all holds, the team remains ${fmtMoney(Math.abs(maxCapSpace))} over the cap.` : '';
+  // Overview assembly
+  const renounceNote = holdsNote;
   result.overview = `The ${teamFullName} are ${profileDesc}. Cap situation: ${capDesc}.${renounceNote} ${needDesc}`;
 
   // ==================== PRE-LOTTERY ====================
