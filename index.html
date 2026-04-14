@@ -1529,6 +1529,8 @@ async function fetchTradeValues() {
         else if (p.age!==null && p.age >= OLD_TH) p.ageMult = Math.max(0.5, 1.0-OLD_PEN*(p.age-OLD_TH));
         else p.ageMult = 1.0;
       }
+      // Injury protection: if rat365adj is far below watermark, use watermark as floor
+      for (const p of roster) { if (p.rat365adj < p.watermark * 0.5) p.rat365adj = p.watermark; }
       const tSP = roster.reduce((s,p)=>s+p.salary,0);
       const tWM = roster.reduce((s,p)=>s+Math.pow(Math.max(p.watermark,0),EXP),0);
       const tRAT = roster.reduce((s,p)=>s+Math.pow(Math.max(p.rat365adj,0),EXP),0);
