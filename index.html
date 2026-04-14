@@ -1510,7 +1510,7 @@ async function fetchTradeValues() {
       const playerHist = {}; for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
       const WEIGHTS = {'2025-26':1.0,'2024-25':0.6,'2023-24':0.36,'2022-23':0.216,'2021-22':0.1296};
       const EXPECTED = {'2021-22':82,'2022-23':82,'2023-24':82,'2024-25':82,'2025-26':82};
-      const EXP=1.8, BETA=0.8, MAX_MULT=2.5, MIN_PCT=0.25, WM_W=0.92, RAT_W=0.08, AGE_BONUS=1.0, OLD_TH=35, OLD_PEN=0.03;
+      const EXP=1.8, BETA=0.8, MAX_MULT=2.5, MIN_PCT=0.25, WM_W=0.92, RAT_W=0.08, AGE_BONUS=0.7, OLD_TH=35, OLD_PEN=0.03;
       for (const p of roster) {
         const hist = playerHist[p.player.toLowerCase()]||[]; let num=0, den=0, priorNum=0, priorDen=0;
         for (const h of hist) { const w = WEIGHTS[h.year]||0; if (w<=0||h.games<=0) continue; let pg = h.totalRat/h.games; const exp = EXPECTED[h.year]||82; if (h.games/exp >= MIN_PCT) pg *= Math.max(1.0, Math.min(MAX_MULT, Math.pow(exp/h.games, BETA))); num += pg*w*h.games; den += w*h.games; if (h.year !== '2025-26') { priorNum += pg*w*h.games; priorDen += w*h.games; } }
