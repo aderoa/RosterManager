@@ -8935,23 +8935,48 @@ async function init() {
     return;
   }
 
-  // Check URL path for direct team link (e.g. /RosterManager/Houston)
+  // Check URL path for direct team link (e.g. /RosterManager/Houston or /RosterManager/Houston/Draft)
   // Also check sessionStorage redirect from 404.html
   const redirectPath = sessionStorage.getItem('rm_redirect');
   if (redirectPath) sessionStorage.removeItem('rm_redirect');
   const rawPath = redirectPath || window.location.pathname;
-  const pathTeam = decodeURIComponent(rawPath).split('/').filter(Boolean).pop();
-  if (pathTeam && pathTeam !== 'RosterManager' && pathTeam !== 'index.html') {
-    const pathLower = pathTeam.toLowerCase().replace(/-/g, ' ');
-    const matchedTeam = Object.keys(TEAMS).find(t => t.toLowerCase() === pathLower)
-      || Object.keys(TEAMS).find(t => TEAMS[t].toLowerCase() === pathLower)
-      || Object.keys(TEAMS).find(t => t.toLowerCase().includes(pathLower));
+  const pathParts = decodeURIComponent(rawPath).split('/').filter(Boolean);
+  // Remove 'RosterManager' and 'index.html' from parts
+  const relevantParts = pathParts.filter(p => p !== 'RosterManager' && p !== 'index.html');
+  
+  if (relevantParts.length >= 1) {
+    const teamPart = relevantParts[0].toLowerCase().replace(/-/g, ' ');
+    const matchedTeam = Object.keys(TEAMS).find(t => t.toLowerCase() === teamPart)
+      || Object.keys(TEAMS).find(t => TEAMS[t].toLowerCase() === teamPart)
+      || Object.keys(TEAMS).find(t => t.toLowerCase().includes(teamPart));
     if (matchedTeam) {
       // Clean slate for direct link
       for (const key of Object.keys(localStorage)) {
         if (key.startsWith('rm_state_') || key === 'rm_last_team') localStorage.removeItem(key);
       }
       selectTeam(matchedTeam);
+      
+      // Check for phase in second segment
+      if (relevantParts.length >= 2) {
+        const phasePart = relevantParts[1].toLowerCase().replace(/-/g, '_');
+        const PHASE_ALIASES = {
+          'pre_lottery': 'pre_lottery', 'prelottery': 'pre_lottery',
+          'lottery': 'lottery', 'draft_lottery': 'lottery',
+          'pre_draft': 'pre_draft', 'predraft': 'pre_draft',
+          'draft': 'draft', 'draft_night': 'draft',
+          'pre_fa': 'pre_fa', 'prefa': 'pre_fa', 'pre_free_agency': 'pre_fa',
+          'free_agency': 'free_agency', 'freeagency': 'free_agency', 'fa': 'free_agency',
+          'training_camp': 'training_camp', 'trainingcamp': 'training_camp', 'camp': 'training_camp',
+          'season_ready': 'season_ready', 'seasonready': 'season_ready', 'ready': 'season_ready'
+        };
+        const targetPhase = PHASE_ALIASES[phasePart];
+        if (targetPhase && STATE) {
+          STATE.phase = targetPhase;
+          STATE._overviewSeen = true;
+          saveState();
+          render();
+        }
+      }
       return;
     }
   }
