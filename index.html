@@ -6393,6 +6393,11 @@ function generateAGMRecs() {
     const curry = allRostered.find(p => p.name === 'Stephen Curry');
     if (curry) bestPlayer = curry;
   }
+  // POR override: Lillard injured, skip to next best active player
+  if (teamAbbrev === 'POR' && bestPlayer && bestPlayer.name === 'Damian Lillard') {
+    const next = allRostered.filter(p => p.name !== 'Damian Lillard').sort((a,b) => (b.realValue||0) - (a.realValue||0))[0];
+    if (next) bestPlayer = next;
+  }
   const bestYoung = allRostered.filter(p => parseFloat(p.age) < 25 && (!bestPlayer || p.name !== bestPlayer.name)).sort((a,b) => (b.realValue||0) - (a.realValue||0))[0] || null;
   const bestPlayerIsYoung = bestPlayer && parseFloat(bestPlayer.age) < 25;
   // "Star" = best player has realValue > $20M. "Max Star" = also flagged as Max Player.
