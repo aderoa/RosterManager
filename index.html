@@ -1367,6 +1367,16 @@ function fmtMoneyFull(n) {
   return n < 0 ? '-' + s : s;
 }
 
+function fmtTV(n) {
+  if (!n || n < 650000) return '<$650K';
+  return fmtMoney(n);
+}
+
+function fmtTVFull(n) {
+  if (!n || n < 650000) return '<$650K';
+  return fmtMoneyFull(n);
+}
+
 async function fetchData() {
   try {
     const r = await fetch('https://hoopsmatic.com/api/rm-roster');
@@ -2765,7 +2775,7 @@ function dcActions(p) {
     const sal = p.sal27 || 0;
     const proj = projectOption(p.name, tv, sal, 'team');
     const projLabel = proj.confidence === 'uncertain' ? `${proj.decision} (uncertain)` : proj.decision;
-    desc = `<div style="font-size:.45rem;color:var(--muted);width:100%">Worth ~${fmtMoney(tv)} on ${fmtMoney(sal)} sal → projection: ${projLabel}</div>`;
+    desc = `<div style="font-size:.45rem;color:var(--muted);width:100%">Worth ~${fmtTV(tv)} on ${fmtMoney(sal)} sal → projection: ${projLabel}</div>`;
     btns += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','pickup')">Pick Up</button>`;
     btns += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
     return desc + `<div style="display:flex;gap:.2rem;flex-wrap:nowrap">${btns}</div>`;
@@ -2775,7 +2785,7 @@ function dcActions(p) {
     const sal = p.sal27 || 0;
     const proj = projectOption(p.name, tv, sal, 'player');
     const projLabel = proj.confidence === 'uncertain' ? `${proj.decision} (uncertain)` : proj.decision;
-    desc = `<div style="font-size:.45rem;color:var(--muted);width:100%">Worth ~${fmtMoney(tv)} on ${fmtMoney(sal)} sal → projection: ${projLabel}</div>`;
+    desc = `<div style="font-size:.45rem;color:var(--muted);width:100%">Worth ~${fmtTV(tv)} on ${fmtMoney(sal)} sal → projection: ${projLabel}</div>`;
     btns += `<button class="dc-btn opt" onclick="event.stopPropagation();doOption('${esc(p.name)}','exercise')">Exercise</button>`;
     btns += `<button class="dc-btn waive" onclick="event.stopPropagation();doOption('${esc(p.name)}','decline')">Decline</button>`;
     return desc + `<div style="display:flex;gap:.2rem;flex-wrap:nowrap">${btns}</div>`;
@@ -4249,7 +4259,7 @@ function renderRoster(cap) {
           h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.65rem">`;
           h += `<span style="font-weight:600;min-width:90px">${p.name}</span>`;
           h += `<span style="color:var(--muted)">Sal: ${fmtMoney(sal)}</span>`;
-          h += `<span style="color:var(--muted)">Worth ~${fmtMoney(tv)}</span>`;
+          h += `<span style="color:var(--muted)">Worth ~${fmtTV(tv)}</span>`;
           h += `<span style="color:${projColor};font-weight:700">→ Projection: ${projDecision}${projSuffix}</span>`;
           h += `</div>`;
         }
@@ -4266,7 +4276,7 @@ function renderRoster(cap) {
           h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.65rem">`;
           h += `<span style="font-weight:600;min-width:90px">${p.name}</span>`;
           h += `<span style="color:var(--muted)">Sal: ${fmtMoney(sal)}</span>`;
-          h += `<span style="color:var(--muted)">Worth ~${fmtMoney(tv)}</span>`;
+          h += `<span style="color:var(--muted)">Worth ~${fmtTV(tv)}</span>`;
           h += `<span style="color:${projColor};font-weight:700">→ Projection: ${projDecision}${projSuffix}</span>`;
           h += `</div>`;
         }
@@ -5546,7 +5556,7 @@ function showPlayerCard(event, playerName) {
     const effectiveSal = signing ? signing.salary : (p.sal27 || 0);
     const salLabel = signing ? `${fmtMoney(signing.salary)}/${signing.years}yr` : fmtMoney(p.sal27 || 0);
     h += `<div class="phc-stat"><span class="phc-stat-label">Salary</span><span class="phc-stat-val">${salLabel}</span></div>`;
-    h += `<div class="phc-stat"><span class="phc-stat-label">Est. Value</span><span class="phc-stat-val">${tv ? fmtMoney(tv) : '—'}</span></div>`;
+    h += `<div class="phc-stat"><span class="phc-stat-label">Est. Value</span><span class="phc-stat-val">${tv ? fmtTV(tv) : '—'}</span></div>`;
     if (cd) {
       const yrsLeft = cd.yrs.filter(y => y && y.sal > 0).length;
       h += `<div class="phc-stat"><span class="phc-stat-label">Yrs Left</span><span class="phc-stat-val">${yrsLeft}</span></div>`;
@@ -7849,7 +7859,7 @@ function openSignModal(faName, isResign) {
       if (bioParts.length) h += `<div>${bioParts.join(' · ')} · 2nd Round Pick #${window._signDraftPickNum}</div>`;
     }
     h += `<div style="display:flex;gap:.75rem;flex-wrap:wrap">`;
-    if (tv) h += `<span>Est. Value: <strong>${fmtMoneyFull(tv)}</strong></span>`;
+    if (tv) h += `<span>Est. Value: <strong>${fmtTVFull(tv)}</strong></span>`;
     h += `<span>Min: <strong style="color:var(--green)">${fmtMoneyFull(playerMin)}</strong></span>`;
     h += `<span>Max (${maxPctLabel}): <strong style="color:var(--orange)">${fmtMoneyFull(playerMax)}</strong></span>`;
     h += `</div>`;
@@ -8301,7 +8311,7 @@ function selectSignPlayer(name) {
   infoHtml += `<div style="font-weight:700;font-size:.8rem;margin-bottom:.15rem">${name}</div>`;
   if (p) infoHtml += `<div>${p.pos || ''} · ${TEAMS[p.team] || p.team} · Age ${p.age || '?'} · ~${yos} YOS</div>`;
   infoHtml += `<div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.2rem">`;
-  infoHtml += `<span>Est. Value: <strong>${fmtMoneyFull(tv)}</strong></span>`;
+  infoHtml += `<span>Est. Value: <strong>${fmtTVFull(tv)}</strong></span>`;
   infoHtml += `<span>Min: <strong style="color:var(--green)">${fmtMoneyFull(playerMin)}</strong></span>`;
   infoHtml += `<span>Max (${maxPctLabel}): <strong style="color:var(--orange)">${fmtMoneyFull(playerMax)}</strong></span>`;
   infoHtml += `</div>`;
