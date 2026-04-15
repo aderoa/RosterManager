@@ -1743,10 +1743,13 @@ function parseAllPlayers(csv) {
     });
   }
   // Mark RFA: expiring players with YOS <= 3 (CBA: team can extend qualifying offer)
+  // Exception: players with Bird/Early Bird rights are UFA (tenure-based rights = unrestricted)
   for (const p of players) {
     if (p.category === 'free_agent') {
       const yos = p.yos !== null ? p.yos : getPlayerYOS(p);
-      p.isRFA = yos <= 3;
+      const exc = (p.exception || '').toLowerCase();
+      const hasBird = exc.includes('bird') && !exc.includes('non-bird') && !exc.includes('non bird');
+      p.isRFA = yos <= 3 && !hasBird;
     }
   }
   return players;
