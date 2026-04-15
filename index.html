@@ -6482,13 +6482,13 @@ function generateAGMRecs() {
       profileDesc = 'a solid playoff team with a balanced roster — looking to take the next step';
     }
   } else if (isContender && teamWins >= 40) {
-    // 40-44 wins: competitive / play-in
+    // 40-44 wins: competitive playoff team
     if (isStar && bestYoungIsNotable) {
-      profileDesc = `fighting for playoff positioning behind ${bestPlayer.name} — ${bestYoung.name} is a key piece going forward`;
+      profileDesc = `a competitive playoff team led by ${bestPlayer.name} — ${bestYoung.name} is a key piece going forward`;
     } else if (isStar) {
-      profileDesc = `fighting for playoff positioning behind ${bestPlayer.name} — need roster upgrades to take the next step`;
+      profileDesc = `a competitive playoff team led by ${bestPlayer.name} — need roster upgrades to go deeper in the postseason`;
     } else {
-      profileDesc = 'in the playoff mix but need upgrades to become a legitimate contender';
+      profileDesc = 'a competitive playoff team but need upgrades to become a legitimate contender';
     }
   } else if (isContender) {
     // Under 40 wins but not eliminated (playoff fringe)
