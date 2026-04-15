@@ -1263,6 +1263,7 @@ let realValueMap = {}; // playerName (lowercase) -> real value ($) = baseTV only
 let maxPlayerSet = new Set(); // playerName (lowercase) -> is a "Max Player" by real value
 let watermarkMap = {}; // playerName (lowercase) -> watermark score
 let shootingMap = {}; // playerName -> shooting penalty value (from Sheet3)
+let usgMap = {}; // playerName -> USG_PCT (from Sheet3 col X)
 let defenseMap = {}; // playerName -> SC/MPG ratio (from defense API)
 let preLotteryOrder = []; // team abbrevs in standings order (worst to best)
 let prospectBioMap = {}; // name → { birthDate, country, position }
@@ -1524,6 +1525,7 @@ async function fetchTradeValues() {
   maxPlayerSet = new Set();
   watermarkMap = {};
   shootingMap = {};
+  usgMap = {};
   defenseMap = {};
   try {
     // Fetch trade value data + defense data in parallel
@@ -1543,6 +1545,8 @@ async function fetchTradeValues() {
         if (row[6] && row[7]) { const g = parseInt(row[9])||0; if (g > 0) historical.push({ year: row[6], player: row[7].trim(), totalRat: parseFloat(row[8].replace(/,/g,''))||0, games: g }); }
         // Shooting penalty from cols 12 (player name) + 17 (shooting value)
         if (row[12] && row[17]) { const sv = parseFloat(row[17]); if (!isNaN(sv) && sv > 0) shootingMap[row[12].trim()] = sv; }
+        // USG_PCT from cols 22 (player name) + 23 (USG value)
+        if (row[22] && row[23]) { const uv = parseFloat(row[23]); if (!isNaN(uv) && uv > 0) usgMap[row[22].trim()] = uv; }
       }
       // Parse defense SC/MPG from cache (simple {name: value} map)
       if (defRes && defRes.ok) {
@@ -1615,6 +1619,10 @@ async function fetchTradeValues() {
       const TOP20_TIERS = [{from:1,to:5,bonus:1.5},{from:6,to:10,bonus:1.2},{from:11,to:15,bonus:1.0},{from:16,to:20,bonus:0.8}];
       const rat365Sorted = [...roster].sort((a,b) => (b.rat365||0) - (a.rat365||0));
       for (let i = 0; i < Math.min(20, rat365Sorted.length); i++) { const p = rat365Sorted[i]; const tier = TOP20_TIERS.find(t => (i+1)>=t.from && (i+1)<=t.to); if (tier) { p.top20Bonus = tier.bonus; p.watermark += tier.bonus; p.rat365adj += tier.bonus; } }
+      // Offensive creation index: USG% × RAT365
+      const CREATION_TIERS = [{from:1,to:5,bonus:1.2},{from:6,to:10,bonus:0.9},{from:11,to:20,bonus:0.6},{from:21,to:30,bonus:0.3}];
+      const creationSorted = [...roster].filter(p => (usgMap[p.player]||0) > 0 && p.rat365 >= 8).map(p => ({...p, _ci: (usgMap[p.player]||0) * p.rat365})).sort((a,b) => b._ci - a._ci);
+      for (let i = 0; i < Math.min(30, creationSorted.length); i++) { const cp = creationSorted[i]; const tier = CREATION_TIERS.find(t => (i+1)>=t.from && (i+1)<=t.to); if (tier) { const p = roster.find(r => r.player === cp.player); if (p) { p.creationBonus = tier.bonus; p.watermark += tier.bonus; p.rat365adj += tier.bonus; } } }
       // Real value: softScore blend × age × shooting, renormalize to pool
       const tSP = roster.reduce((s,p)=>s+p.salary,0);
       const tWM = roster.reduce((s,p)=>s+softScore(p.watermark),0);
