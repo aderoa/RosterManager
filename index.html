@@ -1521,7 +1521,7 @@ async function fetchTradeValues() {
     // Fetch trade value data + defense data in parallel
     const [r, defRes] = await Promise.all([
       fetch('https://hoopsmatic.com/api/rm-tv'),
-      fetch('/api/season-data?tab=rsStatsPerGame').catch(() => null)
+      fetch('/api/defense-cache').catch(() => null)
     ]);
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
@@ -1536,31 +1536,12 @@ async function fetchTradeValues() {
         // Shooting penalty from cols 12 (player name) + 17 (shooting value)
         if (row[12] && row[17]) { const sv = parseFloat(row[17]); if (!isNaN(sv) && sv > 0) shootingMap[row[12].trim()] = sv; }
       }
-      // Parse defense data (per-game stats CSV) for SC/MPG adjustment
+      // Parse defense SC/MPG from cache (simple {name: value} map)
       if (defRes && defRes.ok) {
         try {
-          const defRows = parseCSV(await defRes.text());
-          if (defRows.length > 1) {
-            const defH = defRows[0].map(h => (h||'').trim().toUpperCase());
-            const scMpgCol = defH.findIndex(h => h.includes('SC') && h.includes('MPG'));
-            const stlCol = defH.findIndex(h => h === 'STL' || h === 'STL/G');
-            const blkCol = defH.findIndex(h => h === 'BLK' || h === 'BLK/G');
-            const mpgCol = defH.findIndex(h => h === 'MIN' || h === 'MPG');
-            const nameCol = defH.findIndex(h => h === 'PLAYER_NAME' || h === 'PLAYER' || h === 'NAME');
-            if (nameCol >= 0) {
-              for (let i = 1; i < defRows.length; i++) {
-                const dr = defRows[i]; if (!dr || !dr[nameCol]) continue;
-                let ratio;
-                if (scMpgCol >= 0) { ratio = parseFloat(dr[scMpgCol]); }
-                else if (stlCol >= 0 && blkCol >= 0 && mpgCol >= 0) {
-                  const stl = parseFloat(dr[stlCol])||0, blk = parseFloat(dr[blkCol])||0, mpg = parseFloat(dr[mpgCol])||0;
-                  ratio = mpg > 0 ? (stl + blk) / mpg : 0;
-                }
-                if (ratio && !isNaN(ratio) && ratio > 0) defenseMap[dr[nameCol].trim()] = ratio;
-              }
-            }
-            console.log(`[Defense] Parsed ${Object.keys(defenseMap).length} players (STL=${stlCol}, BLK=${blkCol}, MIN=${mpgCol}, Name=${nameCol})`);
-          }
+          const defMap = await defRes.json();
+          Object.assign(defenseMap, defMap);
+          console.log(`[Defense] Loaded ${Object.keys(defenseMap).length} players from cache`);
         } catch(e) { console.warn('[Defense] Parse error:', e); }
       }
       const playerHist = {}; for (const h of historical) { const k = h.player.toLowerCase(); if (!playerHist[k]) playerHist[k] = []; playerHist[k].push(h); }
