@@ -1559,7 +1559,7 @@ async function fetchTradeValues() {
       const EXPONENT=3.2, KNEE=14000, BETA=0.8, MAX_MULT=2.5, MIN_PCT=0.25;
       const WM_W=0.92, RAT_W=0.08, AGE_BONUS=0.85, OLD_TH=35, OLD_PEN=0.03;
       const GP_AGE_TH=28, GP_AGE_DECAY=0.12;
-      const POT_MAX=18e6, DRAFT_DECAY=0.05, AGE_DECAY_POT=0.5, MIN_ROOKIE_AGE=18.82, MAX_POT_AGE=25;
+      const POT_MAX=25e6, DRAFT_DECAY=0.05, AGE_DECAY_POT=0.5, MIN_ROOKIE_AGE=18.82, MAX_POT_AGE=25;
       function softScore(r) { const s = Math.pow(Math.max(r,0), EXPONENT); return s / (1.0 + s / KNEE); }
       function gpCorr(perGame, exp, games, age) {
         const pct = games / exp;
