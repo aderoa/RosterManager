@@ -1611,6 +1611,10 @@ async function fetchTradeValues() {
       const DEF_MAX_BONUS = 1.5;
       const defVals = Object.values(defenseMap); const defAvg = defVals.length ? defVals.reduce((s,v)=>s+v,0)/defVals.length : 0;
       for (const p of roster) { const pd2 = defenseMap[p.player]||0; p.defenseAdj = (defAvg>0 && pd2>0) ? Math.max(-DEF_MAX_BONUS, Math.min(DEF_MAX_BONUS, (pd2-defAvg)/defAvg*DEF_MAX_BONUS)) : 0; p.watermark += p.defenseAdj; p.rat365adj += p.defenseAdj; }
+      // Top-20 RAT 365 production bonus
+      const TOP20_TIERS = [{from:1,to:5,bonus:1.5},{from:6,to:10,bonus:1.2},{from:11,to:15,bonus:1.0},{from:16,to:20,bonus:0.8}];
+      const rat365Sorted = [...roster].sort((a,b) => (b.rat365||0) - (a.rat365||0));
+      for (let i = 0; i < Math.min(20, rat365Sorted.length); i++) { const p = rat365Sorted[i]; const tier = TOP20_TIERS.find(t => (i+1)>=t.from && (i+1)<=t.to); if (tier) { p.top20Bonus = tier.bonus; p.watermark += tier.bonus; p.rat365adj += tier.bonus; } }
       // Real value: softScore blend × age × shooting, renormalize to pool
       const tSP = roster.reduce((s,p)=>s+p.salary,0);
       const tWM = roster.reduce((s,p)=>s+softScore(p.watermark),0);
