@@ -1600,7 +1600,7 @@ async function fetchTradeValues() {
       // Shooting penalty from Sheet3
       for (const p of roster) { p.shootingPenalty = (shootingMap[p.player]||0) * 2; p.shootingMult = 1 - p.shootingPenalty; }
       // Defense SC/MPG: additive bonus to watermark (±3 pts, compounds through 3.2 exponent)
-      const DEF_MAX_BONUS = 3.0;
+      const DEF_MAX_BONUS = 1.5;
       const defVals = Object.values(defenseMap); const defAvg = defVals.length ? defVals.reduce((s,v)=>s+v,0)/defVals.length : 0;
       for (const p of roster) { const pd2 = defenseMap[p.player]||0; p.defenseAdj = (defAvg>0 && pd2>0) ? Math.max(-DEF_MAX_BONUS, Math.min(DEF_MAX_BONUS, (pd2-defAvg)/defAvg*DEF_MAX_BONUS)) : 0; p.watermark += p.defenseAdj; p.rat365adj += p.defenseAdj; }
       // Real value: softScore blend × age × shooting, renormalize to pool
