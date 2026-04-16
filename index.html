@@ -1357,11 +1357,19 @@ function loadState(team) {
 }
 
 // ======================== DATA LOADING ========================
+// Sheet3 column map (TV data) — single source of truth for column positions
+const S3 = { TEAM:0, PLAYER:1, RAT365:2, SALARY:3, BIRTHDAY:4, YEAR:6, HIST_PLAYER:7, HIST_RAT:8, HIST_GP:9, SHOOT_PLAYER:12, SHOOTING:17, EXP:19, DRAFT:20, USG_PLAYER:22, USG_PCT:23 };
+
 function parseMoney(s) {
   if (!s) return 0;
   const neg = s.includes('-');
   const num = parseInt(s.replace(/[$,\s()-]/g, '')) || 0;
   return neg ? -num : num;
+}
+
+function assertCSV(txt) {
+  if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('Expected CSV but got HTML — check API endpoint');
+  return txt;
 }
 
 function fmtMoney(n) {
@@ -1393,7 +1401,7 @@ async function fetchData() {
     const r = await fetch('https://hoopsmatic.com/api/rm-roster');
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
-    if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('HTML response');
+    assertCSV(txt);
     return txt;
   } catch(e) {
     console.warn('[Roster] API failed, retrying...', e);
@@ -1406,7 +1414,7 @@ async function fetchDraftPicks() {
     const r = await fetch('https://hoopsmatic.com/api/rm-draft');
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
-    if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('HTML response');
+    assertCSV(txt);
       const rows = parseCSV(txt);
 
       // Columns: 0=Prospect name, 15=POS (pre-lottery standings rank), 16=TEAM (3-letter abbrev)
@@ -1504,7 +1512,7 @@ async function fetchContracts() {
     const r = await fetch('https://hoopsmatic.com/api/rm-contracts');
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
-    if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('HTML response');
+    assertCSV(txt);
       const rows = parseCSV(txt);
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -1546,18 +1554,16 @@ async function fetchTradeValues() {
     ]);
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
-    if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('HTML response');
+    assertCSV(txt);
       const rows = parseCSV(txt);
       const roster = [], historical = []; let todayStr = null;
       for (const row of rows.slice(1)) {
-        while (row.length < 22) row.push('');
+        while (row.length < 24) row.push('');
         if (row[18] && !todayStr) todayStr = row[18];
-        if (row[0] && row[1]) roster.push({ player: row[1].trim(), rat365: parseFloat(row[2])||0, salary: parseInt(row[3].replace(/[$,]/g,''))||0, birthday: row[4]||'', draftPick: parseInt(row[20])||null });
-        if (row[6] && row[7]) { const g = parseInt(row[9])||0; if (g > 0) historical.push({ year: row[6], player: row[7].trim(), totalRat: parseFloat(row[8].replace(/,/g,''))||0, games: g }); }
-        // Shooting penalty from cols 12 (player name) + 17 (shooting value)
-        if (row[12] && row[17]) { const sv = parseFloat(row[17]); if (!isNaN(sv) && sv > 0) shootingMap[row[12].trim()] = sv; }
-        // USG_PCT from cols 22 (player name) + 23 (USG value)
-        if (row[22] && row[23]) { const uv = parseFloat(row[23]); if (!isNaN(uv) && uv > 0) usgMap[row[22].trim()] = uv; }
+        if (row[S3.TEAM] && row[S3.PLAYER]) roster.push({ player: row[S3.PLAYER].trim(), rat365: parseFloat(row[S3.RAT365])||0, salary: parseMoney(row[S3.SALARY]), birthday: row[S3.BIRTHDAY]||'', draftPick: parseInt(row[S3.DRAFT])||null });
+        if (row[S3.YEAR] && row[S3.HIST_PLAYER]) { const g = parseInt(row[S3.HIST_GP])||0; if (g > 0) historical.push({ year: row[S3.YEAR], player: row[S3.HIST_PLAYER].trim(), totalRat: parseFloat(row[S3.HIST_RAT].replace(/,/g,''))||0, games: g }); }
+        if (row[S3.SHOOT_PLAYER] && row[S3.SHOOTING]) { const sv = parseFloat(row[S3.SHOOTING]); if (!isNaN(sv) && sv > 0) shootingMap[row[S3.SHOOT_PLAYER].trim()] = sv; }
+        if (row[S3.USG_PLAYER] && row[S3.USG_PCT]) { const uv = parseFloat(row[S3.USG_PCT]); if (!isNaN(uv) && uv > 0) usgMap[row[S3.USG_PLAYER].trim()] = uv; }
       }
       // Parse defense SC/MPG from cache (simple {name: value} map)
       if (defRes && defRes.ok) {
@@ -2804,6 +2810,88 @@ function saveDepthOrder() {
   });
   STATE.depthOrder = order;
   saveState();
+}
+
+function setupDragAndDrop() {
+  let dragCard = null;
+  let placeholder = null;
+
+  function createPlaceholder() {
+    const ph = document.createElement('div');
+    ph.className = 'dc-drag-placeholder';
+    ph.style.cssText = 'height:3px;background:var(--accent,#3b82f6);border-radius:2px;margin:2px 0;transition:none;';
+    return ph;
+  }
+
+  function removePlaceholder() {
+    if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+  }
+
+  document.querySelectorAll('.dc-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      dragCard = card;
+      card.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.player);
+    });
+
+    card.addEventListener('dragend', () => {
+      if (dragCard) dragCard.style.opacity = '1';
+      dragCard = null;
+      removePlaceholder();
+    });
+  });
+
+  document.querySelectorAll('.pos-col').forEach(col => {
+    col.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (!dragCard) return;
+
+      removePlaceholder();
+      placeholder = createPlaceholder();
+
+      // Find insertion point based on mouse Y
+      const cards = [...col.querySelectorAll('.dc-card')];
+      let inserted = false;
+      for (const c of cards) {
+        const rect = c.getBoundingClientRect();
+        if (e.clientY < rect.top + rect.height / 2) {
+          col.insertBefore(placeholder, c);
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) col.appendChild(placeholder);
+    });
+
+    col.addEventListener('dragleave', e => {
+      // Only remove if leaving the column entirely
+      if (!col.contains(e.relatedTarget)) removePlaceholder();
+    });
+
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragCard) return;
+      removePlaceholder();
+
+      // Find insertion point
+      const cards = [...col.querySelectorAll('.dc-card')];
+      let insertBefore = null;
+      for (const c of cards) {
+        const rect = c.getBoundingClientRect();
+        if (e.clientY < rect.top + rect.height / 2) { insertBefore = c; break; }
+      }
+
+      // Move the card in the DOM
+      if (insertBefore) col.insertBefore(dragCard, insertBefore);
+      else col.appendChild(dragCard);
+
+      dragCard.style.opacity = '1';
+      dragCard = null;
+      saveDepthOrder();
+    });
+  });
 }
 
 function dcBadge(p) {
@@ -7212,7 +7300,7 @@ function agmDraftPlayer(prospectName) {
     STATE.draftSelections[current] = prospectName;
     STATE.draftResults.push({ pick: current, team: teamAbbrev, prospect: prospectName });
     STATE.moves.push({ action: 'Draft', detail: `Drafted ${prospectName} with pick #${current}`, undo: { type: 'draft', slot: current, prev: null } });
-    if (teamAbbrev === (TEAMS[STATE.team]||'')) trackAction('draft', prospectName, teamAbbrev);
+    if (teamAbbrev === (TEAMS[STATE.team]||'')) trackAction('draft', prospectName, teamAbbrev, {pick: current});
     STATE.draftCurrentPick = current + 1;
     saveState();
     render();
@@ -8861,7 +8949,7 @@ function confirmSigning() {
     detail: `${name} · ${fmtMoney(totalValue)}/${years}yr (${fmtMoney(salary)} yr1) via ${excName}${flagStr}${satLabel}`,
     undo: { type: 'signing' }
   });
-  trackAction('sign', name, TEAMS[STATE.team] || STATE.team);
+  trackAction('sign', name, TEAMS[STATE.team] || STATE.team, {salary: salary, years: years, exception: excName});
   STATE.depthOrder = {}; // recalculate depth chart with new player
   saveState();
   closeSignModal();
