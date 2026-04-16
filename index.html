@@ -1528,10 +1528,11 @@ async function fetchTradeValues() {
   usgMap = {};
   defenseMap = {};
   try {
-    // Fetch trade value data + defense data in parallel
-    const [r, defRes] = await Promise.all([
+    // Fetch trade value data + defense data + pre-computed Real Values in parallel
+    const [r, defRes, rvRes] = await Promise.all([
       fetch('https://hoopsmatic.com/api/rm-tv'),
-      fetch('/api/defense-cache').catch(() => null)
+      fetch('/api/defense-cache').catch(() => null),
+      fetch('/api/rv-snapshot').catch(() => null)
     ]);
     if (!r.ok) throw new Error('API error');
     const txt = await r.text();
@@ -1649,6 +1650,27 @@ async function fetchTradeValues() {
           tradeValueMap[key] = Math.round(tradeValueMap[key] * normFactor);
           realValueMap[key] = Math.round(realValueMap[key] * normFactor);
         }
+      }
+      // Override with authoritative Real Values from the HoopsMatic RV snapshot if available
+      // This keeps RM always in sync with the Real Value page (single source of truth)
+      if (rvRes && rvRes.ok) {
+        try {
+          const snapData = await rvRes.json();
+          const rvData = snapData.today || snapData.yesterday;
+          if (rvData) {
+            let overrideCount = 0;
+            for (const [name, val] of Object.entries(rvData)) {
+              if (name.startsWith('_')) continue;
+              if (val && typeof val.tv === 'number' && val.tv > 0) {
+                const key = name.toLowerCase();
+                tradeValueMap[key] = val.tv;
+                realValueMap[key] = val.tv;
+                overrideCount++;
+              }
+            }
+            console.log(`[TV] Overrode ${overrideCount} values from Real Value snapshot`);
+          }
+        } catch(e) { console.warn('[TV] RV snapshot parse error:', e); }
       }
       // Use Real Value as-is (no cap growth scaling) — matches TV page exactly
       // "Max Player" = Real Value exceeds 25% of 2025-26 cap (max contract threshold)
