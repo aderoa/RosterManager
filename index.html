@@ -1641,17 +1641,13 @@ async function fetchTradeValues() {
         tradeValueMap[p.player.toLowerCase()] = baseTV+bonus;
         realValueMap[p.player.toLowerCase()] = baseTV;
       }
-      // Scale trade values for salary cap growth (2025-26 → 2026-27)
-      const CAP_GROWTH = THRESHOLDS['2026-2027'].cap / THRESHOLDS['2025-2026'].cap;
-      for (const key of Object.keys(tradeValueMap)) {
-        tradeValueMap[key] = Math.round(tradeValueMap[key] * CAP_GROWTH);
-      }
-      // "Max Player" = final scaled TV exceeds 20% of cap (adjusted for RM's simpler formula)
-      const maxSalaryThreshold = THRESHOLDS['2026-2027'].cap * 0.20;
+      // Use Real Value as-is (no cap growth scaling) — matches TV page exactly
+      // "Max Player" = Real Value exceeds 25% of 2025-26 cap (max contract threshold)
+      const maxSalaryThreshold = THRESHOLDS['2025-2026'].cap * 0.25;
       for (const key of Object.keys(tradeValueMap)) {
         if (tradeValueMap[key] > maxSalaryThreshold) maxPlayerSet.add(key);
       }
-      console.log(`[TV] Loaded ${Object.keys(tradeValueMap).length} trade values (scaled ${(CAP_GROWTH * 100).toFixed(1)}% for cap growth), ${maxPlayerSet.size} max players`);
+      console.log(`[TV] Loaded ${Object.keys(tradeValueMap).length} real values, ${maxPlayerSet.size} max players`);
   } catch(e) { console.warn('[TV] Failed:', e); }
 }
 
