@@ -1281,6 +1281,16 @@ function calcProspectAge(birthDate) {
 }
 let STATE = null; // current GM state
 
+// Anonymous activity tracker — fires and forgets, never blocks UI
+function trackAction(action, player, team, extra) {
+  try {
+    fetch('/api/tracker', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ tool: 'rm', action, player, team, extra })
+    }).catch(() => {});
+  } catch(e) {}
+}
+
 // Reverse team map: abbreviation -> full name
 const TEAMS_REV = {};
 for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
@@ -2191,6 +2201,7 @@ function applyTeamTheme(team) {
 function selectTeam(team) {
   if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
   STATE = loadState(team);
+  trackAction('sim_start', null, TEAMS[team] || team);
   _agmCache = {}; // Clear AGM advice for new team
   applyTeamTheme(team);
   document.getElementById('teamSelect').value = team;
@@ -5137,8 +5148,8 @@ function doOption(name, decision) {
   const label = decision === 'pickup' ? 'Picked up' : decision === 'exercise' ? 'Exercised' : 'Declined';
   const p = allPlayers.find(p => p.name === name && p.team === STATE.team);
   STATE.moves.push({ action: label, detail: `${name}'s option (${fmtMoney(p?.sal27 || 0)})`, undo: { type: 'option', name } });
+  trackAction(decision === 'decline' ? 'option_decline' : 'option_pickup', name, TEAMS[STATE.team] || STATE.team);
   saveState();
-  showToast(`${label} ${name}'s option`, decision === 'decline' ? 'warning' : 'success');
   showWhatsNext('option');
   render();
 }
@@ -5187,8 +5198,8 @@ function doWaive(name, stretch = false) {
   const sal = sig ? sig.salary : (p?.sal27 || 0);
   const detail = `${name} (${fmtMoney(sal)}${dead ? ', ' + fmtMoney(dead) + ' dead cap' + (stretch ? ' stretched' : '') : ', no dead cap'})`;
   STATE.moves.push({ action: stretch ? 'Waived & Stretched' : 'Waived', detail, undo: { type: 'waive', name } });
+  trackAction('waive', name, TEAMS[STATE.team] || STATE.team);
   saveState();
-  showToast(`${stretch ? 'Waived & stretched' : 'Waived'} ${name}`, 'error');
   showWhatsNext('waive');
   render();
 }
@@ -7201,6 +7212,7 @@ function agmDraftPlayer(prospectName) {
     STATE.draftSelections[current] = prospectName;
     STATE.draftResults.push({ pick: current, team: teamAbbrev, prospect: prospectName });
     STATE.moves.push({ action: 'Draft', detail: `Drafted ${prospectName} with pick #${current}`, undo: { type: 'draft', slot: current, prev: null } });
+    if (teamAbbrev === (TEAMS[STATE.team]||'')) trackAction('draft', prospectName, teamAbbrev);
     STATE.draftCurrentPick = current + 1;
     saveState();
     render();
@@ -8849,10 +8861,10 @@ function confirmSigning() {
     detail: `${name} · ${fmtMoney(totalValue)}/${years}yr (${fmtMoney(salary)} yr1) via ${excName}${flagStr}${satLabel}`,
     undo: { type: 'signing' }
   });
+  trackAction('sign', name, TEAMS[STATE.team] || STATE.team);
   STATE.depthOrder = {}; // recalculate depth chart with new player
   saveState();
   closeSignModal();
-  showToast(`Signed ${name} · ${fmtMoney(totalValue)}/${years}yr via ${excName}`, 'success');
   showWhatsNext('signing');
 
   if (isSignAndTrade) {
@@ -8983,6 +8995,7 @@ function confirmRookieScaleSigning(prospect, pickNum) {
     detail: `${prospect} · ${fmtMoney(total)}/4yr (Rookie Scale #${pickNum})`,
     undo: { type: 'signing' }
   });
+  trackAction('sign', prospect, TEAMS[STATE.team] || STATE.team);
   STATE.depthOrder = {}; // recalculate depth chart with new player
   saveState();
   closeSignModal();
@@ -9025,6 +9038,7 @@ function confirmSREsigning(prospect, pickNum, sreType) {
     detail: `${prospect} · ${fmtMoney(total)}/${sre.years}yr (2nd Rd Exc #${pickNum})`,
     undo: { type: 'signing' }
   });
+  trackAction('sign', prospect, TEAMS[STATE.team] || STATE.team);
   STATE.depthOrder = {}; // recalculate depth chart with new player
   saveState();
   closeSignModal();
