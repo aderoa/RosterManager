@@ -3947,12 +3947,12 @@ function skipToNextPick() {
 }
 
 function skipDraft() {
-  if (STATE.draftCurrentPick > 0) return;
-  // Auto-draft all 60 picks using probabilistic selection
+  // Auto-draft remaining picks using probabilistic selection
+  // Works both from pick 0 (Instant mode) and mid-draft (Sim All)
   const teamAbbrev = TEAMS[STATE.team];
   const drafted = getDraftedProspects();
-  // Temporarily add all pre-existing drafted to the set
-  for (let pick = 1; pick <= 60; pick++) {
+  const startPick = Math.max(STATE.draftCurrentPick || 1, 1);
+  for (let pick = startPick; pick <= 60; pick++) {
     const pickTeam = getPickTeam(pick);
     if (!pickTeam) continue;
     if (STATE.draftResults.some(r => r.pick === pick)) continue;
@@ -3981,6 +3981,7 @@ function skipDraft() {
         detail: `Pick #${pick}: ${prospect} (auto)`,
         undo: { type: 'draft_sim', pick }
       });
+      trackAction('draft', prospect, teamAbbrev, {pick: pick});
     }
   }
   STATE.draftCurrentPick = 61;
