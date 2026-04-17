@@ -43,7 +43,7 @@ body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-seri
 a{color:var(--accent);text-decoration:none}
 
 /* Header */
-.header{background:var(--team1);padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100;transition:background .4s}
+.header{background:var(--team1);padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:var(--nav-h, 0px);z-index:100;transition:background .4s}
 
 /* === MOBILE: FORCE LANDSCAPE + AUTO-FIT === */
 @media(max-width:1024px) and (orientation:portrait){
@@ -2449,10 +2449,16 @@ function render() {
   document.getElementById('phaseBar').style.display = '';
   updateBreadcrumb();
   renderPhaseBar();
-  // Sync phase bar top with actual header height
+  // Sync sticky tops with actual element heights
   const hdr = document.querySelector('.header');
   const pb = document.querySelector('.phase-bar');
-  if (hdr && pb) { const navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0; pb.style.top = (hdr.offsetHeight + navH) + 'px'; }
+  const navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0;
+  if (hdr && pb) {
+    const pbTop = hdr.offsetHeight + navH;
+    pb.style.top = pbTop + 'px';
+    const cp = document.querySelector('.cap-panel');
+    if (cp) cp.style.top = (pbTop + pb.offsetHeight + 8) + 'px';
+  }
   // Floating undo visibility
   const floatUndo = document.getElementById('floatUndo');
   if (floatUndo) floatUndo.style.display = STATE.moves.length ? 'flex' : 'none';
@@ -9866,11 +9872,17 @@ const _origRenderSeasonReady = typeof renderSeasonReady === 'function' ? renderS
 
 init();
 
-// Keep phase bar top synced with header height on resize
+// Keep sticky tops synced with header height on resize
 window.addEventListener('resize', () => {
   const hdr = document.querySelector('.header');
   const pb = document.querySelector('.phase-bar');
-  if (hdr && pb) { const navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0; pb.style.top = (hdr.offsetHeight + navH) + 'px'; }
+  const navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0;
+  if (hdr && pb) {
+    const pbTop = hdr.offsetHeight + navH;
+    pb.style.top = pbTop + 'px';
+    const cp = document.querySelector('.cap-panel');
+    if (cp) cp.style.top = (pbTop + pb.offsetHeight + 8) + 'px';
+  }
 });
 
 // Handle bfcache restore from Trade Machine (history.back case)
