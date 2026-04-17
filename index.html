@@ -1312,7 +1312,7 @@ const TRADE_MACHINE_URL = 'https://hoopsmatic.com';
 const MIN_SALARY_2ND_RD = 1157379; // 2nd round minimum cap hold
 
 function defaultState(team) {
-  return { team, phase: 'pre_lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), guaranteed: new Set(), dwSkipped: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], tpes: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0, _overviewSeen: false };
+  return { team, phase: 'pre_lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), guaranteed: new Set(), dwSkipped: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], tpes: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0, draftMode: 'quick', _overviewSeen: false };
 }
 
 function saveState() {
@@ -1347,6 +1347,7 @@ function loadState(team) {
       s.lotteryResults = s.lotteryResults || null;
       s.draftResults = s.draftResults || [];
       s.draftCurrentPick = s.draftCurrentPick || 0;
+      s.draftMode = s.draftMode || 'quick';
       s.phase = s.phase || 'pre_lottery';
       // Auto-mark overview as seen if user already has progress
       s._overviewSeen = s._overviewSeen || (s.moves && s.moves.length > 0) || s.phase !== 'pre_lottery';
@@ -2207,6 +2208,7 @@ function applyTeamTheme(team) {
 function selectTeam(team) {
   if (_draftAnimTimer) { clearInterval(_draftAnimTimer); _draftAnimTimer = null; }
   STATE = loadState(team);
+  _draftMode = STATE.draftMode || 'quick';
   trackAction('sim_start', null, TEAMS[team] || team);
   _agmCache = {}; // Clear AGM advice for new team
   applyTeamTheme(team);
@@ -3899,6 +3901,7 @@ function showDraftPickTransferConfirm() {
 function startFullDraft() {
   if (STATE.draftCurrentPick > 0) return; // already started
   _draftMode = 'full';
+  STATE.draftMode = 'full';
   _draftSpeed = 1500; // Slower default for full mode
   STATE.draftCurrentPick = 1;
   saveState();
@@ -3909,6 +3912,7 @@ function startFullDraft() {
 function startDraft() {
   if (STATE.draftCurrentPick > 0) return;
   _draftMode = 'quick';
+  STATE.draftMode = 'quick';
   _draftSpeed = 500;
   STATE.draftCurrentPick = 1;
   saveState();
@@ -5664,6 +5668,7 @@ function confirmReset() {
   closeResetModal();
   try { localStorage.removeItem('rm_state_' + STATE.team); } catch(e) {}
   STATE = defaultState(STATE.team);
+  _draftMode = 'quick';
   showToast('All moves reset', 'warning');
   render();
 }
@@ -9745,6 +9750,7 @@ function loadScenario(idx) {
   loaded.guaranteed = new Set(loaded.guaranteed || []);
   loaded.dwSkipped = new Set(loaded.dwSkipped || []);
   STATE = loaded;
+  _draftMode = STATE.draftMode || 'quick';
   saveState();
   closeSaveModal();
   showToast(`Loaded: "${s.name}"`, 'success');
