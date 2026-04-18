@@ -6565,6 +6565,11 @@ function generateAGMRecs() {
     const next = allRostered.filter(p => p.name !== 'Damian Lillard').sort((a,b) => (b.realValue||0) - (a.realValue||0))[0];
     if (next) bestPlayer = next;
   }
+  // CHA override: LaMelo Ball is the franchise face regardless of injury-depressed value
+  if (teamAbbrev === 'CHA') {
+    const lamelo = allRostered.find(p => p.name === 'LaMelo Ball');
+    if (lamelo) bestPlayer = lamelo;
+  }
   const bestYoung = allRostered.filter(p => parseFloat(p.age) < 25 && (!bestPlayer || p.name !== bestPlayer.name)).sort((a,b) => (b.realValue||0) - (a.realValue||0))[0] || null;
   const bestPlayerIsYoung = bestPlayer && parseFloat(bestPlayer.age) < 25;
   // "Star" = best player has realValue > $20M. "Max Star" = also flagged as Max Player.
