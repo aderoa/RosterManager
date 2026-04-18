@@ -6486,7 +6486,7 @@ function generateAGMRecs() {
   // Standings: use preLotteryOrder (actual record, worst to best, indices 0-13 = lottery)
   const isLotteryTeam = preLotteryOrder.includes(teamAbbrev);
   const lotteryRank = preLotteryOrder.indexOf(teamAbbrev); // 0=worst, 13=14th worst; -1=playoff
-  const ELIMINATED_ABBREVS = new Set(['MIL','CHI','BKN','IND','WAS','NOP','DAL','MEM','SAC','UTA','MIA','LAC','CHA']);
+  const ELIMINATED_ABBREVS = new Set(['MIL','CHI','BKN','IND','WAS','NOP','DAL','MEM','SAC','UTA','MIA','LAC','CHA','GSW']);
   const TEAM_WINS = {OKC:64,SAS:62,DET:60,BOS:56,DEN:54,LAL:53,NYK:53,CLE:52,HOU:52,MIN:49,TOR:46,ATL:46,PHI:45,ORL:45,PHX:45,CHA:44,MIA:43,POR:42,LAC:42,GSW:37,MIL:32,CHI:31,DAL:26,NOP:26,MEM:25,UTA:22,SAC:22,BKN:20,IND:19,WAS:17};
   const teamWins = TEAM_WINS[teamAbbrev] || 0;
   const isEliteByRecord = teamWins >= 55; // OKC, SAS, DET, BOS
