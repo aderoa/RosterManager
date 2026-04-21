@@ -941,7 +941,7 @@ a{color:var(--accent);text-decoration:none}
     <div class="landing-sub">NBA Roster Manager · 2026-27 Offseason</div>
   </div>
   <div class="landing-body" id="landingBody">
-    <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams...</p></div>
+    <div style="text-align:center;padding:2rem 0"><div class="spin" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Loading teams…</p></div>
   </div>
 </div>
 
@@ -980,7 +980,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div id="loadingState" class="loading" style="display:none">
   <div class="spin"></div>
-  <p style="margin-top:.5rem;font-size:.8rem">Loading roster data...</p>
+  <p style="margin-top:.5rem;font-size:.8rem">Loading roster…</p>
 </div>
 
 <!-- Waive Decision Modal -->
@@ -4963,8 +4963,8 @@ function renderSeasonReady() {
   h += `<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-bottom:1rem">`;
   h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid var(--border)"><div style="color:var(--muted)">Players</div><div style="font-weight:800;font-size:.85rem">${depthPlayers.length}</div></div>`;
   h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid var(--border)"><div style="color:var(--muted)">Team Salary</div><div style="font-weight:800;font-size:.85rem">${fmtMoney(cap.teamSalary)}</div></div>`;
-  h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid ${overTax ? 'var(--orange)' : 'var(--border)'}"><div style="color:var(--muted)">Tax</div><div style="font-weight:800;font-size:.85rem;color:${overTax ? 'var(--orange)' : 'var(--green)'}">${overTax ? 'Yes' : 'No'}</div></div>`;
-  h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid ${overApron1 ? 'var(--red)' : 'var(--border)'}"><div style="color:var(--muted)">Apron</div><div style="font-weight:800;font-size:.85rem;color:${overApron1 ? 'var(--red)' : 'var(--green)'}">${overApron1 ? '1st+' : 'Clear'}</div></div>`;
+  h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid ${overTax ? 'var(--orange)' : 'var(--border)'}" title="Luxury tax threshold: ${fmtMoney(T.tax)}. Teams above this line pay escalating tax penalties on the overage."><div style="color:var(--muted)">Tax</div><div style="font-weight:800;font-size:.85rem;color:${overTax ? 'var(--orange)' : 'var(--green)'}">${overTax ? 'Yes' : 'No'}</div></div>`;
+  h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid ${overApron1 ? 'var(--red)' : 'var(--border)'}" title="1st Apron: ${fmtMoney(T.apron1)}. 2nd Apron: ${fmtMoney(T.apron2)}. Teams above the 1st Apron lose access to the BAE, can't take back more salary in trades, and other restrictions. 2nd-Apron teams face further penalties including frozen draft picks."><div style="color:var(--muted)">Apron</div><div style="font-weight:800;font-size:.85rem;color:${overApron1 ? 'var(--red)' : 'var(--green)'}">${overApron1 ? '1st+' : 'Clear'}</div></div>`;
   h += `<div style="padding:.4rem .75rem;background:var(--surface);border-radius:8px;font-size:.65rem;text-align:center;border:1px solid var(--border)"><div style="color:var(--muted)">Moves</div><div style="font-weight:800;font-size:.85rem">${STATE.moves.filter(m => m.action !== 'Phase').length}</div></div>`;
   h += `</div>`;
 
