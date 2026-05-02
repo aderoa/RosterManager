@@ -537,6 +537,11 @@ a{color:var(--accent);text-decoration:none}
 .draft-pick-option .rank{color:var(--muted);font-size:.65rem;min-width:30px}
 .draft-pick-option .name{flex:1;font-weight:500}
 .draft-pick-option .assigned{font-size:.6rem;color:var(--muted);padding:.1rem .4rem;background:var(--surface);border-radius:3px}
+/* Combine invitation mini-badges (DC=Draft Combine, GL=G League Combine).
+   Inline next to the player name in both the draft picker and UDFA list. */
+.combine-mini{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.5rem;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:4px;letter-spacing:.04em;vertical-align:middle}
+.combine-mini.dc{background:rgba(59,130,246,.12);color:#1d4ed8;border:1px solid rgba(59,130,246,.3)}
+.combine-mini.gl{background:rgba(16,185,129,.12);color:#047857;border:1px solid rgba(16,185,129,.3)}
 .action-btn.draft-swap{background:rgba(180,83,9,.15);color:var(--orange);border-color:rgba(180,83,9,.3)}
 .action-btn.draft-swap:hover{background:rgba(180,83,9,.25)}
 
@@ -1267,6 +1272,7 @@ let usgMap = {}; // playerName -> USG_PCT (from Sheet3 col X)
 let defenseMap = {}; // playerName -> SC/MPG ratio (from defense API)
 let preLotteryOrder = []; // team abbrevs in standings order (worst to best)
 let prospectBioMap = {}; // name → { birthDate, country, position }
+let combineStatusMap = {}; // name → { dc: bool, gl: bool } — combine invitations
 
 function calcProspectAge(birthDate) {
   if (!birthDate) return null;
@@ -1429,13 +1435,15 @@ async function fetchDraftPicks() {
         const pickPos = parseInt((row[15] || '').trim()) || 0;
         const rawTeam = (row[16] || '').trim().toUpperCase();
 
-        if (!prospect) continue;
-        prospects.push(prospect);
-
         // Bio data: AA(26)=PLAYER, AB(27)=BIRTH DATE, AE(30)=COUNTRY, AK(36)=POSITION, AL(37)=PRE-DRAFT TEAM
+        // AN(39)=DRAFT COMBINE, AO(40)=GL COMBINE — capture combine invitations.
+        // We read these BEFORE the !prospect continue so combine-only entries
+        // (no name in col 0) still get captured.
         const bioName = (row[26] || '').trim();
         const birthDate = (row[27] || '').trim();
         const rawCountry = (row[30] || '').trim();
+        const dcInvite = (row[39] || '').trim().toUpperCase() === 'YES';
+        const glInvite = (row[40] || '').trim().toUpperCase() === 'YES';
         // Convert nationality demonym to country name if needed
         const NATIONALITY_TO_COUNTRY = {
           'Italian':'Italy','French':'France','Spanish':'Spain','German':'Germany','Australian':'Australia',
@@ -1455,6 +1463,12 @@ async function fetchDraftPicks() {
         if (bioName && (birthDate || country || position || preDraftTeam)) {
           prospectBioMap[bioName] = { birthDate, country, position, preDraftTeam };
         }
+        if (bioName && (dcInvite || glInvite)) {
+          combineStatusMap[bioName] = { dc: dcInvite, gl: glInvite };
+        }
+
+        if (!prospect) continue;
+        prospects.push(prospect);
 
         // First-round picks (1-30) get rookie scale cap holds
         // Second-round picks (31-60) get minimum salary cap hold
@@ -1466,6 +1480,20 @@ async function fetchDraftPicks() {
 
         if (!picks[abbrev]) picks[abbrev] = [];
         picks[abbrev].push({ prospect, draftRnk: pickPos, capHold });
+      }
+
+      // Append combine-only players (invited to either combine but NOT in
+      // the mock-draft list). They have no rank/projection so the AI never
+      // selects them in sims, but they're available for manual user picks
+      // and they automatically appear as UDFAs after pick #60 via the
+      // existing getUndraftedProspects() flow (which iterates allProspects).
+      const mockSet = new Set(prospects);
+      let combineOnlyAdded = 0;
+      for (const name of Object.keys(combineStatusMap)) {
+        if (!mockSet.has(name)) {
+          prospects.push(name);
+          combineOnlyAdded++;
+        }
       }
 
       for (const t of Object.keys(picks)) picks[t].sort((a, b) => a.draftRnk - b.draftRnk);
@@ -1481,7 +1509,7 @@ async function fetchDraftPicks() {
       console.log(`[DP] Pre-lottery order: ${preLotteryOrder.join(', ')}`);
 
       const totalPicks = Object.values(picks).reduce((s, arr) => s + arr.length, 0);
-      console.log(`[DP] Loaded ${prospects.length} prospects, ${totalPicks} first-round picks for ${Object.keys(picks).length} teams`);
+      console.log(`[DP] Loaded ${prospects.length} prospects (incl. ${combineOnlyAdded} combine-only), ${totalPicks} first-round picks for ${Object.keys(picks).length} teams`);
       return;
   } catch(e) { console.warn('[DP] Failed:', e); }
 }
@@ -8276,9 +8304,12 @@ function buildFAListHTML(fas, undrafted) {
     h += `<div style="padding:.4rem .5rem;font-size:.6rem;font-weight:700;color:var(--orange);border-bottom:1px solid var(--border);margin-top:.3rem">UNDRAFTED FREE AGENTS</div>`;
     for (const name of undrafted) {
       const ini = name.split(' ').map(w => w[0]).join('');
+      const combine = combineStatusMap[name] || {};
+      const combineBadges = (combine.dc ? '<span class="combine-mini dc">DC</span>' : '')
+        + (combine.gl ? '<span class="combine-mini gl">GL</span>' : '');
       h += `<div class="draft-pick-option" onclick="selectSignPlayer('${esc(name)}')" style="display:flex;align-items:center;gap:.5rem">`;
       h += `<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:24px;border-radius:4px;background:var(--bg);font-size:.45rem;color:var(--muted)">${ini}</span>`;
-      h += `<div style="flex:1"><div style="font-weight:600;font-size:.75rem">${name}</div><div style="font-size:.55rem;color:var(--muted)">UDFA · minimum salary</div></div>`;
+      h += `<div style="flex:1"><div style="font-weight:600;font-size:.75rem">${name}${combineBadges ? ' ' + combineBadges : ''}</div><div style="font-size:.55rem;color:var(--muted)">UDFA · minimum salary</div></div>`;
       h += `</div>`;
     }
   }
@@ -9204,12 +9235,15 @@ function renderDraftPickerList(filter) {
         break;
       }
     }
+    const combine = combineStatusMap[name] || {};
+    const combineBadges = (combine.dc ? '<span class="combine-mini dc">DC</span>' : '')
+      + (combine.gl ? '<span class="combine-mini gl">GL</span>' : '');
 
     h += `<div class="draft-pick-option${isCurrent ? ' current' : ''}${isTaken ? ' taken' : ''}" `;
     if (!isTaken) h += `onclick="selectDraftProspect('${esc(name)}')"`;
     h += `>`;
     h += `<span class="rank">${i + 1}</span>`;
-    h += `<span class="name">${name}</span>`;
+    h += `<span class="name">${name}${combineBadges ? ' ' + combineBadges : ''}</span>`;
     if (isCurrent) h += `<span class="assigned" style="color:var(--orange)">current</span>`;
     else if (assignedTo) h += `<span class="assigned">projection: ${assignedTo}</span>`;
     h += `</div>`;
