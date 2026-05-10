@@ -1302,8 +1302,6 @@ const TEAMS_REV = {};
 for (const [full, abbr] of Object.entries(TEAMS)) TEAMS_REV[abbr] = full;
 
 const PHASES = [
-  { id: 'pre_lottery', label: 'Pre-Lottery', icon: '📋' },
-  { id: 'lottery', label: 'Draft Lottery', icon: '🎱' },
   { id: 'pre_draft', label: 'Pre-Draft', icon: '🏀' },
   { id: 'draft', label: 'Draft Night', icon: '🎯' },
   { id: 'pre_fa', label: 'Pre-Free Agency', icon: '📝' },
@@ -1318,7 +1316,7 @@ const TRADE_MACHINE_URL = 'https://hoopsmatic.com';
 const MIN_SALARY_2ND_RD = 1157379; // 2nd round minimum cap hold
 
 function defaultState(team) {
-  return { team, phase: 'pre_lottery', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), guaranteed: new Set(), dwSkipped: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], tpes: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0, draftMode: 'quick', _overviewSeen: false };
+  return { team, phase: 'pre_draft', moves: [], optionDecisions: {}, renounced: new Set(), waived: new Set(), stretched: new Set(), guaranteed: new Set(), dwSkipped: new Set(), draftSelections: {}, trades: [], signings: [], extensions: [], tpes: [], depthOrder: {}, lotteryResults: null, draftResults: [], draftCurrentPick: 0, draftMode: 'quick', _overviewSeen: false };
 }
 
 function saveState() {
@@ -1354,9 +1352,18 @@ function loadState(team) {
       s.draftResults = s.draftResults || [];
       s.draftCurrentPick = s.draftCurrentPick || 0;
       s.draftMode = s.draftMode || 'quick';
-      s.phase = s.phase || 'pre_lottery';
+      // Post-2026-lottery migration: old saved states may be on the now-removed
+      // pre_lottery / lottery phases. Bump them forward to pre_draft so the
+      // user lands on a valid phase. Also clear any stored lotteryResults so
+      // the real lottery outcome (baked into the spreadsheet's POS/TEAM
+      // columns) takes precedence over whatever the user simulated previously.
+      if (s.phase === 'pre_lottery' || s.phase === 'lottery') {
+        s.phase = 'pre_draft';
+        s.lotteryResults = null;
+      }
+      s.phase = s.phase || 'pre_draft';
       // Auto-mark overview as seen if user already has progress
-      s._overviewSeen = s._overviewSeen || (s.moves && s.moves.length > 0) || s.phase !== 'pre_lottery';
+      s._overviewSeen = s._overviewSeen || (s.moves && s.moves.length > 0) || s.phase !== 'pre_draft';
       return s;
     } catch(e) {}
   }
@@ -2460,7 +2467,7 @@ function render() {
   const mainEl = document.querySelector('.main');
 
   // Show overview on first load (no moves, no phase advancement)
-  if (!STATE._overviewSeen && STATE.moves.length === 0 && STATE.phase === 'pre_lottery') {
+  if (!STATE._overviewSeen && STATE.moves.length === 0 && STATE.phase === 'pre_draft') {
     if (mainEl) mainEl.classList.add('overview-mode');
     document.getElementById('phaseBar').style.display = 'none';
     const el = document.getElementById('hdrBreadcrumb');
@@ -5437,21 +5444,16 @@ function autoSimulateToPhase(targetPhase) {
   if (!STATE) return;
   const phaseOrder = PHASES.map(p => p.id);
   const targetIdx = phaseOrder.indexOf(targetPhase);
-  if (targetIdx <= 0) return; // pre_lottery or invalid
+  if (targetIdx <= 0) return; // first phase or invalid
   
   STATE._overviewSeen = true;
   
-  // 1. Run lottery if target is past lottery phase
-  if (targetIdx >= 2 && !STATE.lotteryResults) { // pre_draft or later
-    const results = runLotterySimulation();
-    if (results) {
-      STATE.lotteryResults = results;
-      applyLotteryResults(results);
-    }
-  }
+  // (Note: post-2026 lottery, the picks 1-14 are real and live in the
+  // spreadsheet's POS/TEAM columns. We no longer need to simulate a lottery
+  // here — the data already reflects the actual outcome.)
   
   // 2. Run draft if target is past draft phase
-  if (targetIdx >= 4) { // pre_fa or later
+  if (targetIdx >= 2) { // pre_fa or later (indices shifted after removing pre_lottery + lottery)
     if ((STATE.draftCurrentPick || 0) <= 60) {
       // Auto-draft all picks silently (same logic as skipDraft but without toasts/renders)
       const teamAbbrev = TEAMS[STATE.team];
@@ -5479,7 +5481,7 @@ function autoSimulateToPhase(targetPhase) {
   }
   
   // 3. Auto-decide options if target is past pre_fa
-  if (targetIdx >= 5) { // free_agency or later
+  if (targetIdx >= 3) { // free_agency or later (indices shifted after removing pre_lottery + lottery)
     const tradedOut = new Set();
     for (const trade of (STATE.trades || [])) for (const p of (trade.out || [])) tradedOut.add(p.name);
     const teamPlayers = allPlayers.filter(p => p.team === STATE.team);
@@ -5514,7 +5516,7 @@ function updateURL() {
   try {
     const teamSlug = STATE.team.toLowerCase().replace(/\s+/g, '-');
     const phaseObj = PHASES.find(p => p.id === STATE.phase);
-    const phaseSlug = STATE.phase === 'pre_lottery' ? '' : '/' + STATE.phase.replace(/_/g, '-');
+    const phaseSlug = STATE.phase === 'pre_draft' ? '' : '/' + STATE.phase.replace(/_/g, '-');
     const phaseLabel = phaseObj ? phaseObj.label : '';
     const isHM = window.location.hostname === 'hoopsmatic.com';
     const base = isHM ? '/roster' : '/RosterManager';
@@ -5547,11 +5549,6 @@ function advancePhase() {
   setTimeout(() => { _advancingPhase = false; }, 500);
   const currentIdx = PHASES.findIndex(p => p.id === STATE.phase);
   if (currentIdx < PHASES.length - 1) {
-    // Can't leave lottery without running it
-    if (STATE.phase === 'lottery' && !STATE.lotteryResults) {
-      alert('Run the lottery first!');
-      return;
-    }
     // Can't leave pre-FA without deciding all options
     if (STATE.phase === 'pre_fa') {
       const tradedOutNames = new Set();
@@ -5815,7 +5812,7 @@ function preloadTradeMachine() {
   const abbrev = TEAMS[STATE.team];
   if (!abbrev) return;
   const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp') ? '&offseason=1' : '';
-  const preDraft = (STATE.phase === 'pre_lottery' || STATE.phase === 'lottery' || STATE.phase === 'pre_draft');
+  const preDraft = (STATE.phase === 'pre_draft');
   const noSeasonsParam = preDraft ? '&noseasons=1' : '';
   _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}${offseasonParam}${noSeasonsParam}`;
   const iframe = document.getElementById('tmIframe');
@@ -5905,7 +5902,7 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   const abbrev = TEAMS[STATE.team];
   const partner = partnerAbbrev || getRandomTradePartner(abbrev);
   const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp') ? '&offseason=1' : '';
-  const preDraft = (STATE.phase === 'pre_lottery' || STATE.phase === 'lottery' || STATE.phase === 'pre_draft');
+  const preDraft = (STATE.phase === 'pre_draft');
   const noSeasonsParam = preDraft ? '&noseasons=1' : '';
   
   // Build Trade Machine URL with RM mode flag + both teams
@@ -9579,8 +9576,9 @@ async function init() {
       if (relevantParts.length >= 2) {
         const phasePart = relevantParts[1].toLowerCase().replace(/-/g, '_');
         const PHASE_ALIASES = {
-          'pre_lottery': 'pre_lottery', 'prelottery': 'pre_lottery',
-          'lottery': 'lottery', 'draft_lottery': 'lottery',
+          // Post-2026-lottery: pre_lottery / lottery URLs redirect to pre_draft
+          'pre_lottery': 'pre_draft', 'prelottery': 'pre_draft',
+          'lottery': 'pre_draft', 'draft_lottery': 'pre_draft',
           'pre_draft': 'pre_draft', 'predraft': 'pre_draft',
           'draft': 'draft', 'draft_night': 'draft',
           'pre_fa': 'pre_fa', 'prefa': 'pre_fa', 'pre_free_agency': 'pre_fa',
@@ -9592,7 +9590,7 @@ async function init() {
       }
       
       // If phase specified, pre-seed the state BEFORE selectTeam loads it
-      if (targetPhase && targetPhase !== 'pre_lottery') {
+      if (targetPhase && targetPhase !== 'pre_draft') {
         const preState = defaultState(matchedTeam);
         preState.phase = targetPhase;
         preState._overviewSeen = true;
@@ -9605,7 +9603,7 @@ async function init() {
       selectTeam(matchedTeam);
       
       // Run auto-simulation after selectTeam loaded the pre-seeded state
-      if (targetPhase && targetPhase !== 'pre_lottery' && STATE) {
+      if (targetPhase && targetPhase !== 'pre_draft' && STATE) {
         autoSimulateToPhase(targetPhase);
       }
       return;
