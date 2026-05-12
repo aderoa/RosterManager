@@ -1946,6 +1946,9 @@ function calcCapSheet(team) {
         rosterCount++;
         roster.under_contract.push({ ...p, status: 'picked_up', fromOption: 'TO' });
       } else if (optDecision === 'decline') {
+        // Skip if already re-signed (cap hold replaced by actual signing salary)
+        const isSigned = (STATE.signings || []).some(s => s.name === p.name);
+        if (isSigned) { continue; }
         const _yos = Math.max(0, Math.floor(parseFloat(p.age) || 22) - 20);
         const hold = calcCapHold(p.sal26, p.exception, _yos);
         if (renounced) {
@@ -1970,6 +1973,9 @@ function calcCapSheet(team) {
         rosterCount++;
         roster.under_contract.push({ ...p, status: 'exercised', fromOption: 'PO' });
       } else if (optDecision === 'decline') {
+        // Skip if already re-signed (cap hold replaced by actual signing salary)
+        const isSigned = (STATE.signings || []).some(s => s.name === p.name);
+        if (isSigned) { continue; }
         const _yos = Math.max(0, Math.floor(parseFloat(p.age) || 22) - 20);
         const hold = calcCapHold(p.sal26, p.exception, _yos);
         if (renounced) {
