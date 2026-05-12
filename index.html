@@ -1975,6 +1975,7 @@ function calcCapSheet(team) {
       } else if (optDecision === 'decline') {
         // Skip if already re-signed (cap hold replaced by actual signing salary)
         const isSigned = (STATE.signings || []).some(s => s.name === p.name);
+        if (window._hmDebugResign) console.log('[PO decline]', p.name, 'isSigned=', isSigned, 'signings:', (STATE.signings||[]).map(s=>s.name));
         if (isSigned) { continue; }
         const _yos = Math.max(0, Math.floor(parseFloat(p.age) || 22) - 20);
         const hold = calcCapHold(p.sal26, p.exception, _yos);
@@ -2358,7 +2359,7 @@ function renderOverview() {
   h += `</div>`;
 
   // ======== FREE AGENTS ========
-  const fas = cap.roster.free_agent;
+  const fas = cap.roster.free_agent.filter(p => !(STATE.signings || []).some(s => s.name === p.name));
   if (fas.length) {
     const heldFas = fas.filter(p => p.status === 'held');
     const totalHolds = heldFas.reduce((s,p) => s + (p.capHold||0), 0);
@@ -4668,7 +4669,7 @@ function renderRoster(cap) {
   }
 
   // ======== FREE AGENTS ========
-  const fas = cap.roster.free_agent;
+  const fas = cap.roster.free_agent.filter(p => !(STATE.signings || []).some(s => s.name === p.name));
   if (fas.length) {
     const activeFas = fas.filter(p => p.status !== 'renounced');
     const renouncedFas = fas.filter(p => p.status === 'renounced');
