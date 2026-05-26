@@ -5821,7 +5821,8 @@ function preloadTradeMachine() {
   const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp') ? '&offseason=1' : '';
   const preDraft = (STATE.phase === 'pre_draft');
   const noSeasonsParam = preDraft ? '&noseasons=1' : '';
-  _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}${offseasonParam}${noSeasonsParam}`;
+  const lockSeasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp') ? '&lockseason=1' : '';
+  _tmBaseUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${getRandomTradePartner(abbrev)}${offseasonParam}${noSeasonsParam}${lockSeasonParam}`;
   const iframe = document.getElementById('tmIframe');
   if (iframe) {
     iframe.dataset.ready = '0';
@@ -5939,7 +5940,14 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   
   const iframeReady = iframe.dataset.ready === '1';
   const currentSrc = iframe.src || '';
-  const urlChanged = iframeReady && !currentSrc.includes('offseason') && offseasonParam;
+  // Reload the iframe whenever the season-affecting params differ from what's
+  // currently loaded (offseason OR lockseason). Comparing the presence of each
+  // flag prevents a stale 2025-26 iframe from being reused for a 2026-27 trade.
+  const wantOffseason = !!offseasonParam;
+  const wantLockseason = !!lockSeasonParam;
+  const hasOffseason = currentSrc.includes('offseason');
+  const hasLockseason = currentSrc.includes('lockseason');
+  const urlChanged = iframeReady && (wantOffseason !== hasOffseason || wantLockseason !== hasLockseason);
   
   if (iframeReady && draftPickNum && !urlChanged) {
     
