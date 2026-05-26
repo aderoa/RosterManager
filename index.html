@@ -5911,9 +5911,12 @@ function openTradeModal(playerName, partnerAbbrev, draftPickNum) {
   const offseasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp') ? '&offseason=1' : '';
   const preDraft = (STATE.phase === 'pre_draft');
   const noSeasonsParam = preDraft ? '&noseasons=1' : '';
+  // Once the regular season has begun (free agency onward), trades may only
+  // happen in 2026-27 — lock the Trade Machine season toggle to hide 2025-26.
+  const lockSeasonParam = (STATE.phase === 'free_agency' || STATE.phase === 'training_camp') ? '&lockseason=1' : '';
   
   // Build Trade Machine URL with RM mode flag + both teams
-  _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}${offseasonParam}${noSeasonsParam}`;
+  _tmUrl = `${TRADE_MACHINE_URL}/?rm=${abbrev}&t=${abbrev},${partner}${offseasonParam}${noSeasonsParam}${lockSeasonParam}`;
   
   // Pre-select a draft pick on the partner's side
   if (draftPickNum) {
