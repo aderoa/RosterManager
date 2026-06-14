@@ -1381,6 +1381,35 @@ function parseMoney(s) {
   return neg ? -num : num;
 }
 
+// Fetch a text/CSV endpoint with exponential backoff. Retries transient failures
+// (network errors, 429/403/5xx, or an HTML error page instead of CSV) so a brief
+// Worker/Sheets hiccup doesn't blank the app. Returns the body text, or throws
+// after the retries are exhausted.
+async function fetchTextWithRetry(url, opts) {
+  opts = opts || {};
+  const DELAYS = opts.delays || [600, 1500, 3000]; // up to 3 retries
+  const label = opts.label || url;
+  let lastErr = null;
+  for (let attempt = 0; attempt <= DELAYS.length; attempt++) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const txt = await r.text();
+      // a CSV endpoint returning HTML means the proxy errored — treat as retryable
+      if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('got HTML, not CSV');
+      return txt;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < DELAYS.length) {
+        console.warn('[' + label + '] attempt ' + (attempt + 1) + ' failed (' + e.message + '), retrying in ' + DELAYS[attempt] + 'ms');
+        await new Promise(res => setTimeout(res, DELAYS[attempt]));
+      }
+    }
+  }
+  console.warn('[' + label + '] all attempts failed:', lastErr && lastErr.message);
+  throw lastErr || new Error('fetch failed');
+}
+
 function assertCSV(txt) {
   if (txt.includes('<!DOCTYPE') || txt.includes('<html')) throw new Error('Expected CSV but got HTML — check API endpoint');
   return txt;
@@ -1412,23 +1441,16 @@ function fmtTVFull(n) {
 
 async function fetchData() {
   try {
-    const r = await fetch('https://hoopsmatic.com/api/rm-roster');
-    if (!r.ok) throw new Error('API error');
-    const txt = await r.text();
-    assertCSV(txt);
-    return txt;
+    return await fetchTextWithRetry('https://hoopsmatic.com/api/rm-roster', { label: 'Roster' });
   } catch(e) {
-    console.warn('[Roster] API failed, retrying...', e);
+    console.warn('[Roster] API failed after retries', e);
     return null;
   }
 }
 
 async function fetchDraftPicks() {
   try {
-    const r = await fetch('https://hoopsmatic.com/api/rm-draft');
-    if (!r.ok) throw new Error('API error');
-    const txt = await r.text();
-    assertCSV(txt);
+    const txt = await fetchTextWithRetry('https://hoopsmatic.com/api/rm-draft', { label: 'Draft' });
       const rows = parseCSV(txt);
 
       // Columns: 0=Prospect name, 15=POS (pre-lottery standings rank), 16=TEAM (3-letter abbrev)
@@ -1545,10 +1567,7 @@ function normContractSt(s) {
 async function fetchContracts() {
   contractsMap = {};
   try {
-    const r = await fetch('https://hoopsmatic.com/api/rm-contracts');
-    if (!r.ok) throw new Error('API error');
-    const txt = await r.text();
-    assertCSV(txt);
+    const txt = await fetchTextWithRetry('https://hoopsmatic.com/api/rm-contracts', { label: 'Contracts' });
       const rows = parseCSV(txt);
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -1582,15 +1601,13 @@ async function fetchTradeValues() {
   usgMap = {};
   defenseMap = {};
   try {
-    // Fetch trade value data + defense data + pre-computed Real Values in parallel
-    const [r, defRes, rvRes] = await Promise.all([
-      fetch('https://hoopsmatic.com/api/rm-tv'),
+    // Trade value is required (retried on transient failure); defense + Real Value
+    // snapshots are optional enrichments fetched in parallel.
+    const [txt, defRes, rvRes] = await Promise.all([
+      fetchTextWithRetry('https://hoopsmatic.com/api/rm-tv', { label: 'TradeValue' }),
       fetch('/api/defense-cache').catch(() => null),
       fetch('/api/rv-snapshot').catch(() => null)
     ]);
-    if (!r.ok) throw new Error('API error');
-    const txt = await r.text();
-    assertCSV(txt);
       const rows = parseCSV(txt);
       const roster = [], historical = []; let todayStr = null;
       for (const row of rows.slice(1)) {
@@ -9477,9 +9494,13 @@ async function init() {
 
   const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContracts(), fetchTradeValues()]);
   if (!csv) {
-    document.getElementById('loadingState').innerHTML = '<p style="color:var(--red)">Failed to load data. Try refreshing.</p>';
+    const msg = '<div style="text-align:center;padding:2rem">' +
+      '<p style="color:var(--red);margin-bottom:1rem">Couldn\'t load roster data. The data source may be busy — this usually clears in a moment.</p>' +
+      '<button onclick="init()" style="font-size:.8rem;padding:.5rem 1rem;border-radius:8px;border:1px solid var(--accent);background:rgba(99,102,241,.1);color:var(--accent);cursor:pointer">\u21bb Retry</button>' +
+      '</div>';
+    const ls = document.getElementById('loadingState'); if (ls) { ls.innerHTML = msg; ls.style.display = 'block'; }
     const lb = document.getElementById('landingBody');
-    if (lb) lb.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--red)">Failed to load data. Try refreshing.</div>';
+    if (lb) lb.innerHTML = msg;
     return;
   }
 
