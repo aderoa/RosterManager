@@ -408,6 +408,18 @@ a{color:var(--accent);text-decoration:none}
   @keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-10px)}}
 }
 /* Landscape: fit 5 columns in ~450px */
+/* === Mobile audit overrides (legibility + tap targets) === */
+@media(max-width:768px){
+  /* Legibility floor: tiny labels were ~4–6px; lift the worst offenders. */
+  .dc-card .dc-name{font-size:.6rem!important}
+  .dc-card .dc-sal{font-size:.52rem!important}
+  .dc-card .dc-hs,.dc-card .dc-ini{font-size:.5rem!important}
+  .dc-card .dc-opt-badge{font-size:.5rem!important}
+  .mobile-cap-pill .mcp-label{font-size:.5rem!important}
+  /* Bigger, easier-to-hit action buttons on the player cards. */
+  .dc-card .dc-btn{min-height:34px!important;font-size:.55rem!important;padding:.3rem .5rem!important}
+  .action-btn{min-height:40px!important}
+}
 @media(max-width:768px) and (orientation:landscape){
   .depth-chart{gap:.25rem!important;padding:.35rem!important}
   .pos-col{min-width:82px!important;flex:0 0 82px!important}
@@ -9706,12 +9718,62 @@ function renderLandingPage() {
     return h;
   }
 
+  let seenIntro = false;
+  try { seenIntro = localStorage.getItem('rm_seen_intro') === '1'; } catch(e) {}
+
   let h = '';
+  h += onboardingCardHtml(!seenIntro);   // expanded on first visit, collapsed after
   h += `<div class="conf-label east">Eastern Conference</div>`;
   h += buildGrid(EAST);
   h += `<div class="conf-label west">Western Conference</div>`;
   h += buildGrid(WEST);
   body.innerHTML = h;
+}
+
+// First-run orientation: what the app is + how the offseason flows. Shown expanded
+// on the first visit, then collapsed to a one-line "How it works" toggle.
+function onboardingCardHtml(expanded) {
+  const steps = [
+    ['1\uFE0F\u20E3', 'Pre-Draft & Lottery', 'Review your roster, then run the draft lottery (live, TV-style, or instant results).'],
+    ['2\uFE0F\u20E3', 'Draft Night', 'Use your picks to select prospects and build for the future.'],
+    ['3\uFE0F\u20E3', 'Free Agency', 'Re-sign your own players, chase free agents, and manage the cap — exceptions, the apron, and up to 21 contracts.'],
+    ['4\uFE0F\u20E3', 'Training Camp', 'Trim to 18 (including two-ways) and lock in your opening-night roster.']
+  ];
+  if (!expanded) {
+    return '<div style="text-align:center;margin:0 0 1.25rem">' +
+      '<button onclick="showOnboarding()" style="font-size:.7rem;padding:.4rem .9rem;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-family:inherit">\u2139\uFE0F How it works</button>' +
+      '</div>';
+  }
+  let h = '<div id="onboardCard" style="max-width:640px;margin:0 auto 1.5rem;padding:1.25rem 1.4rem;background:linear-gradient(135deg,rgba(99,102,241,.06),rgba(168,85,247,.05));border:1px solid rgba(99,102,241,.2);border-radius:14px">';
+  h += '<div style="font-size:1rem;font-weight:700;margin-bottom:.5rem">Welcome — you\'re the GM \uD83C\uDFC0</div>';
+  h += '<div style="font-size:.78rem;color:var(--muted);line-height:1.55;margin-bottom:1rem">Pick any NBA team and run its entire 2026-27 offseason: the draft lottery, draft night, free agency, and training camp. Every move respects real salary-cap rules. Pick a team below to begin — here\'s the flow:</div>';
+  h += '<div style="display:flex;flex-direction:column;gap:.6rem">';
+  for (const [icon, title, desc] of steps) {
+    h += '<div style="display:flex;gap:.6rem;align-items:flex-start">' +
+         '<span style="font-size:.95rem;flex-shrink:0">' + icon + '</span>' +
+         '<div><span style="font-size:.78rem;font-weight:600">' + title + '</span>' +
+         '<span style="font-size:.72rem;color:var(--muted)"> — ' + desc + '</span></div></div>';
+  }
+  h += '</div>';
+  h += '<div style="font-size:.72rem;color:var(--muted);line-height:1.5;margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border)">' +
+       '\uD83D\uDCA1 Each phase has on-screen guidance, and the \uD83E\uDDE0 <strong>Assistant GM</strong> can suggest moves anytime. Your progress saves automatically per team.</div>';
+  h += '<div style="text-align:center;margin-top:1rem"><button onclick="dismissOnboarding()" style="font-size:.78rem;padding:.5rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit">Got it \u2192</button></div>';
+  h += '</div>';
+  return h;
+}
+
+function dismissOnboarding() {
+  try { localStorage.setItem('rm_seen_intro', '1'); } catch(e) {}
+  const card = document.getElementById('onboardCard');
+  if (card) { card.style.transition = 'opacity .25s ease'; card.style.opacity = '0'; setTimeout(renderLandingPage, 250); }
+  else renderLandingPage();
+}
+
+function showOnboarding() {
+  try { localStorage.removeItem('rm_seen_intro'); } catch(e) {}
+  renderLandingPage();
+  const lb = document.getElementById('landingBody');
+  if (lb) lb.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 
