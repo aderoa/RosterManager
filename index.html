@@ -2656,7 +2656,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 13; // bump this to invalidate saved orders
+  const ALGO_VERSION = 14; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -2797,40 +2797,47 @@ function buildDepthPositions(players) {
   }
   const remaining = []; // all players are placed above
 
-  // === REBALANCE: balance columns, but NEVER move a player more than 2 positions away ===
+  // === ENFORCE BALANCED ROW STRUCTURE ===
+  // Layout invariant: no ragged lower row. For N players the column heights are
+  // ceil(N/5) for the leftmost (N % 5) columns and floor(N/5) for the rest, so the
+  // last row is left-filled (PG, SG, SF, …) with no gap beneath a filled slot and
+  // never an extra partial row. (6–10 players → exactly two rows.)
   const POS_IDX = {PG:0,SG:1,SF:2,PF:3,C:4};
   function posDist(a, b) { return Math.abs(POS_IDX[a] - POS_IDX[b]); }
 
-  for (let iter = 0; iter < 20; iter++) {
-    const counts = POS.map(p => byPos[p].length);
-    const maxC = Math.max(...counts);
-    const minC = Math.min(...counts);
-    if (maxC - minC <= 1) break;
+  const N = POS.reduce((s, p) => s + byPos[p].length, 0);
+  if (N > 0) {
+    const base = Math.floor(N / 5);
+    const extra = N % 5;                       // leftmost `extra` columns get +1
+    const target = POS.map((p, i) => base + (i < extra ? 1 : 0)); // target height per column, left-heavy
 
-    // Find best move with distance ≤ 2 only
-    let bestMove = null, bestDist = 99, bestTV = Infinity;
-    for (const tallPos of POS) {
-      if (byPos[tallPos].length < maxC) continue;
-      for (const shortPos of POS) {
-        if (byPos[shortPos].length > minC) continue;
-        if (tallPos === shortPos) continue;
-        for (let i = 0; i < byPos[tallPos].length; i++) {
-          const p = byPos[tallPos][i];
-          const nat = posOf(p);
-          const dist = posDist(nat, shortPos);
-          if (dist > 2) continue; // HARD LIMIT: never move 3+ positions away
-          const tv = p.tv || 0;
-          if (dist < bestDist || (dist === bestDist && tv < bestTV)) {
-            bestDist = dist;
-            bestTV = tv;
-            bestMove = { fromPos: tallPos, toPos: shortPos, idx: i };
-          }
-        }
+    // Move players from over-target columns to under-target columns until heights
+    // match the target exactly. Prefer moving the player whose natural position is
+    // closest to the destination column (keeps positions sensible) and, on ties,
+    // the lower-TV player (so higher-TV players stay in their column / higher rows).
+    let guard = 0;
+    while (guard++ < 200) {
+      const over = POS.map((p, i) => byPos[p].length - target[i]);
+      const fromIdx = over.findIndex(d => d > 0);
+      const toIdx = over.findIndex(d => d < 0);
+      if (fromIdx === -1 || toIdx === -1) break;  // all columns at target height
+
+      const fromPos = POS[fromIdx], toPos = POS[toIdx];
+      // Pick which player to move out of the over-full column: closest natural
+      // position to the destination, lowest TV as tiebreak.
+      let bestI = 0, bestDist = Infinity, bestTV = Infinity;
+      for (let i = 0; i < byPos[fromPos].length; i++) {
+        const p = byPos[fromPos][i];
+        const d = posDist(posOf(p), toPos);
+        const tv = p.tv || 0;
+        if (d < bestDist || (d === bestDist && tv < bestTV)) { bestDist = d; bestTV = tv; bestI = i; }
       }
+      const moved = byPos[fromPos].splice(bestI, 1)[0];
+      byPos[toPos].push(moved);
     }
-    if (!bestMove) break; // no valid move within distance 2 — accept uneven columns
-    const moved = byPos[bestMove.fromPos].splice(bestMove.idx, 1)[0];
-    byPos[bestMove.toPos].push(moved);
+
+    // Within each column, keep higher-TV players in higher rows.
+    POS.forEach(p => byPos[p].sort((a, b) => (b.tv || 0) - (a.tv || 0)));
   }
 
   // Clear stale order
@@ -2842,7 +2849,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 13 };
+  const order = { _v: 14 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
