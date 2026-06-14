@@ -2656,7 +2656,7 @@ function posOf(p) {
 
 function buildDepthPositions(players) {
   const POS = ['PG','SG','SF','PF','C'];
-  const ALGO_VERSION = 14; // bump this to invalidate saved orders
+  const ALGO_VERSION = 15; // bump this to invalidate saved orders
   const saved = STATE.depthOrder || {};
 
   // Only use saved order if it was made with current algorithm
@@ -2803,37 +2803,60 @@ function buildDepthPositions(players) {
   // last row is left-filled (PG, SG, SF, …) with no gap beneath a filled slot and
   // never an extra partial row. (6–10 players → exactly two rows.)
   const POS_IDX = {PG:0,SG:1,SF:2,PF:3,C:4};
-  function posDist(a, b) { return Math.abs(POS_IDX[a] - POS_IDX[b]); }
+  const natColIdx = p => POS_IDX[posOf(p)];
 
   const N = POS.reduce((s, p) => s + byPos[p].length, 0);
   if (N > 0) {
     const base = Math.floor(N / 5);
     const extra = N % 5;                       // leftmost `extra` columns get +1
     const target = POS.map((p, i) => base + (i < extra ? 1 : 0)); // target height per column, left-heavy
+    const MAXSTEP = 2;                         // a player should not sit >2 positions from natural
 
-    // Move players from over-target columns to under-target columns until heights
-    // match the target exactly. Prefer moving the player whose natural position is
-    // closest to the destination column (keeps positions sensible) and, on ties,
-    // the lower-TV player (so higher-TV players stay in their column / higher rows).
+    const travel = (p, colIdx) => Math.abs(natColIdx(p) - colIdx);
+
+    // Single-step transport toward the nearest deficit. Rather than teleporting one
+    // overflow player the whole way (which dumped a guard into a big slot), we move
+    // one column at a time and PREFER to keep advancing an already-displaced player
+    // until it reaches the 2-position cap — then a position-appropriate local player
+    // makes the final hop. So an extra PG slides PG→SG→SF and the SF there bumps to
+    // PF, instead of the PG landing at PF.
     let guard = 0;
-    while (guard++ < 200) {
-      const over = POS.map((p, i) => byPos[p].length - target[i]);
-      const fromIdx = over.findIndex(d => d > 0);
-      const toIdx = over.findIndex(d => d < 0);
-      if (fromIdx === -1 || toIdx === -1) break;  // all columns at target height
+    while (guard++ < 500) {
+      const counts = POS.map((p, i) => byPos[p].length);
+      const fromIdx = counts.findIndex((c, i) => c > target[i]);
+      if (fromIdx === -1) break;               // every column at its target height
 
-      const fromPos = POS[fromIdx], toPos = POS[toIdx];
-      // Pick which player to move out of the over-full column: closest natural
-      // position to the destination, lowest TV as tiebreak.
-      let bestI = 0, bestDist = Infinity, bestTV = Infinity;
-      for (let i = 0; i < byPos[fromPos].length; i++) {
-        const p = byPos[fromPos][i];
-        const d = posDist(posOf(p), toPos);
-        const tv = p.tv || 0;
-        if (d < bestDist || (d === bestDist && tv < bestTV)) { bestDist = d; bestTV = tv; bestI = i; }
+      // direction toward the nearest under-target column
+      let dir = 0, best = Infinity;
+      for (let j = 0; j < POS.length; j++) {
+        if (counts[j] < target[j]) {
+          const d = Math.abs(j - fromIdx);
+          if (d < best) { best = d; dir = Math.sign(j - fromIdx); }
+        }
       }
-      const moved = byPos[fromPos].splice(bestI, 1)[0];
-      byPos[toPos].push(moved);
+      if (dir === 0) break;
+      const toIdx = fromIdx + dir;
+      const col = byPos[POS[fromIdx]];
+
+      // Choose the player to push into the adjacent column. Sort key (ascending):
+      //   1. within the 2-position cap (avoid parking anyone >2 from natural)
+      //   2. already-displaced first (continue the overflow rather than disturb a
+      //      player still sitting in his natural column)
+      //   3. lower TV (keep higher-TV players in place / in higher rows)
+      let pick = 0, pickKey = null;
+      for (let i = 0; i < col.length; i++) {
+        const over = travel(col[i], toIdx) > MAXSTEP ? 1 : 0;
+        const atNatural = travel(col[i], fromIdx) === 0 ? 1 : 0; // 0 = already displaced (preferred)
+        const tv = col[i].tv || 0;
+        const key = [over, atNatural, tv];
+        if (pickKey === null ||
+            key[0] < pickKey[0] ||
+            (key[0] === pickKey[0] && key[1] < pickKey[1]) ||
+            (key[0] === pickKey[0] && key[1] === pickKey[1] && key[2] < pickKey[2])) {
+          pick = i; pickKey = key;
+        }
+      }
+      byPos[POS[toIdx]].push(col.splice(pick, 1)[0]);
     }
 
     // Within each column, keep higher-TV players in higher rows.
@@ -2849,7 +2872,7 @@ function buildDepthPositions(players) {
 
 function saveDepthOrder() {
   const cols = document.querySelectorAll('.pos-col');
-  const order = { _v: 14 };
+  const order = { _v: 15 };
   cols.forEach(col => {
     const pos = col.dataset.position;
     order[pos] = [];
