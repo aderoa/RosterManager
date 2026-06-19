@@ -965,7 +965,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v9.0</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v9.1</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1890,6 +1890,62 @@ function parseAllPlayers(csv) {
     }
   }
   return players;
+}
+
+// ===== CAP HOLDS — sheet-sourced (single source of truth) =====
+// Holds are maintained by hand in Sheet8 (cols L:N) and served via /api/rm-holds.
+// The sheet REPLACES RM's computed FA holds: each expiring FA's hold becomes the
+// sheet value (or 0 if removed from the sheet), and standing/legacy holds (players
+// with no contract row, e.g. un-renounced rights from prior years) are injected as
+// synthetic free agents so they count against the cap and can be renounced in-session.
+// Option-decline holds stay dynamic in calcCapSheet (those players aren't on the sheet).
+// If the sheet/route is unavailable (empty map), RM falls back to computed holds.
+let holdsMap = {}; // normName -> { player, team, capHold }
+function _normHold(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[.'’`]/g, '').replace(/[-,]/g, ' ')
+    .replace(/\b(jr|sr|ii|iii|iv)\b/g, '').replace(/\s+/g, ' ').trim();
+}
+async function fetchHolds() {
+  try {
+    const txt = await fetchTextWithRetry('https://hoopsmatic.com/api/rm-holds', { label: 'CapHolds' });
+    if (!txt) return;
+    const rows = parseCSV(txt);
+    const map = {};
+    for (let i = 1; i < rows.length; i++) { // row 0 = header (PLAYER, TEAM, CAP HOLD)
+      const r = rows[i]; if (!r) continue;
+      const name = (r[0] || '').trim(), team = (r[1] || '').trim();
+      if (!name) continue;
+      map[_normHold(name)] = { player: name, team, capHold: parseMoney(r[2] || '') };
+    }
+    holdsMap = map;
+  } catch (e) { /* keep prior map; empty => computed-hold fallback */ }
+}
+// Apply sheet holds onto allPlayers AFTER it's built. Override FA holds, inject standing holds.
+function applyHolds() {
+  if (!holdsMap || !Object.keys(holdsMap).length) return; // route/sheet unavailable -> keep computed holds
+  const present = new Set(allPlayers.map(p => _normHold(p.name)));
+  // 1) Expiring FAs already in the data: hold = sheet value, or 0 if no longer on the sheet.
+  for (const p of allPlayers) {
+    if (p.category === 'free_agent') {
+      const h = holdsMap[_normHold(p.name)];
+      p.capHold = h ? h.capHold : 0;
+      p.fromHoldsSheet = !!h;
+    }
+  }
+  // 2) Standing/legacy holds with no contract row: inject as synthetic held free agents.
+  for (const key in holdsMap) {
+    if (present.has(key)) continue;
+    const h = holdsMap[key];
+    if (!h.team || !TEAMS[h.team]) continue; // skip rows whose team isn't recognized
+    allPlayers.push({
+      name: h.player, team: h.team, sal26: 0, ch26: 0, st26: '', sal27: 0, ch27: 0, st27: '',
+      exception: '', logo: '', headshot: '', pos: '', age: '', end: 0, totalGuar: 0, tradeKicker: 0,
+      category: 'free_agent', capHold: h.capHold, extEligible: '', rat365: 0, isTwoWay: false,
+      tv: 0, realValue: 0, isMaxPlayer: false, wm: 0, yos: null, isRFA: false,
+      fromHoldsSheet: true, isStandingHold: true
+    });
+  }
 }
 
 function calcCapHold(priorSalary, exception, yos) {
@@ -9504,7 +9560,7 @@ async function init() {
   document.getElementById('loadingState').style.display = 'block';
   renderTeamDropdown();
 
-  const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContracts(), fetchTradeValues()]);
+  const [csv] = await Promise.all([fetchData(), fetchDraftPicks(), fetchContracts(), fetchTradeValues(), fetchHolds()]);
   if (!csv) {
     const msg = '<div style="text-align:center;padding:2rem">' +
       '<p style="color:var(--red);margin-bottom:1rem">Couldn\'t load roster data. The data source may be busy — this usually clears in a moment.</p>' +
@@ -9525,6 +9581,7 @@ async function init() {
     else if (contractsMap[p.name]?.yos) p.yos = contractsMap[p.name].yos + 1;
     else p.yos = 0;
   }
+  applyHolds(); // sheet-sourced holds: override FA holds + inject standing holds
   document.getElementById('loadingState').style.display = 'none';
   renderTeamDropdown();
 
