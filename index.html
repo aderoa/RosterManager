@@ -965,7 +965,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v9.1</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v9.2</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -1879,14 +1879,14 @@ function parseAllPlayers(csv) {
       isRFA: false // set below
     });
   }
-  // Mark RFA: expiring players with YOS <= 3 (CBA: team can extend qualifying offer)
-  // Exception: players with Bird/Early Bird rights are UFA (tenure-based rights = unrestricted)
+  // Mark RFA: rookie-scale players (team holds QO/matching rights regardless of YOS),
+  // plus other expiring players with YOS <= 3 and no Bird rights.
   for (const p of players) {
     if (p.category === 'free_agent') {
       const yos = p.yos !== null ? p.yos : getPlayerYOS(p);
       const exc = (p.exception || '').toLowerCase();
       const hasBird = exc.includes('bird') && !exc.includes('non-bird') && !exc.includes('non bird');
-      p.isRFA = yos <= 3 && !hasBird;
+      p.isRFA = isRookieScale(p) || (yos <= 3 && !hasBird);
     }
   }
   return players;
