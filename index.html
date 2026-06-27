@@ -965,7 +965,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="header">
   <div>
     <h1><a href="/roster" style="color:inherit;text-decoration:none">🏀 NBA ROSTER MANAGER</a></h1>
-    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v9.3</span></div>
+    <div class="subtitle" id="hdrBreadcrumb">NBA Roster Manager · <span id="appVersion" style="opacity:.7">v9.4</span></div>
   </div>
   <div id="hdrTeamInfo" class="hdr-team" style="display:none"></div>
   <div id="hdrCapMini" class="cap-mini" style="display:none"></div>
@@ -2474,14 +2474,15 @@ function renderOverview() {
   const picks = cap.roster.draft_picks;
   if (picks.length) {
     h += `<div class="dc-section-label">🏀 Draft Picks <span class="dc-badge" style="background:rgba(180,83,9,.12);color:var(--orange)">${picks.length} picks</span></div>`;
-    h += `<div style="font-size:.65rem;color:var(--muted);line-height:1.5;margin-bottom:.75rem;padding:0 .25rem">On June 23-24, you'll have a chance to decide who your team will select in the upcoming draft. As of now, here are the picks you currently own.</div>`;
+    h += `<div style="font-size:.65rem;color:var(--muted);line-height:1.5;margin-bottom:.75rem;padding:0 .25rem">Draft rights your team holds from the 2026 draft. Sign a player to move them onto your roster, or trade/renounce the rights. Names come from the DRAFTEE column.</div>`;
     h += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem;margin-bottom:1rem">`;
     for (const p of picks) {
       const isFirstRd = p.draftRnk <= 30;
       h += `<div style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)">`;
       h += `<div style="width:28px;height:28px;border-radius:4px;background:rgba(180,83,9,.15);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700">#${p.draftRnk}</div>`;
-      h += `<div style="flex:1"><div style="font-size:.6rem;font-weight:600">${isFirstRd ? '1st Round' : '2nd Round'} Pick</div>`;
-      h += `<div style="font-size:.5rem;color:var(--muted)">${isFirstRd ? 'Rookie Scale' : ''}</div></div>`;
+      const pickName = p.selectedProspect || p.prospect || '';
+      h += `<div style="flex:1"><div style="font-size:.6rem;font-weight:600">${pickName || ((isFirstRd ? '1st Round' : '2nd Round') + ' Pick')}</div>`;
+      h += `<div style="font-size:.5rem;color:var(--muted)">${isFirstRd ? '1st' : '2nd'} Rd · Pick #${p.draftRnk}${isFirstRd ? ' · Rookie Scale' : ''}</div></div>`;
       if (isFirstRd) h += `<div style="font-size:.6rem;font-weight:600;color:var(--orange)">${fmtMoney(p.capHold)}</div>`;
       h += `</div>`;
     }
